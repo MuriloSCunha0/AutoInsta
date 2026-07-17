@@ -19,12 +19,16 @@
     <div class="app-shell">
         <!-- Sidebar -->
         <aside class="side-nav">
-            <div class="brand-block">
-                <i class="bi bi-instagram brand-logo text-purple"></i>
-                <div>
-                    <strong>AutoInsta</strong>
-                    <small>Automação Premium</small>
-                </div>
+            <div class="side-brand">
+                <a href="{% url 'analytics:dashboard' %}" class="brand-logo">
+                    <div class="brand-icon">
+                        <i class="bi bi-instagram"></i>
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-name">AutoInsta</span>
+                        <span class="brand-sub">Automação Premium</span>
+                    </div>
+                </a>
             </div>
             
             <nav class="side-links">
@@ -50,17 +54,19 @@
                 </a>
             </nav>
             
-            <div class="side-status mt-auto">
-                <div class="status-dot ok"></div>
-                <div>
-                    <strong>Sistema Operacional</strong>
-                    <small>Todos os serviços online</small>
+            <div class="side-footer mt-auto">
+                <div class="side-status">
+                    <div class="status-dot ok"></div>
+                    <div>
+                        <strong>Sistema Operacional</strong>
+                        <small class="d-block">Todos os serviços online</small>
+                    </div>
                 </div>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="main-shell">
+        <main class="main-content">
             <header class="top-bar">
                 <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
                 <div class="top-actions">
