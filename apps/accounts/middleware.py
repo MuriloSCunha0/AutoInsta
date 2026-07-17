@@ -13,8 +13,8 @@ class AutoLoginMiddleware:
                 # Loga o primeiro usuario encontrado (normalmente o admin criado no entrypoint)
                 user = User.objects.first()
                 if user:
-                    login(request, user)
-            except Exception:
-                pass
+                    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            except Exception as e:
+                print("AutoLogin Error:", e)
         
         return self.get_response(request)
