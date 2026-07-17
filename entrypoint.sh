@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Aplica as migrações do banco de dados
+echo "Verificando integridade do banco de dados..."
+python fix_db.py
+
 echo "Criando novas migrações (se necessário)..."
 python manage.py makemigrations accounts instagram publisher library analytics notifications --noinput
 
