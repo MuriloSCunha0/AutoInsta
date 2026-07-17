@@ -1,8 +1,11 @@
 #!/bin/bash
 
-# Aplicar migrations
-python manage.py makemigrations
-python manage.py migrate
+# Aplica as migrações do banco de dados
+echo "Criando novas migrações (se necessário)..."
+python manage.py makemigrations accounts instagram publisher library analytics notifications --noinput
+
+echo "Aplicando migrações no banco de dados..."
+python manage.py migrate --noinput
 
 # Criar superuser se nao existir
 export DJANGO_SUPERUSER_PASSWORD=admin
