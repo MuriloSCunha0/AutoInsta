@@ -122,66 +122,11 @@
     }
   }
 
-  /* ── Modal System ───────────────────────────────────────── */
-  window.openModal = function (modalId) {
-    const modal = document.getElementById(modalId);
-    const backdrop = document.getElementById(modalId + '-backdrop');
-
-    if (modal) {
-      modal.classList.add('show');
-      document.body.style.overflow = 'hidden';
-
-      // Auto-focus first input
-      setTimeout(() => {
-        const firstInput = modal.querySelector('input:not([type="hidden"]), textarea, select');
-        if (firstInput) firstInput.focus();
-      }, 100);
-    }
-
-    if (backdrop) {
-      backdrop.classList.add('show');
-    }
-  };
-
-  window.closeModal = function (modalId) {
-    const modal = document.getElementById(modalId);
-    const backdrop = document.getElementById(modalId + '-backdrop');
-
-    if (modal) modal.classList.remove('show');
-    if (backdrop) backdrop.classList.remove('show');
-    document.body.style.overflow = '';
-  };
-
-  // Close modal on backdrop click
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal-backdrop-custom')) {
-      const modalId = e.target.id.replace('-backdrop', '');
-      closeModal(modalId);
-    }
-  });
-
-  // Close modal on ESC
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      document.querySelectorAll('.modal-custom.show').forEach((modal) => {
-        closeModal(modal.id);
-      });
-    }
-  });
-
   /* ── HTMX Event Listeners ──────────────────────────────── */
   function initHTMX() {
-    // After an HTMX swap, check for modals and re-init
+    // After an HTMX swap, auto-focus challenge input if present
     document.addEventListener('htmx:afterSwap', (event) => {
-      // If the response contains a modal, open it
       const target = event.detail.target;
-      const modal = target.querySelector('.modal-custom') || 
-                    (target.classList.contains('modal-custom') ? target : null);
-      if (modal) {
-        openModal(modal.id);
-      }
-
-      // Challenge modal — auto-focus code input
       const challengeInput = target.querySelector('.challenge-input');
       if (challengeInput) {
         setTimeout(() => challengeInput.focus(), 100);
@@ -212,17 +157,6 @@
 
       if (toastMessage) {
         showToast(toastMessage, toastType);
-      }
-    });
-
-    // Close modals via X-Close-Modal header
-    document.addEventListener('htmx:afterRequest', (event) => {
-      const xhr = event.detail.xhr;
-      if (!xhr) return;
-
-      const closeModalId = xhr.getResponseHeader('X-Close-Modal');
-      if (closeModalId) {
-        closeModal(closeModalId);
       }
     });
   }
