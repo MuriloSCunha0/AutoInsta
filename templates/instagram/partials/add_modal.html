@@ -1,0 +1,35 @@
+<div class="modal fade" id="addAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-instagram me-2 text-purple"></i> Conectar Instagram</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form hx-post="{% url 'instagram:add' %}"
+                  hx-target="#account-list"
+                  hx-swap="afterbegin"
+                  hx-on="htmx:afterRequest: bootstrap.Modal.getInstance(document.getElementById('addAccountModal')).hide()">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info border-0 bg-opacity-10 text-info small mb-4">
+                        <i class="bi bi-info-circle me-1"></i> Suas credenciais são criptografadas com segurança militar (Fernet). Não armazenamos senhas em texto plano.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Nome de Usuário</label>
+                        <input type="text" name="ig_username" class="form-control" placeholder="@usuario" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Senha</label>
+                        <input type="password" name="ig_password" class="form-control" placeholder="••••••••" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Conectar Conta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

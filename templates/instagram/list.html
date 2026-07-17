@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Contas Instagram | AutoInsta{% endblock %}
+{% block page_title %}Contas Instagram{% endblock %}
+
+{% block top_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+    <i class="bi bi-plus-lg"></i> Adicionar conta
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="account-list">
+    {% for account in accounts %}
+        {% include 'instagram/partials/account_card.html' %}
+    {% empty %}
+        <div class="col-12">
+            <div class="empty-state text-center py-5">
+                <i class="bi bi-instagram text-muted mb-3" style="font-size: 3rem;"></i>
+                <h4 class="text-white">Nenhuma conta conectada</h4>
+                <p class="text-muted">Adicione sua primeira conta do Instagram para começar a automatizar.</p>
+                <button type="button" class="btn btn-outline-primary mt-3" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+                    Adicionar conta
+                </button>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Add Account Modal -->
+{% include 'instagram/partials/add_modal.html' %}
+{% endblock %}

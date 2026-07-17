@@ -1,0 +1,39 @@
+<div class="modal fade" id="addPostModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-send-plus me-2 text-purple"></i> Agendar Publicação</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'publisher:add' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Conta Instagram</label>
+                            {{ form.account }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Data/Hora (Agendamento)</label>
+                            {{ form.scheduled_for }}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Vídeo (Reel)</label>
+                        {{ form.video_file }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Legenda</label>
+                        {{ form.caption }}
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agendar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

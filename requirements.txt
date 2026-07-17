@@ -1,0 +1,14 @@
+Django>=5.0,<6.0
+psycopg2-binary>=2.9
+redis>=5.0
+celery>=5.3
+django-celery-beat>=2.6
+channels>=4.0
+channels-redis>=4.2
+instagrapi>=2.1
+cryptography>=42.0
+django-environ>=0.11
+gunicorn>=22.0
+whitenoise>=6.6
+Pillow>=10.0
+django-htmx>=1.17

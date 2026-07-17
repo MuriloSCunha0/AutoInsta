@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | AutoInsta{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <!-- Contas Ativas -->
+    <div class="col-md-3">
+        <div class="metric-tile primary">
+            <small>Contas Ativas</small>
+            <strong>{{ accounts_count|default:"0" }}</strong>
+            <span class="text-white opacity-75 small">Total cadastradas</span>
+        </div>
+    </div>
+    
+    <!-- Posts Publicados -->
+    <div class="col-md-3">
+        <div class="metric-tile">
+            <small>Publicados Hoje</small>
+            <strong>0</strong>
+            <span class="text-success small"><i class="bi bi-arrow-up"></i> 0% vs ontem</span>
+        </div>
+    </div>
+    
+    <!-- Na Fila -->
+    <div class="col-md-3">
+        <div class="metric-tile">
+            <small>Posts na Fila</small>
+            <strong>{{ queued_count|default:"0" }}</strong>
+            <span class="text-warning small"><i class="bi bi-clock"></i> Pendentes</span>
+        </div>
+    </div>
+    
+    <!-- Seguidores -->
+    <div class="col-md-3">
+        <div class="metric-tile">
+            <small>Total de Seguidores</small>
+            <strong>{{ followers_total|default:"0" }}</strong>
+            <span class="text-purple small"><i class="bi bi-people"></i> Somando todas as contas</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="panel p-4 h-100">
+            <h5 class="text-white mb-4">Atividades Recentes</h5>
+            <div class="empty-state text-center py-5">
+                <i class="bi bi-activity text-muted mb-3" style="font-size: 2rem;"></i>
+                <p class="text-muted">Nenhuma atividade recente.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="panel p-4 h-100">
+            <h5 class="text-white mb-4">Ações Rápidas</h5>
+            <div class="d-grid gap-3">
+                <a href="{% url 'instagram:list' %}" class="btn btn-outline-primary text-start p-3">
+                    <i class="bi bi-instagram me-2"></i> Adicionar Conta
+                </a>
+                <a href="{% url 'publisher:queue' %}" class="btn btn-outline-secondary text-start p-3">
+                    <i class="bi bi-send-plus me-2"></i> Agendar Post
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
