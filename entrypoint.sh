@@ -10,6 +10,9 @@ python manage.py makemigrations accounts instagram publisher library analytics n
 echo "Aplicando migrações no banco de dados..."
 python manage.py migrate --noinput
 
+echo "Coletando arquivos estáticos..."
+python manage.py collectstatic --noinput --clear
+
 # Criar superuser se nao existir
 # Criar superuser se nao existir
 python manage.py shell << 'END'

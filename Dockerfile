@@ -20,8 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código do projeto
 COPY . .
 
-# Coletar arquivos estáticos
-RUN python manage.py collectstatic --noinput || true
+# Coletar arquivos estáticos (também é re-executado no entrypoint em runtime)
+RUN python manage.py collectstatic --noinput
 
 # Expor porta
 EXPOSE 8000

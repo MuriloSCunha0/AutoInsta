@@ -141,11 +141,20 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# Usamos CompressedStaticFilesStorage (sem manifesto) em vez de
+# CompressedManifestStaticFilesStorage: o backend com manifesto lança
+# "Missing staticfiles manifest entry" e quebra TODAS as páginas com
+# DEBUG=False sempre que o collectstatic não tiver gerado o staticfiles.json.
+# A versão sem manifesto continua comprimindo os arquivos, mas nunca derruba
+# a página caso um estático esteja ausente.
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
+
+# Servir estáticos via WhiteNoise mesmo com DEBUG=False no runserver local.
+WHITENOISE_USE_FINDERS = True
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
