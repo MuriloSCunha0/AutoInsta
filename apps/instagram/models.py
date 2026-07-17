@@ -16,6 +16,7 @@ class InstagramAccount(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     ig_username = models.CharField(max_length=150)
     ig_password = models.TextField()
+    proxy_url = models.CharField(max_length=255, blank=True, help_text="Ex: http://user:pass@ip:port")
     ig_user_id = models.BigIntegerField(null=True, blank=True)
     profile_pic_url = models.URLField(blank=True)
     full_name = models.CharField(max_length=200, blank=True)

@@ -12,9 +12,9 @@ class InstagramEngine:
         self.client.challenge_code_handler = ChallengeHandler.challenge_code_handler
 
     def login(self):
-        # Set proxy if available
-        # if self.account.proxy_url:
-        #     self.client.set_proxy(self.account.proxy_url)
+        # Set proxy se disponivel
+        if self.account.proxy_url:
+            self.client.set_proxy(self.account.proxy_url)
 
         # Load existing session if present
         session_loaded = SessionManager.load_session(self.account, self.client)
