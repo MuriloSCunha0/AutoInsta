@@ -11,9 +11,13 @@ def dashboard(request):
     
     followers_total = accounts.aggregate(Sum('followers_count'))['followers_count__sum'] or 0
     
+    recent_posts = ScheduledPost.objects.filter(owner=request.user).order_by('-created_at')[:5]
+    
     context = {
         'accounts_count': accounts.count(),
         'queued_count': posts_queued,
-        'followers_total': followers_total
+        'followers_total': followers_total,
+        'recent_posts': recent_posts,
+        'accounts': accounts
     }
     return render(request, 'dashboard/index.html', context)

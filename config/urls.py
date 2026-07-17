@@ -12,8 +12,7 @@ from django.urls import include, path
 
 def root_redirect(request):
     """Redireciona a raiz do site para o dashboard."""
-    return redirect("publisher:queue")
-
+    return redirect("analytics:dashboard")
 
 urlpatterns = [
     # Admin do Django

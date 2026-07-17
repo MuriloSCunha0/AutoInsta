@@ -1,35 +1,77 @@
 {% extends 'base.html' %}
 
 {% block title %}Legendas | AutoInsta{% endblock %}
-{% block page_title %}Legendas{% endblock %}
+{% block page_title %}Biblioteca de Legendas{% endblock %}
 
 {% block top_actions %}
-<button type="button" class="btn btn-primary">
-    <i class="bi bi-plus-lg"></i> Novo conjunto
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCaptionModal">
+    <i class="bi bi-plus-lg"></i> Novo Conjunto
 </button>
 {% endblock %}
 
 {% block content %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-    {% for set in caption_sets %}
+    {% for caption_set in caption_sets %}
     <div class="col">
-        <div class="caption-card card h-100 p-4">
-            <h5 class="text-white">{{ set.name }}</h5>
-            <p class="text-muted small">{{ set.description|default:"Sem descrição" }}</p>
-            <div class="mt-auto d-flex justify-content-between align-items-center">
-                <span class="badge bg-purple bg-opacity-25 text-purple">{{ set.captions.count }} legendas</span>
-                <button class="btn btn-sm btn-outline-secondary">Editar</button>
+        <div class="caption-card h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="metric-icon m-0" style="width: 40px; height: 40px; background: var(--accent-bg); color: var(--accent); border-color: var(--border-subtle);"><i class="bi bi-chat-quote"></i></div>
+                    <h5 class="caption-title mb-0">{{ caption_set.name }}</h5>
+                </div>
+                <a href="{% url 'library:delete_caption' caption_set.id %}" class="text-danger opacity-75 text-decoration-none" onclick="return confirm('Excluir este conjunto de legendas?')"><i class="bi bi-trash"></i></a>
+            </div>
+            
+            <p class="caption-desc flex-grow-1">{{ caption_set.description|default:"Sem descrição." }}</p>
+            
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top border-light border-opacity-10">
+                <div class="caption-count">
+                    <i class="bi bi-card-text"></i> {{ caption_set.captions.count }} Variações
+                </div>
+                <button class="btn btn-sm btn-outline-secondary border-opacity-25 text-white">Editar</button>
             </div>
         </div>
     </div>
     {% empty %}
     <div class="col-12">
         <div class="empty-state text-center py-5">
-            <i class="bi bi-chat-quote text-muted mb-3" style="font-size: 3rem;"></i>
-            <h4 class="text-white">Nenhum conjunto de legendas</h4>
-            <p class="text-muted">Crie conjuntos de legendas para usar nas suas publicações.</p>
+            <i class="bi bi-chat-left-quote text-muted mb-3" style="font-size: 3rem;"></i>
+            <h4 class="text-white">Nenhuma legenda salva</h4>
+            <p class="text-muted">Crie conjuntos de legendas para usar nas suas automações.</p>
+            <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addCaptionModal">
+                Criar Conjunto
+            </button>
         </div>
     </div>
     {% endfor %}
+</div>
+
+<!-- Modal Adicionar -->
+<div class="modal fade" id="addCaptionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-plus-circle text-purple me-2"></i> Novo Conjunto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'library:add_caption' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Nome do Conjunto</label>
+                        <input type="text" name="name" class="form-control text-white border-subtle" style="background: var(--bg-input);" required placeholder="Ex: Legendas de Vendas">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Descrição</label>
+                        <textarea name="description" class="form-control text-white border-subtle" style="background: var(--bg-input);" rows="3" placeholder="Opcional"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

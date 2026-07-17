@@ -1,68 +1,141 @@
 {% extends 'base.html' %}
 
 {% block title %}Dashboard | AutoInsta{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard Geral{% endblock %}
 
 {% block content %}
-<div class="row g-4 mb-4">
+<div class="hero-section">
+    <div class="hero-kicker">Bem-vindo de volta</div>
+    <h2 class="hero-title">Visão Geral da Automação</h2>
+    <p class="hero-sub">Acompanhe as métricas e gerencie suas publicações do Instagram em um só lugar.</p>
+</div>
+
+<div class="row g-4 mb-5">
     <!-- Contas Ativas -->
     <div class="col-md-3">
-        <div class="metric-tile primary">
-            <small>Contas Ativas</small>
-            <strong>{{ accounts_count|default:"0" }}</strong>
-            <span class="text-white opacity-75 small">Total cadastradas</span>
+        <div class="metric-card">
+            <div class="metric-icon">
+                <i class="bi bi-instagram"></i>
+            </div>
+            <div class="metric-value">{{ accounts_count|default:"0" }}</div>
+            <div class="metric-label">Contas Conectadas</div>
+            <div class="metric-change up"><i class="bi bi-check2-circle"></i> Sincronizadas</div>
         </div>
     </div>
     
-    <!-- Posts Publicados -->
+    <!-- Posts Publicados Hoje (Placeholder) -->
     <div class="col-md-3">
-        <div class="metric-tile">
-            <small>Publicados Hoje</small>
-            <strong>0</strong>
-            <span class="text-success small"><i class="bi bi-arrow-up"></i> 0% vs ontem</span>
+        <div class="metric-card">
+            <div class="metric-icon" style="color: var(--success); background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2);">
+                <i class="bi bi-check-all"></i>
+            </div>
+            <div class="metric-value">0</div>
+            <div class="metric-label">Publicados Hoje</div>
+            <div class="metric-change up"><i class="bi bi-arrow-up"></i> +0% vs ontem</div>
         </div>
     </div>
     
     <!-- Na Fila -->
     <div class="col-md-3">
-        <div class="metric-tile">
-            <small>Posts na Fila</small>
-            <strong>{{ queued_count|default:"0" }}</strong>
-            <span class="text-warning small"><i class="bi bi-clock"></i> Pendentes</span>
+        <div class="metric-card">
+            <div class="metric-icon" style="color: var(--warning); background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="metric-value">{{ queued_count|default:"0" }}</div>
+            <div class="metric-label">Posts na Fila</div>
+            <div class="metric-change"><i class="bi bi-hourglass-split"></i> Aguardando disparo</div>
         </div>
     </div>
     
     <!-- Seguidores -->
     <div class="col-md-3">
-        <div class="metric-tile">
-            <small>Total de Seguidores</small>
-            <strong>{{ followers_total|default:"0" }}</strong>
-            <span class="text-purple small"><i class="bi bi-people"></i> Somando todas as contas</span>
+        <div class="metric-card">
+            <div class="metric-icon" style="color: var(--info); background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2);">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="metric-value">{{ followers_total|default:"0" }}</div>
+            <div class="metric-label">Total de Seguidores</div>
+            <div class="metric-change"><i class="bi bi-person-lines-fill"></i> Base combinada</div>
         </div>
     </div>
 </div>
 
 <div class="row g-4">
     <div class="col-md-8">
-        <div class="panel p-4 h-100">
-            <h5 class="text-white mb-4">Atividades Recentes</h5>
-            <div class="empty-state text-center py-5">
-                <i class="bi bi-activity text-muted mb-3" style="font-size: 2rem;"></i>
-                <p class="text-muted">Nenhuma atividade recente.</p>
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 text-white"><i class="bi bi-activity text-purple me-2"></i> Agendamentos Recentes</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_posts %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0 align-middle" style="background: transparent;">
+                        <thead>
+                            <tr>
+                                <th class="text-muted fw-medium border-0 ps-4">Conta</th>
+                                <th class="text-muted fw-medium border-0">Data</th>
+                                <th class="text-muted fw-medium border-0">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in recent_posts %}
+                            <tr>
+                                <td class="border-0 ps-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="status-dot ok"></div>
+                                        <span class="text-white">@{{ post.account.ig_username }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-secondary border-0">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
+                                <td class="border-0">
+                                    <span class="badge rounded-pill {% if post.status == 'queued' %}bg-warning{% elif post.status == 'published' %}bg-success{% elif post.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-25 text-white border border-light border-opacity-10">
+                                        {{ post.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state text-center py-5">
+                    <i class="bi bi-journal-x text-muted mb-3" style="font-size: 2.5rem;"></i>
+                    <p class="text-muted mb-0">Você ainda não agendou nenhum post.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
     
     <div class="col-md-4">
-        <div class="panel p-4 h-100">
-            <h5 class="text-white mb-4">Ações Rápidas</h5>
-            <div class="d-grid gap-3">
-                <a href="{% url 'instagram:list' %}" class="btn btn-outline-primary text-start p-3">
-                    <i class="bi bi-instagram me-2"></i> Adicionar Conta
-                </a>
-                <a href="{% url 'publisher:queue' %}" class="btn btn-outline-secondary text-start p-3">
-                    <i class="bi bi-send-plus me-2"></i> Agendar Post
-                </a>
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 text-white"><i class="bi bi-lightning-charge text-purple me-2"></i> Ações Rápidas</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-column gap-3">
+                    <a href="{% url 'instagram:list' %}" class="btn btn-outline-primary d-flex align-items-center justify-content-between p-3 rounded-3" style="background: var(--accent-bg); border-color: var(--border-medium);">
+                        <div class="d-flex align-items-center gap-3 text-white">
+                            <div class="metric-icon m-0" style="width: 40px; height: 40px; font-size: 1.1rem;"><i class="bi bi-instagram"></i></div>
+                            <div class="text-start">
+                                <strong class="d-block">Nova Conta</strong>
+                                <small class="text-muted">Conectar ao sistema</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </a>
+                    
+                    <a href="{% url 'publisher:queue' %}" class="btn btn-outline-secondary d-flex align-items-center justify-content-between p-3 rounded-3" style="background: rgba(255,255,255,0.03); border-color: var(--border-subtle);">
+                        <div class="d-flex align-items-center gap-3 text-white">
+                            <div class="metric-icon m-0" style="width: 40px; height: 40px; font-size: 1.1rem; color: #fff; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.1);"><i class="bi bi-send-plus"></i></div>
+                            <div class="text-start">
+                                <strong class="d-block">Agendar Post</strong>
+                                <small class="text-muted">Adicionar à fila</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </a>
+                </div>
             </div>
         </div>
     </div>

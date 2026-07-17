@@ -1,5 +1,5 @@
 <div class="col" id="account-{{ account.id }}">
-    <div class="account-card card h-100 p-4 {% if account.status == 'connecting' %}connecting{% endif %}"
+    <div class="account-card h-100 d-flex flex-column {% if account.status == 'connecting' %}connecting{% endif %}"
          {% if account.status == 'connecting' %}
          hx-get="{% url 'instagram:status' account.id %}"
          hx-trigger="every 3s"
@@ -7,17 +7,17 @@
          {% endif %}>
          
         <div class="d-flex align-items-center mb-3">
-            {% if account.profile_pic_url %}
-                <img src="{{ account.profile_pic_url }}" class="rounded-circle me-3" width="56" height="56" alt="Profile">
-            {% else %}
-                <div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                    <i class="bi bi-person text-white fs-4"></i>
-                </div>
-            {% endif %}
+            <div class="account-avatar me-3">
+                {% if account.profile_pic_url %}
+                    <img src="{{ account.profile_pic_url }}" alt="Profile">
+                {% else %}
+                    <i class="bi bi-person"></i>
+                {% endif %}
+            </div>
             
-            <div>
-                <h5 class="card-title text-white mb-0">@{{ account.ig_username }}</h5>
-                <small class="text-muted">{{ account.full_name|default:"Sem nome" }}</small>
+            <div class="account-info">
+                <div class="account-username">@{{ account.ig_username }}</div>
+                <div class="account-fullname">{{ account.full_name|default:"Aguardando sincronização..." }}</div>
             </div>
             
             <div class="ms-auto">
@@ -26,40 +26,42 @@
             </div>
         </div>
         
-        <div class="d-flex justify-content-between text-muted small mb-4">
-            <div class="text-center">
-                <strong class="d-block text-white fs-5">{{ account.followers_count }}</strong>
-                Seguidores
+        <div class="account-stats mb-4">
+            <div class="stat w-100">
+                <span class="stat-value">{{ account.followers_count }}</span>
+                <span class="stat-label">Seguidores</span>
             </div>
-            <div class="text-center">
-                <strong class="d-block text-white fs-5">{{ account.following_count }}</strong>
-                Seguindo
+            <div class="stat w-100">
+                <span class="stat-value">{{ account.following_count }}</span>
+                <span class="stat-label">Seguindo</span>
             </div>
-            <div class="text-center">
-                <strong class="d-block text-white fs-5">{{ account.posts_count }}</strong>
-                Posts
+            <div class="stat w-100">
+                <span class="stat-value">{{ account.posts_count }}</span>
+                <span class="stat-label">Posts</span>
             </div>
         </div>
 
         {% if account.status == 'challenge_required' or account.status == '2fa_required' %}
-            <div class="alert alert-warning py-2 small mb-3">
-                <i class="bi bi-key-fill me-1"></i> Verificação necessária
-                <button type="button" class="btn btn-sm btn-outline-warning ms-2 py-0" data-bs-toggle="modal" data-bs-target="#challengeModal{{ account.id }}">
-                    Inserir Código
+            <div class="alert alert-warning py-2 small mb-3 border-0 bg-warning bg-opacity-10 text-warning d-flex align-items-center justify-content-between">
+                <div><i class="bi bi-key-fill me-1"></i> Verificação necessária</div>
+                <button type="button" class="btn btn-sm btn-warning py-0 text-dark fw-bold px-2" data-bs-toggle="modal" data-bs-target="#challengeModal{{ account.id }}">
+                    Resolver
                 </button>
             </div>
             {% include 'instagram/partials/challenge_modal.html' %}
         {% endif %}
 
         {% if account.status == 'error' %}
-            <div class="alert alert-danger py-2 small mb-3">
+            <div class="alert alert-danger py-2 small mb-3 border-0 bg-danger bg-opacity-10 text-danger">
                 <i class="bi bi-exclamation-triangle me-1"></i> Erro: {{ account.last_error }}
             </div>
         {% endif %}
         
-        <div class="mt-auto d-flex justify-content-between">
-            <button class="btn btn-sm btn-outline-secondary">Configurações</button>
-            <a href="{% url 'instagram:remove' account.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza?')">Remover</a>
+        <div class="account-actions mt-auto">
+            <button class="btn btn-sm btn-outline-secondary flex-grow-1 border-opacity-25 text-white">Configurações</button>
+            <a href="{% url 'instagram:remove' account.id %}" class="btn btn-sm btn-outline-danger border-opacity-25" onclick="return confirm('Tem certeza que deseja remover esta conta?')">
+                <i class="bi bi-trash"></i>
+            </a>
         </div>
     </div>
 </div>
