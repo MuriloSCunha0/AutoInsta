@@ -122,7 +122,34 @@
     }
   }
 
-  /* ── Modal System ───────────────────────────────────────── */
+  /* ── Bootstrap Modal Relocation ─────────────────────────────
+     Bootstrap appends the .modal-backdrop to <body>, but our modals
+     are declared deep inside .app-shell / .main-content / .account-card.
+     Those ancestors create stacking contexts (z-index) and containing
+     blocks (backdrop-filter), which trap the modal *behind* the backdrop —
+     the screen dims and nothing is clickable/typable. Moving every modal
+     to be a direct child of <body> removes it from any trapping ancestor.
+     Idempotent + dedupes by id so HTMX re-renders don't duplicate modals. */
+  function relocateModals(root) {
+    const scope = root || document;
+    scope.querySelectorAll('.modal').forEach((modal) => {
+      if (modal.parentElement === document.body) return;
+
+      const id = modal.id;
+      if (id) {
+        const existing = document.querySelector('body > .modal#' + CSS.escape(id));
+        if (existing && existing !== modal) {
+          // A copy is already living at <body> level → drop this nested duplicate.
+          modal.remove();
+          return;
+        }
+      }
+      document.body.appendChild(modal);
+    });
+  }
+  window.relocateModals = relocateModals;
+
+  /* ── Modal System (legacy custom modals) ────────────────── */
   window.openModal = function (modalId) {
     const modal = document.getElementById(modalId);
     const backdrop = document.getElementById(modalId + '-backdrop');
@@ -173,6 +200,9 @@
   function initHTMX() {
     // After an HTMX swap, check for modals and re-init
     document.addEventListener('htmx:afterSwap', (event) => {
+      // Any modal that arrived in the swapped fragment must be moved to <body>.
+      relocateModals(event.detail.target);
+
       // If the response contains a modal, open it
       const target = event.detail.target;
       const modal = target.querySelector('.modal-custom') || 
@@ -286,6 +316,7 @@
     initHTMX();
     initStatusPolling();
     highlightActiveNav();
+    relocateModals();
   }
 
   // Run on DOM ready

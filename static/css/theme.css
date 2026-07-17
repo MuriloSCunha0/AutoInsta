@@ -210,7 +210,9 @@ a:hover {
   display: flex;
   min-height: 100vh;
   position: relative;
-  z-index: 1;
+  /* No z-index here: an explicit z-index would create a stacking context that
+     traps Bootstrap modals below the backdrop (appended to <body>). The shell
+     already paints above the fixed .diamond-rain via DOM order. */
 }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
@@ -428,7 +430,7 @@ a:hover {
 .content-wrap {
   padding: 28px 32px 48px;
   position: relative;
-  z-index: 1;
+  /* No z-index: keep this out of the modal's stacking ancestry (see .app-shell). */
 }
 
 .main-content {
@@ -436,7 +438,7 @@ a:hover {
   margin-left: var(--sidebar-w);
   min-height: 100vh;
   position: relative;
-  z-index: 1;
+  /* No z-index: keep this out of the modal's stacking ancestry (see .app-shell). */
   display: flex;
   flex-direction: column;
 }
