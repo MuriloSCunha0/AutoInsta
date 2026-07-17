@@ -11,10 +11,10 @@ echo "Aplicando migrações no banco de dados..."
 python manage.py migrate --noinput
 
 # Criar superuser se nao existir
-export DJANGO_SUPERUSER_PASSWORD=admin
-# Criar superuser apenas se não existir
+# Criar superuser se nao existir
 python manage.py shell << END
-from django.contrib.auth.models import User
+from accounts.models import User
+import os
 if not User.objects.filter(username='admin').exists():
     User.objects.create_superuser('admin', 'admin@autoinsta.com', os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'admin'))
     print("Superuser 'admin' criado com sucesso")
