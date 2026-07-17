@@ -26,5 +26,10 @@ RUN python manage.py collectstatic --noinput || true
 # Expor porta
 EXPOSE 8000
 
-# Comando padrão
+# Comando
+COPY entrypoint.sh /app/
+RUN chmod +x /app/entrypoint.sh
+
+# Run Gunicorn
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
