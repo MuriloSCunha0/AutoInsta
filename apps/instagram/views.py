@@ -11,7 +11,12 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import User
 from .models import InstagramAccount
 from .forms import AddInstagramAccountForm
-from .tasks import login_instagram_account, submit_challenge_code, connect_by_sessionid
+from django.core.cache import cache
+
+from .tasks import (
+    login_instagram_account, submit_challenge_code, connect_by_sessionid,
+    web_login_account,
+)
 
 
 def _extract_sessionid(raw):
@@ -76,8 +81,10 @@ def add_account(request):
     account.set_ig_password(form.cleaned_data['ig_password'])
     account.save()
 
-    # Disparar task celery para login em background
-    login_instagram_account.delay(account.id)
+    # Login REAL no instagram.com via Playwright (fonte da verdade, distingue
+    # senha errada de 2FA/checkpoint e captura a sessão). O usuário só digitou
+    # usuário e senha — todo o resto acontece no servidor.
+    web_login_account.delay(account.id)
 
     # Retornar o card da conta (HTMX injeta na lista)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
@@ -199,11 +206,13 @@ def account_status_partial(request, account_id):
 def submit_challenge(request, account_id):
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     if request.method == 'POST':
-        code = request.POST.get('code')
+        code = (request.POST.get('code') or '').strip()
         if code:
             account.status = 'connecting'
-            account.save()
-            submit_challenge_code.delay(account.id, code)
+            account.save(update_fields=['status'])
+            # Entrega o código à task de login web que está aguardando (Playwright).
+            # A chave espelha engine/tasks -> _code_cache_key(account_id).
+            cache.set(f'ig_login_code:{account_id}', code, timeout=300)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
     
 @login_required

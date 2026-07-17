@@ -16,21 +16,32 @@ class InstagramEngine:
         if self.account.proxy_url:
             self.client.set_proxy(self.account.proxy_url)
 
-        # Load existing session if present
+        username = self.account.ig_username
+        password = self.account.get_ig_password()
+
+        # Carrega a sessão salva se houver (cookies + device juntos).
         session_loaded = SessionManager.load_session(self.account, self.client)
 
         try:
             if session_loaded:
-                # Try to login with session
+                # Reaproveita a sessão; valida com uma chamada leve. Se ela
+                # expirou, reloga MANTENDO o mesmo device (uuids) — assim o
+                # Instagram continua vendo o mesmo aparelho de sempre.
                 try:
-                    self.client.login(self.account.ig_username, self.account.get_ig_password())
+                    self.client.login(username, password)
+                    self.client.get_timeline_feed()  # valida a sessão de fato
                 except LoginRequired:
-                    # Session expired, re-login
-                    self.client.login(self.account.ig_username, self.account.get_ig_password())
+                    old = self.client.get_settings()
+                    self.client.set_settings({})
+                    self.client.set_uuids(old.get('uuids', {}))
+                    self.client.login(username, password, relogin=True)
             else:
-                # Fresh login
-                self.client.login(self.account.ig_username, self.account.get_ig_password())
-            
+                # Primeiro login: fixa um device estável ANTES de logar, para
+                # não parecer um aparelho novo a cada tentativa (causa nº 1 do
+                # falso 'senha incorreta').
+                SessionManager.ensure_device(self.account, self.client)
+                self.client.login(username, password)
+
             # Save successful session
             SessionManager.save_session(self.account, self.client)
             self.account.status = 'active'
@@ -58,8 +69,15 @@ class InstagramEngine:
             raise
             
         except BadPassword:
+            # Atenção: o Instagram devolve 'bad_password' como recusa genérica
+            # quando não confia no login (IP de datacenter/dispositivo novo),
+            # mesmo com a senha certa. Não afirmamos que a senha está errada.
             self.account.status = 'error'
-            self.account.last_error = 'Senha incorreta'
+            self.account.last_error = (
+                'Instagram recusou o login. Confira a senha; se estiver certa, '
+                'é bloqueio por IP/dispositivo — tente de novo em alguns minutos '
+                'ou configure um proxy.'
+            )
             self.account.save()
             raise
             

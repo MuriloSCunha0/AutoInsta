@@ -17,6 +17,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Instalar o Chromium do Playwright + libs de sistema (para o login web real
+# no instagram.com). --with-deps já traz as dependências nativas no Debian slim.
+RUN python -m playwright install --with-deps chromium
+
 # Copiar código do projeto
 COPY . .
 

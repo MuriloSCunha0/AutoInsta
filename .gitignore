@@ -36,3 +36,6 @@ docker-compose.override.yml
 # Scaffold scripts (temporários)
 scaffold.py
 create_*.py
+
+# Playwright MCP (screenshots/logs temporários)
+.playwright-mcp/
