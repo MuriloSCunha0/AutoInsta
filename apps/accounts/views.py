@@ -4,6 +4,10 @@ from django.contrib.auth.views import LoginView
 from .forms import CustomUserCreationForm
 from django.urls import reverse_lazy
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+
+@method_decorator(csrf_exempt, name='dispatch')
 class CustomLoginView(LoginView):
     template_name = 'accounts/login.html'
     redirect_authenticated_user = True
