@@ -27,8 +27,13 @@ def publish_reel(post_id):
     """
     try:
         post = ScheduledPost.objects.get(id=post_id)
+    except ScheduledPost.DoesNotExist:
+        print(f"Post {post_id} não existe mais; ignorando.")
+        return
+
+    try:
         engine = InstagramEngine(post.account)
-        
+
         # O caption final pode ser a mistura do texto e hashtags, etc
         final_caption = post.caption
         if post.caption_set:

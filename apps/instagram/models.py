@@ -2,6 +2,21 @@ from django.db import models
 from apps.accounts.models import User
 from cryptography.fernet import Fernet
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+
+
+def _get_fernet():
+    """Retorna um Fernet válido ou levanta um erro claro de configuração."""
+    key = (settings.FERNET_KEY or "").strip()
+    try:
+        return Fernet(key.encode())
+    except Exception:
+        raise ImproperlyConfigured(
+            "FERNET_KEY ausente ou inválida. Gere uma com "
+            "`python -c \"from cryptography.fernet import Fernet; "
+            "print(Fernet.generate_key().decode())\"` e defina a variável "
+            "de ambiente FERNET_KEY no Railway."
+        )
 
 class InstagramAccount(models.Model):
     STATUS_CHOICES = [
@@ -40,12 +55,10 @@ class InstagramAccount(models.Model):
         unique_together = ['owner', 'ig_username']
 
     def set_ig_password(self, raw_password):
-        f = Fernet(settings.FERNET_KEY.encode())
-        self.ig_password = f.encrypt(raw_password.encode()).decode()
+        self.ig_password = _get_fernet().encrypt(raw_password.encode()).decode()
 
     def get_ig_password(self):
-        f = Fernet(settings.FERNET_KEY.encode())
-        return f.decrypt(self.ig_password.encode()).decode()
+        return _get_fernet().decrypt(self.ig_password.encode()).decode()
 
     @property
     def is_active(self):

@@ -26,10 +26,11 @@ RUN python manage.py collectstatic --noinput
 # Expor porta
 EXPOSE 8000
 
-# Comando
+# Scripts de inicialização
 COPY entrypoint.sh /app/
-RUN chmod +x /app/entrypoint.sh
+COPY start.sh /app/
+RUN chmod +x /app/entrypoint.sh /app/start.sh
 
-# Run Gunicorn
+# entrypoint faz migrações/collectstatic; start.sh sobe worker + beat + gunicorn
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD sh -c "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3 --timeout 120"
+CMD ["/app/start.sh"]

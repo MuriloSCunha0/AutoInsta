@@ -17,9 +17,11 @@
 <body class="app-body">
     <div class="diamond-rain"></div>
 
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <div class="app-shell">
         <!-- Sidebar -->
-        <aside class="side-nav">
+        <aside class="side-nav" id="side-nav">
             <div class="side-brand">
                 <a href="{% url 'analytics:dashboard' %}" class="brand-logo">
                     <div class="brand-icon">
@@ -69,6 +71,9 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
+                <button class="mobile-toggle" id="mobile-toggle" aria-label="Abrir menu">
+                    <i class="bi bi-list"></i>
+                </button>
                 <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
                 <div class="top-actions">
                     {% block top_actions %}{% endblock %}
@@ -80,6 +85,20 @@
             </div>
         </main>
     </div>
+
+    <!-- Container de notificações (toasts) -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Navegação inferior (mobile) -->
+    <nav class="mobile-nav">
+        <div class="mobile-links">
+            <a href="{% url 'analytics:dashboard' %}"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            <a href="{% url 'instagram:list' %}"><i class="bi bi-instagram"></i> Contas</a>
+            <a href="{% url 'publisher:queue' %}"><i class="bi bi-send-fill"></i> Fila</a>
+            <a href="{% url 'library:captions' %}"><i class="bi bi-chat-quote-fill"></i> Legendas</a>
+            <a href="{% url 'library:audios' %}"><i class="bi bi-music-note-beamed"></i> Áudios</a>
+        </div>
+    </nav>
 
     <!-- JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

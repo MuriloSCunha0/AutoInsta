@@ -180,8 +180,16 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_TRACK_STARTED = True
+
+# Agendamento periódico (definido em código, sem depender do admin).
+# Varre a fila a cada 60s e dispara as publicações cujo horário já chegou.
+CELERY_BEAT_SCHEDULE = {
+    "process-scheduled-posts": {
+        "task": "apps.publisher.tasks.process_scheduled_posts",
+        "schedule": 60.0,
+    },
+}
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
