@@ -30,6 +30,7 @@ SECRET_KEY = env("SECRET_KEY", default="dev-insecure-change-me-in-production")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = ['*'] # Accept all hosts for now on Railway
 CSRF_TRUSTED_ORIGINS = ['https://*.up.railway.app', 'https://web-production-51afd.up.railway.app']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # =============================================================================
 # Aplicações Instaladas
