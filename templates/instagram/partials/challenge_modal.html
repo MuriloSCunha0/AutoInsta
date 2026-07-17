@@ -7,8 +7,7 @@
             </div>
             <form hx-post="{% url 'instagram:submit_challenge' account.id %}"
                   hx-target="#account-{{ account.id }}"
-                  hx-swap="outerHTML"
-                  hx-on="htmx:afterRequest: bootstrap.Modal.getInstance(document.getElementById('challengeModal{{ account.id }}')).hide()">
+                  hx-swap="outerHTML">
                 {% csrf_token %}
                 <div class="modal-body">
                     <p class="text-white">O Instagram detectou um login e solicitou um código de verificação para <strong>@{{ account.ig_username }}</strong>.</p>

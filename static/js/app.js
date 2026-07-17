@@ -236,6 +236,21 @@
         showToast(toastMessage, toastType);
       }
     });
+
+    // Close the enclosing Bootstrap modal after a successful submit from within it.
+    // Replaces the inline hx-on handlers that used to live on the modal <form>.
+    // 204 = validation error (see instagram views _toast) → keep the modal open.
+    document.addEventListener('htmx:afterRequest', (event) => {
+      const xhr = event.detail.xhr;
+      if (!xhr || xhr.status < 200 || xhr.status >= 300 || xhr.status === 204) return;
+
+      const el = event.detail.elt;
+      const modalEl = el && el.closest ? el.closest('.modal') : null;
+      if (modalEl && window.bootstrap) {
+        const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        inst.hide();
+      }
+    });
   }
 
   /* ── Account Status Polling ─────────────────────────────── */

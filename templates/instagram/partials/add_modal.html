@@ -7,8 +7,7 @@
             </div>
             <form hx-post="{% url 'instagram:add' %}"
                   hx-target="#account-list"
-                  hx-swap="afterbegin"
-                  hx-on="htmx:afterRequest: bootstrap.Modal.getInstance(document.getElementById('addAccountModal')).hide()">
+                  hx-swap="afterbegin">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="alert alert-info border-0 bg-opacity-10 text-info small mb-4">
