@@ -122,7 +122,6 @@
     }
   }
 
-<<<<<<< HEAD
   /* ── Bootstrap Modal Relocation ─────────────────────────────
      Bootstrap appends the .modal-backdrop to <body>, but our modals
      are declared deep inside .app-shell / .main-content / .account-card.
@@ -197,19 +196,13 @@
     }
   });
 
-=======
->>>>>>> 094673bd12ada449666a7df5676213d303e8f518
   /* ── HTMX Event Listeners ──────────────────────────────── */
   function initHTMX() {
     // After an HTMX swap, auto-focus challenge input if present
     document.addEventListener('htmx:afterSwap', (event) => {
-<<<<<<< HEAD
       // Any modal that arrived in the swapped fragment must be moved to <body>.
       relocateModals(event.detail.target);
 
-      // If the response contains a modal, open it
-=======
->>>>>>> 094673bd12ada449666a7df5676213d303e8f518
       const target = event.detail.target;
       const challengeInput = target.querySelector('.challenge-input');
       if (challengeInput) {
