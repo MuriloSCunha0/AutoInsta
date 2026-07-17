@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "AutoInsta Connector",
+  "version": "1.0.0",
+  "description": "Conecta sua conta do Instagram à plataforma AutoInsta com segurança, sem informar sua senha.",
+  "permissions": ["cookies", "storage"],
+  "host_permissions": ["https://www.instagram.com/*", "https://instagram.com/*"],
+  "action": {
+    "default_title": "AutoInsta Connector",
+    "default_popup": "popup.html"
+  }
+}

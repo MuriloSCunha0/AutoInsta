@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      width: 320px;
+      margin: 0;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #0a0812;
+      color: #e9e6f2;
+      padding: 16px;
+    }
+    h1 {
+      font-size: 15px;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sub { font-size: 11px; color: #9a94ad; margin: 0 0 14px; }
+    label { display: block; font-size: 11px; color: #9a94ad; margin: 10px 0 4px; }
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #2a2440;
+      background: #14101f;
+      color: #e9e6f2;
+      font-size: 12px;
+    }
+    input:focus { outline: none; border-color: #7b5cff; }
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #7b5cff, #b14bff);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .status {
+      margin-top: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: none;
+    }
+    .status.show { display: block; }
+    .ok { background: rgba(46,204,113,.12); color: #57d98b; }
+    .err { background: rgba(231,76,60,.12); color: #ff7a6e; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; padding: 5px 9px; border-radius: 20px;
+      margin-bottom: 6px;
+    }
+    .pill.on { background: rgba(46,204,113,.12); color: #57d98b; }
+    .pill.off { background: rgba(231,76,60,.12); color: #ff7a6e; }
+    a { color: #a98bff; }
+    .muted { font-size: 10px; color: #6f6a80; margin-top: 10px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>🔗 AutoInsta Connector</h1>
+  <p class="sub">Conecta sua conta do Instagram sem enviar sua senha.</p>
+
+  <div id="sessionPill" class="pill off">Verificando sessão…</div>
+
+  <label>Token de conexão <span style="color:#7b5cff">(copie na plataforma)</span></label>
+  <input id="token" type="text" placeholder="cole o token aqui" autocomplete="off">
+
+  <label>URL da plataforma</label>
+  <input id="connectUrl" type="text" placeholder="https://sua-app.up.railway.app/instagram/connect-extension/" autocomplete="off">
+
+  <button id="connectBtn" disabled>Conectar esta conta</button>
+
+  <div id="status" class="status"></div>
+
+  <p class="muted">
+    1. Faça login em <a href="https://www.instagram.com" target="_blank">instagram.com</a>.<br>
+    2. Cole o token e a URL da sua plataforma (só na 1ª vez).<br>
+    3. Clique em <b>Conectar esta conta</b>.
+  </p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

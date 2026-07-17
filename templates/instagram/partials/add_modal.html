@@ -5,36 +5,100 @@
                 <h5 class="modal-title text-white"><i class="bi bi-instagram me-2 text-purple"></i> Conectar Instagram</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form hx-post="{% url 'instagram:add' %}"
-                  hx-target="#account-list"
-                  hx-swap="afterbegin">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="alert alert-info border-0 bg-opacity-10 text-info small mb-4">
-                        <i class="bi bi-info-circle me-1"></i> Suas credenciais são criptografadas com segurança militar (Fernet). Não armazenamos senhas em texto plano.
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Nome de Usuário</label>
-                        <input type="text" name="ig_username" class="form-control" placeholder="@usuario" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Senha</label>
-                        <input type="password" name="ig_password" class="form-control" placeholder="••••••••" required>
-                    </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Proxy (Opcional)</label>
-                        <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
-                        <small class="text-muted" style="font-size: 0.75rem;">Deixe em branco para usar o IP do servidor (não recomendado para muitas contas).</small>
-                    </div>
+            <div class="modal-body pb-0">
+                <ul class="nav nav-pills nav-fill mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-session" type="button">
+                            <i class="bi bi-shield-check me-1"></i> Sessão <span class="badge bg-success bg-opacity-25 text-success ms-1">recomendado</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-password" type="button">
+                            <i class="bi bi-key me-1"></i> Senha
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="tab-content">
+                <!-- ABA SESSÃO (recomendado) -->
+                <div class="tab-pane fade show active" id="tab-session">
+                    <form hx-post="{% url 'instagram:add_session' %}"
+                          hx-target="#account-list"
+                          hx-swap="afterbegin">
+                        {% csrf_token %}
+                        <div class="modal-body pt-0">
+                            <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3">
+                                <i class="bi bi-shield-check me-1"></i> Você faz login na tela <strong>real</strong> do Instagram, no seu navegador. Nós nunca vemos sua senha — só a sessão já autenticada.
+                            </div>
+
+                            <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-3" style="line-height:1.6">
+                                <strong class="text-white d-block mb-1">Como pegar o sessionid:</strong>
+                                1. Abra <a href="https://www.instagram.com/" target="_blank" rel="noopener" class="text-info">instagram.com</a> e faça login normalmente.<br>
+                                2. Pressione <kbd>F12</kbd> → aba <strong>Application</strong> (ou <em>Armazenamento</em>).<br>
+                                3. Em <strong>Cookies → https://www.instagram.com</strong>, ache <code class="text-info">sessionid</code>.<br>
+                                4. Copie o <strong>valor</strong> e cole abaixo.
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">sessionid</label>
+                                <input type="text" name="sessionid" class="form-control" placeholder="Ex: 12345%3Aabcd...%3A9" required autocomplete="off">
+                                <small class="text-muted" style="font-size: 0.75rem;">Pode colar o cookie inteiro — extraímos o sessionid automaticamente.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Nome de Usuário <span class="text-muted">(opcional)</span></label>
+                                <input type="text" name="ig_username" class="form-control" placeholder="@usuario">
+                                <small class="text-muted" style="font-size: 0.75rem;">Se deixar em branco, detectamos pela sessão.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Proxy (Opcional)</label>
+                                <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Importar Sessão</button>
+                        </div>
+                    </form>
                 </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Conectar Conta</button>
+
+                <!-- ABA SENHA (legado) -->
+                <div class="tab-pane fade" id="tab-password">
+                    <form hx-post="{% url 'instagram:add' %}"
+                          hx-target="#account-list"
+                          hx-swap="afterbegin">
+                        {% csrf_token %}
+                        <div class="modal-body pt-0">
+                            <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3">
+                                <i class="bi bi-exclamation-triangle me-1"></i> Login por senha pela API pode ser recusado pelo Instagram (IP do servidor). Prefira a aba <strong>Sessão</strong>.
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Nome de Usuário</label>
+                                <input type="text" name="ig_username" class="form-control" placeholder="@usuario" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Senha</label>
+                                <input type="password" name="ig_password" class="form-control" placeholder="••••••••" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Proxy (Opcional)</label>
+                                <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
+                                <small class="text-muted" style="font-size: 0.75rem;">Deixe em branco para usar o IP do servidor (não recomendado para muitas contas).</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Conectar Conta</button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>

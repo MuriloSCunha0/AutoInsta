@@ -12,6 +12,15 @@ def login_instagram_account(account_id):
         print(f"Error logging in account {account_id}: {str(e)}")
 
 @shared_task
+def connect_by_sessionid(account_id, sessionid):
+    try:
+        account = InstagramAccount.objects.get(id=account_id)
+        engine = InstagramEngine(account)
+        engine.login_by_session(sessionid)
+    except Exception as e:
+        print(f"Error connecting account {account_id} by session: {str(e)}")
+
+@shared_task
 def submit_challenge_code(account_id, code):
     try:
         account = InstagramAccount.objects.get(id=account_id)

@@ -1,9 +1,37 @@
+import json
+import re
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.db import IntegrityError
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+from apps.accounts.models import User
 from .models import InstagramAccount
 from .forms import AddInstagramAccountForm
-from .tasks import login_instagram_account, submit_challenge_code
+from .tasks import login_instagram_account, submit_challenge_code, connect_by_sessionid
+
+
+def _extract_sessionid(raw):
+    """Aceita o valor puro do sessionid ou o cookie inteiro colado."""
+    raw = (raw or '').strip()
+    if 'sessionid=' in raw:
+        m = re.search(r'sessionid=([^;\s]+)', raw)
+        if m:
+            return m.group(1)
+    return raw
+
+
+def _cors(response):
+    # A extensão roda a partir de uma origem chrome-extension://<id>.
+    # Autenticamos por token no corpo (não por cookie), então liberar * é seguro.
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    response['Access-Control-Allow-Headers'] = 'Content-Type'
+    response['Access-Control-Max-Age'] = '86400'
+    return response
 
 
 def _toast(message, toast_type='info'):
@@ -18,7 +46,13 @@ def _toast(message, toast_type='info'):
 def account_list(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
     form = AddInstagramAccountForm()
-    return render(request, 'instagram/list.html', {'accounts': accounts, 'form': form})
+    connect_url = request.build_absolute_uri('/instagram/connect-extension/')
+    return render(request, 'instagram/list.html', {
+        'accounts': accounts,
+        'form': form,
+        'extension_token': request.user.ensure_extension_token(),
+        'connect_url': connect_url,
+    })
 
 @login_required
 def add_account(request):
@@ -47,6 +81,114 @@ def add_account(request):
 
     # Retornar o card da conta (HTMX injeta na lista)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+@login_required
+def add_account_session(request):
+    """Conecta uma conta importando o cookie `sessionid` do instagram.com.
+
+    O usuário faz login na tela real do Instagram no próprio navegador,
+    copia o valor do cookie `sessionid` e cola aqui. Muito mais robusto e
+    seguro que enviar usuário/senha para a API privada.
+    """
+    if request.method != 'POST':
+        return redirect('instagram:list')
+
+    sessionid = _extract_sessionid(request.POST.get('sessionid'))
+
+    if not sessionid:
+        return _toast('Cole o valor do sessionid.', 'error')
+
+    username = (request.POST.get('ig_username') or '').lstrip('@').strip()
+    proxy_url = (request.POST.get('proxy_url') or '').strip()
+
+    # username é opcional aqui — se vier, garantimos que não é duplicado.
+    if username and InstagramAccount.objects.filter(owner=request.user, ig_username=username).exists():
+        return _toast('Você já adicionou essa conta.', 'warning')
+
+    account = InstagramAccount(
+        owner=request.user,
+        ig_username=username,
+        proxy_url=proxy_url,
+        status='connecting',
+    )
+    # ig_password é NOT NULL/obrigatório no schema; guardamos um placeholder
+    # criptografado já que o fluxo de sessão não usa senha.
+    account.set_ig_password('__session_login__')
+    account.save()
+
+    connect_by_sessionid.delay(account.id, sessionid)
+
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+@csrf_exempt
+def connect_extension(request):
+    """Endpoint chamado pela extensão de navegador.
+
+    A extensão lê o cookie `sessionid` do instagram.com no navegador do
+    usuário e o envia aqui junto do `token` de conexão da conta na plataforma.
+    Autenticamos pelo token (não por sessão/cookie), então o endpoint é
+    csrf_exempt e responde a preflight CORS.
+
+    Corpo (JSON): {"token": "...", "sessionid": "...", "username": "opcional"}
+    """
+    if request.method == 'OPTIONS':
+        return _cors(HttpResponse(status=204))
+
+    if request.method != 'POST':
+        return _cors(JsonResponse({'ok': False, 'error': 'Método não permitido.'}, status=405))
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, UnicodeDecodeError):
+        return _cors(JsonResponse({'ok': False, 'error': 'JSON inválido.'}, status=400))
+
+    token = (payload.get('token') or '').strip()
+    sessionid = _extract_sessionid(payload.get('sessionid'))
+    username = (payload.get('username') or '').lstrip('@').strip()
+
+    if not token:
+        return _cors(JsonResponse({'ok': False, 'error': 'Token de conexão ausente.'}, status=401))
+    if not sessionid:
+        return _cors(JsonResponse({'ok': False, 'error': 'sessionid não encontrado. Faça login no instagram.com primeiro.'}, status=400))
+
+    user = User.objects.filter(extension_token=token).first()
+    if not user:
+        return _cors(JsonResponse({'ok': False, 'error': 'Token de conexão inválido. Copie-o novamente na plataforma.'}, status=401))
+
+    # Respeita o limite do plano.
+    current = InstagramAccount.objects.filter(owner=user).count()
+    existing = InstagramAccount.objects.filter(owner=user, ig_username=username).first() if username else None
+    if existing is None and current >= user.max_ig_accounts:
+        return _cors(JsonResponse({'ok': False, 'error': f'Limite de {user.max_ig_accounts} contas atingido no seu plano.'}, status=403))
+
+    account = existing or InstagramAccount(owner=user, ig_username=username)
+    account.status = 'connecting'
+    if not account.ig_password:
+        account.set_ig_password('__session_login__')
+    try:
+        account.save()
+    except IntegrityError:
+        return _cors(JsonResponse({
+            'ok': False,
+            'error': 'Já existe uma conexão em andamento. Aguarde alguns segundos e tente de novo.',
+        }, status=409))
+
+    connect_by_sessionid.delay(account.id, sessionid)
+
+    return _cors(JsonResponse({
+        'ok': True,
+        'account_id': account.id,
+        'message': 'Sessão recebida! Conectando a conta na plataforma...',
+    }))
+
+
+@login_required
+@require_POST
+def regenerate_extension_token(request):
+    """Gera um novo token de conexão (invalida o anterior)."""
+    request.user.rotate_extension_token()
+    return _toast('Novo token gerado. Atualize-o na extensão.', 'success')
+
 
 @login_required
 def account_status_partial(request, account_id):
