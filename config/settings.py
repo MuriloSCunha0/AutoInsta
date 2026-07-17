@@ -15,6 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
+    CSRF_TRUSTED_ORIGINS=(list, ["https://*.up.railway.app", "https://web-production-51afd.up.railway.app"]),
 )
 
 # Ler arquivo .env se existir
@@ -27,7 +28,8 @@ if env_file.exists():
 # =============================================================================
 SECRET_KEY = env("SECRET_KEY", default="dev-insecure-change-me-in-production")
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+ALLOWED_HOSTS = ['*'] # Accept all hosts for now on Railway
+CSRF_TRUSTED_ORIGINS = ['https://*.up.railway.app', 'https://web-production-51afd.up.railway.app']
 
 # =============================================================================
 # Aplicações Instaladas
