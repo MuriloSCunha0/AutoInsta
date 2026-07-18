@@ -15,7 +15,7 @@ from django.core.cache import cache
 
 from .tasks import (
     login_instagram_account, submit_challenge_code, connect_by_sessionid,
-    web_login_account,
+    web_login_account, claim_login_generation,
 )
 
 
@@ -84,7 +84,8 @@ def add_account(request):
     # Login REAL no instagram.com via Playwright (fonte da verdade, distingue
     # senha errada de 2FA/checkpoint e captura a sessão). O usuário só digitou
     # usuário e senha — todo o resto acontece no servidor.
-    web_login_account.delay(account.id)
+    gen = claim_login_generation(account.id)
+    web_login_account.delay(account.id, gen)
 
     # Retornar o card da conta (HTMX injeta na lista)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
@@ -214,7 +215,32 @@ def submit_challenge(request, account_id):
             # A chave espelha engine/tasks -> _code_cache_key(account_id).
             cache.set(f'ig_login_code:{account_id}', code, timeout=300)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
-    
+
+
+@login_required
+@require_POST
+def resend_challenge(request, account_id):
+    """Reenvia o código / recomeça o login.
+
+    Útil quando o código não chegou (e-mail/SMS do checkpoint) ou a tentativa
+    anterior expirou. Reserva uma nova geração (o que faz a task antiga fechar
+    o navegador e parar de escrever status) e dispara um login web novo — no
+    checkpoint isso reenvia o código; no 2FA, apenas reinicia a espera.
+    """
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+
+    # Limpa qualquer código velho pendente e reinicia o estado visível.
+    cache.delete(f'ig_login_code:{account_id}')
+    account.status = 'connecting'
+    account.last_error = ''
+    account.save(update_fields=['status', 'last_error'])
+
+    gen = claim_login_generation(account.id)
+    web_login_account.delay(account.id, gen)
+
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
 @login_required
 def remove_account(request, account_id):
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)

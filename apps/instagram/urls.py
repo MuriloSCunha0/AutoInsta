@@ -11,5 +11,6 @@ urlpatterns = [
     path('extension-token/regenerate/', views.regenerate_extension_token, name='regenerate_token'),
     path('status/<int:account_id>/', views.account_status_partial, name='status'),
     path('challenge/<int:account_id>/', views.submit_challenge, name='submit_challenge'),
+    path('challenge/<int:account_id>/resend/', views.resend_challenge, name='resend_challenge'),
     path('remove/<int:account_id>/', views.remove_account, name='remove'),
 ]

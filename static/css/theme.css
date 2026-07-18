@@ -2000,3 +2000,98 @@ textarea.form-control {
   display: block;
   opacity: 1;
 }
+
+/* ── Campo de senha com botão "olhinho" (revelar/ocultar) ──────
+   Envolve um <input type="password"> e um <button.pw-toggle>. O JS
+   (app.js) alterna o type do input e a classe .is-visible no wrapper,
+   que troca qual ícone (olho / olho cortado) aparece. */
+.pw-field {
+  position: relative;
+}
+.pw-field > .form-control {
+  padding-right: 44px;
+}
+.pw-field > .pw-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color var(--tr-base);
+}
+.pw-field > .pw-toggle:hover {
+  color: var(--text-primary);
+}
+.pw-field > .pw-toggle .pw-icon-off { display: none; }
+.pw-field.is-visible > .pw-toggle .pw-icon-on { display: none; }
+.pw-field.is-visible > .pw-toggle .pw-icon-off { display: inline-flex; }
+
+/* ── Painel de verificação INLINE (2FA / checkpoint) ───────────
+   Substitui o antigo modal Bootstrap que ficava preso dentro do
+   .account-card (backdrop-filter/transform prendiam o position:fixed
+   e o polling do HTMX órfãos o backdrop → tela congelava). Inline não
+   tem backdrop nem posição fixa: nada trava, nada corta. */
+.verify-panel {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md, 12px);
+  background: rgba(245, 197, 24, 0.06);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.verify-panel .verify-title {
+  color: #f5c518;
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.verify-panel .verify-hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.verify-panel .verify-code-input {
+  text-align: center;
+  font-size: 1.4rem;
+  letter-spacing: 0.4em;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+.verify-panel .verify-code-input::placeholder {
+  letter-spacing: 0.2em;
+  font-weight: 500;
+}
+.verify-panel .verify-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.verify-panel .verify-resend {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.verify-panel .verify-resend:hover {
+  color: var(--text-primary);
+}
+.verify-panel .verify-resend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}

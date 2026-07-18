@@ -204,9 +204,11 @@
       relocateModals(event.detail.target);
 
       const target = event.detail.target;
-      const challengeInput = target.querySelector('.challenge-input');
-      if (challengeInput) {
-        setTimeout(() => challengeInput.focus(), 100);
+      // Foca o campo de código do painel de verificação inline quando ele
+      // aparece após um swap (o atributo autofocus só age no load inicial).
+      const codeInput = target.querySelector('.verify-code-input, .challenge-input');
+      if (codeInput) {
+        setTimeout(() => codeInput.focus(), 100);
       }
     });
 
@@ -304,6 +306,24 @@
       }
     });
   }
+
+  /* ── Password reveal ("olhinho") ────────────────────────────
+     Delegated so it works for fields that arrive later via HTMX
+     (ex.: o modal de adicionar conta). Alterna o type do input e a
+     classe .is-visible no wrapper .pw-field (a CSS troca o ícone). */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest ? e.target.closest('.pw-toggle') : null;
+    if (!btn) return;
+    e.preventDefault();
+    const field = btn.closest('.pw-field');
+    const input = field && field.querySelector('input');
+    if (!input) return;
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    field.classList.toggle('is-visible', show);
+    btn.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+    input.focus();
+  });
 
   /* ── Init ───────────────────────────────────────────────── */
   function init() {

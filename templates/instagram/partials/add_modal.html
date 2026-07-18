@@ -40,7 +40,7 @@
 
                             <div class="mb-3">
                                 <label class="form-label text-muted">Senha</label>
-                                <input type="password" name="ig_password" class="form-control" placeholder="••••••••" required>
+                                {% include 'partials/pw_field.html' with name='ig_password' placeholder='••••••••' required=1 autocomplete='current-password' %}
                             </div>
 
                             <div class="mb-3">

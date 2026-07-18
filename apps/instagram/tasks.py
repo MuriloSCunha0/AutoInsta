@@ -12,10 +12,30 @@ def _code_cache_key(account_id):
     return f"ig_login_code:{account_id}"
 
 
+def _gen_cache_key(account_id):
+    return f"ig_login_gen:{account_id}"
+
+
+def claim_login_generation(account_id):
+    """Reserva uma nova 'geração' de login para a conta e a retorna.
+
+    Cada tentativa de login (nova conexão ou 'reenviar código') incrementa
+    este contador. A task só escreve status/erro e só aceita o código se a
+    geração dela ainda for a atual — assim um 'reenviar' cancela com segurança
+    a tentativa anterior (o navegador antigo fecha) sem duas sessões brigando.
+    """
+    key = _gen_cache_key(account_id)
+    try:
+        return cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=None)
+        return 1
+
+
 # time_limit MAIOR que CODE_WAIT_S (300s): a task fica viva com o navegador
 # aberto enquanto espera o usuário digitar o código de 2FA/checkpoint.
 @shared_task(soft_time_limit=360, time_limit=380)
-def web_login_account(account_id):
+def web_login_account(account_id, login_gen=None):
     """Login REAL no instagram.com via navegador (Playwright).
 
     O usuário só informa usuário e senha. Se o IG pedir código (2FA por app ou
@@ -29,22 +49,41 @@ def web_login_account(account_id):
     except InstagramAccount.DoesNotExist:
         return
 
+    # Geração desta tentativa. Se veio None (chamada antiga), reserva uma agora.
+    if login_gen is None:
+        login_gen = claim_login_generation(account_id)
+
+    def _is_current():
+        # Uma nova tentativa (reenviar) tornou esta obsoleta?
+        return cache.get(_gen_cache_key(account_id)) == login_gen
+
     def on_code_needed(kind):
+        if not _is_current():
+            return
         account.status = '2fa_required' if kind == 'twofa' else 'challenge_required'
-        account.save(update_fields=['status'])
+        account.last_error = ''
+        account.save(update_fields=['status', 'last_error'])
 
     def code_getter():
-        # Bloqueia aguardando o usuário digitar o código na plataforma.
+        # Bloqueia aguardando o usuário digitar o código na plataforma. Aborta
+        # (retorna None → o navegador fecha) se um 'reenviar' iniciou outra
+        # tentativa mais nova.
         key = _code_cache_key(account_id)
         cache.delete(key)
         deadline = time.time() + CODE_WAIT_S
         while time.time() < deadline:
+            if not _is_current():
+                return None
             code = cache.get(key)
             if code:
                 cache.delete(key)
                 return code
             time.sleep(2)
         return None
+
+    # Outra tentativa mais nova já assumiu antes desta começar? Então desiste.
+    if not _is_current():
+        return
 
     account.status = 'connecting'
     account.save(update_fields=['status'])
@@ -56,6 +95,11 @@ def web_login_account(account_id):
         on_code_needed=on_code_needed,
         code_getter=code_getter,
     )
+
+    # Uma tentativa mais nova (reenviar) assumiu enquanto rodávamos: não
+    # sobrescreve o status/erro dela com o resultado desta tentativa velha.
+    if not _is_current():
+        return
 
     status = result.get('status')
     if status == 'success':

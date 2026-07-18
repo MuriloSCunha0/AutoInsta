@@ -42,13 +42,52 @@
         </div>
 
         {% if account.status == 'challenge_required' or account.status == '2fa_required' %}
-            <div class="alert alert-warning py-2 small mb-3 border-0 bg-warning bg-opacity-10 text-warning d-flex align-items-center justify-content-between">
-                <div><i class="bi bi-key-fill me-1"></i> Verificação necessária</div>
-                <button type="button" class="btn btn-sm btn-warning py-0 text-dark fw-bold px-2" data-bs-toggle="modal" data-bs-target="#challengeModal{{ account.id }}">
-                    Resolver
-                </button>
+            {# Painel INLINE (sem modal): não corta nem congela a tela. #}
+            <div class="verify-panel mb-3">
+                <div class="verify-title">
+                    <i class="bi bi-shield-lock"></i>
+                    {% if account.status == '2fa_required' %}Verificação em duas etapas{% else %}Verificação de segurança{% endif %}
+                </div>
+                <div class="verify-hint">
+                    {% if account.status == '2fa_required' %}
+                        Abra seu app autenticador (ou verifique o SMS) e digite o código de 6 dígitos para <strong>@{{ account.ig_username }}</strong>.
+                    {% else %}
+                        O Instagram enviou um código para o seu e-mail/SMS. Digite-o abaixo para confirmar <strong>@{{ account.ig_username }}</strong>.
+                    {% endif %}
+                </div>
+
+                {% if account.last_error %}
+                    <div class="alert alert-warning py-1 px-2 small mb-2 border-0 bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i>{{ account.last_error }}
+                    </div>
+                {% endif %}
+
+                <form hx-post="{% url 'instagram:submit_challenge' account.id %}"
+                      hx-target="#account-{{ account.id }}"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <input type="text" name="code"
+                           class="form-control verify-code-input"
+                           inputmode="numeric" autocomplete="one-time-code"
+                           pattern="[0-9]*" placeholder="000000" maxlength="8"
+                           required autofocus>
+                    <div class="verify-actions">
+                        <button type="submit" class="btn btn-warning text-dark fw-bold flex-grow-1">
+                            <i class="bi bi-check2-circle me-1"></i> Verificar código
+                        </button>
+                    </div>
+                </form>
+
+                <form hx-post="{% url 'instagram:resend_challenge' account.id %}"
+                      hx-target="#account-{{ account.id }}"
+                      hx-swap="outerHTML"
+                      class="mt-1">
+                    {% csrf_token %}
+                    <button type="submit" class="verify-resend">
+                        <i class="bi bi-arrow-repeat me-1"></i> Não recebeu? Reenviar / recomeçar
+                    </button>
+                </form>
             </div>
-            {% include 'instagram/partials/challenge_modal.html' %}
         {% endif %}
 
         {% if account.status == 'error' %}
