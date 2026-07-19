@@ -14,7 +14,7 @@ from .forms import AddInstagramAccountForm
 from django.core.cache import cache
 
 from .tasks import (
-    login_instagram_account, submit_challenge_code, connect_by_sessionid,
+    connect_by_sessionid,
     web_login_account, claim_login_generation,
 )
 
