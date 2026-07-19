@@ -81,9 +81,8 @@ def add_account(request):
     account.set_ig_password(form.cleaned_data['ig_password'])
     account.save()
 
-    # Login REAL no instagram.com via Playwright (fonte da verdade, distingue
-    # senha errada de 2FA/checkpoint e captura a sessão). O usuário só digitou
-    # usuário e senha — todo o resto acontece no servidor.
+    # O login agora usa instagrapi (Android API) com Bypass de 2FA.
+    # O servidor bloqueia esperando o código do Redis caso seja solicitado 2FA ou challenge.
     gen = claim_login_generation(account.id)
     web_login_account.delay(account.id, gen)
 

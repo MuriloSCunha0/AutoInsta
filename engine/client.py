@@ -3,80 +3,92 @@ from instagrapi.exceptions import (
     LoginRequired, ChallengeRequired, TwoFactorRequired, BadPassword
 )
 from .session_manager import SessionManager
-from .challenge_handler import ChallengeHandler
 
 class InstagramEngine:
-    def __init__(self, account):
+    def __init__(self, account, code_getter=None):
         self.account = account
+        self.code_getter = code_getter
         self.client = InstagrapiClient()
-        self.client.challenge_code_handler = ChallengeHandler.challenge_code_handler
+        
+        # We define a custom challenge_code_handler that hooks into our code_getter
+        def custom_challenge_code_handler(username, choice):
+            if not self.code_getter:
+                return False
+            self.account.status = 'challenge_required'
+            self.account.last_error = ''
+            self.account.save(update_fields=['status', 'last_error'])
+            
+            code = self.code_getter()
+            if code:
+                return code
+            return False
+            
+        self.client.challenge_code_handler = custom_challenge_code_handler
 
     def login(self):
-        # Set proxy se disponivel
         if self.account.proxy_url:
             self.client.set_proxy(self.account.proxy_url)
 
         username = self.account.ig_username
         password = self.account.get_ig_password()
 
-        # Carrega a sessão salva se houver (cookies + device juntos).
         session_loaded = SessionManager.load_session(self.account, self.client)
 
         try:
             if session_loaded:
-                # Reaproveita a sessão; valida com uma chamada leve. Se ela
-                # expirou, reloga MANTENDO o mesmo device (uuids) — assim o
-                # Instagram continua vendo o mesmo aparelho de sempre.
                 try:
                     self.client.login(username, password)
-                    self.client.get_timeline_feed()  # valida a sessão de fato
+                    self.client.get_timeline_feed()
                 except LoginRequired:
                     old = self.client.get_settings()
                     self.client.set_settings({})
                     self.client.set_uuids(old.get('uuids', {}))
                     self.client.login(username, password, relogin=True)
             else:
-                # Primeiro login: fixa um device estável ANTES de logar, para
-                # não parecer um aparelho novo a cada tentativa (causa nº 1 do
-                # falso 'senha incorreta').
                 SessionManager.ensure_device(self.account, self.client)
                 self.client.login(username, password)
 
-            # Save successful session
             SessionManager.save_session(self.account, self.client)
             self.account.status = 'active'
-            
-            # Fetch basic info
-            user_info = self.client.user_info_by_username(self.account.ig_username)
-            self.account.profile_pic_url = user_info.profile_pic_url
-            self.account.followers_count = user_info.follower_count
-            self.account.following_count = user_info.following_count
-            self.account.posts_count = user_info.media_count
-            self.account.full_name = user_info.full_name
-            self.account.bio = user_info.biography
-            
-            self.account.save()
+            self._fetch_profile_info()
             return True
 
         except ChallengeRequired:
+            # If challenge_code_handler fails to return a valid code (e.g. timeout), it raises this.
             self.account.status = 'challenge_required'
+            self.account.last_error = 'O tempo para inserir o código esgotou. Tente conectar novamente.'
             self.account.save()
             raise
             
-        except TwoFactorRequired:
+        except TwoFactorRequired as e:
             self.account.status = '2fa_required'
-            self.account.save()
-            raise
+            self.account.last_error = ''
+            self.account.save(update_fields=['status', 'last_error'])
+            
+            if not self.code_getter:
+                raise
+
+            # Block and wait for the code from Redis
+            code = self.code_getter()
+            if not code:
+                self.account.last_error = 'O tempo para inserir o código 2FA esgotou. Tente novamente.'
+                self.account.save(update_fields=['last_error'])
+                raise Exception("Timeout aguardando 2FA")
+            
+            # Submits the code natively using the same instagrapi client instance
+            self.client.login(username, password, verification_code=code)
+            SessionManager.save_session(self.account, self.client)
+            self.account.status = 'active'
+            self._fetch_profile_info()
+            return True
             
         except BadPassword:
-            # Atenção: o Instagram devolve 'bad_password' como recusa genérica
-            # quando não confia no login (IP de datacenter/dispositivo novo),
-            # mesmo com a senha certa. Não afirmamos que a senha está errada.
+            # This is the datacenter IP block.
             self.account.status = 'error'
             self.account.last_error = (
-                'Instagram recusou o login. Confira a senha; se estiver certa, '
-                'é bloqueio por IP/dispositivo — tente de novo em alguns minutos '
-                'ou configure um proxy.'
+                'O Instagram bloqueou a tentativa por segurança (IP de Datacenter). '
+                'Para resolver instantaneamente: vá no seu aplicativo, ative a '
+                'Autenticação de Dois Fatores (2FA) e tente conectar novamente aqui.'
             )
             self.account.save()
             raise
@@ -87,14 +99,17 @@ class InstagramEngine:
             self.account.save()
             raise
             
-    def login_by_session(self, sessionid):
-        """Conecta a conta usando um cookie `sessionid` capturado do
-        instagram.com (login real feito no navegador do usuário).
+    def _fetch_profile_info(self):
+        user_info = self.client.user_info_by_username(self.account.ig_username)
+        self.account.profile_pic_url = user_info.profile_pic_url
+        self.account.followers_count = user_info.follower_count
+        self.account.following_count = user_info.following_count
+        self.account.posts_count = user_info.media_count
+        self.account.full_name = user_info.full_name
+        self.account.bio = user_info.biography
+        self.account.save()
 
-        Muito mais robusto que login usuário/senha: o Instagram não recusa
-        a sessão como faz com a API privada a partir de IPs de datacenter,
-        e desafios/2FA já foram resolvidos no navegador do usuário.
-        """
+    def login_by_session(self, sessionid):
         if self.account.proxy_url:
             self.client.set_proxy(self.account.proxy_url)
 
@@ -103,20 +118,15 @@ class InstagramEngine:
             raise ValueError('sessionid vazio')
 
         try:
-            # login_by_sessionid valida a sessão e popula user_id/username
             self.client.login_by_sessionid(sessionid)
-
             logged_username = (self.client.username or '').lstrip('@').lower()
             expected = (self.account.ig_username or '').lstrip('@').lower()
 
-            # Se o usuário não informou o @, adotamos o da sessão.
             if not expected:
                 self.account.ig_username = logged_username
             elif logged_username and logged_username != expected:
                 self.account.status = 'error'
-                self.account.last_error = (
-                    f'A sessão pertence a @{logged_username}, não a @{expected}.'
-                )
+                self.account.last_error = f'A sessão pertence a @{logged_username}, não a @{expected}.'
                 self.account.save()
                 raise ValueError('Sessão de conta diferente da informada.')
 
@@ -126,41 +136,17 @@ class InstagramEngine:
             except (TypeError, ValueError):
                 pass
             self.account.status = 'active'
-
-            user_info = self.client.user_info_by_username(self.account.ig_username)
-            self.account.profile_pic_url = user_info.profile_pic_url
-            self.account.followers_count = user_info.follower_count
-            self.account.following_count = user_info.following_count
-            self.account.posts_count = user_info.media_count
-            self.account.full_name = user_info.full_name
-            self.account.bio = user_info.biography
-
-            self.account.save()
+            self._fetch_profile_info()
             return True
 
         except ValueError:
             raise
         except Exception as e:
             self.account.status = 'error'
-            self.account.last_error = (
-                'Não foi possível validar a sessão. Ela pode ter expirado — '
-                f'gere um novo sessionid. ({e})'
-            )
+            self.account.last_error = f'Não foi possível validar a sessão. Ela pode ter expirado. ({e})'
             self.account.save()
             raise
 
-    def resolve_challenge(self, code):
-        self.client.challenge_resolve(code)
-        SessionManager.save_session(self.account, self.client)
-        self.account.status = 'active'
-        self.account.save()
-        
-    def resolve_2fa(self, code):
-        self.client.two_factor_login(code)
-        SessionManager.save_session(self.account, self.client)
-        self.account.status = 'active'
-        self.account.save()
-        
     def upload_reel(self, video_path, caption, thumbnail_path=None):
         SessionManager.load_session(self.account, self.client)
         self.client.login(self.account.ig_username, self.account.get_ig_password())
