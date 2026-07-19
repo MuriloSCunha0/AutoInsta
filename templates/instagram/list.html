@@ -10,42 +10,7 @@
 {% endblock %}
 
 {% block content %}
-<!-- Painel: conectar via extensão de navegador (login real no instagram.com) -->
-<div class="card border-0 mb-4" style="background: var(--bg-card, rgba(20,16,31,.6));">
-    <div class="card-body">
-        <div class="d-flex align-items-start gap-3 flex-wrap">
-            <div class="flex-grow-1" style="min-width: 260px;">
-                <h6 class="text-white mb-1"><i class="bi bi-shield-check text-success me-1"></i> Conectar com segurança (extensão)</h6>
-                <p class="text-muted small mb-2" style="max-width: 640px;">
-                    Você faz login na tela <strong>real</strong> do Instagram, no seu navegador. A extensão captura a sessão já autenticada e conecta a conta aqui — <strong>sua senha nunca passa pela plataforma</strong>.
-                </p>
-                <ol class="text-muted small mb-0" style="line-height:1.8">
-                    <li>Instale a extensão (pasta <code>extension/</code> → <em>chrome://extensions</em> → Modo desenvolvedor → Carregar sem compactação).</li>
-                    <li>Faça login em <a href="https://www.instagram.com" target="_blank" rel="noopener" class="text-info">instagram.com</a>.</li>
-                    <li>Abra a extensão, cole o <strong>token</strong> e a <strong>URL</strong> abaixo, e clique em <em>Conectar</em>.</li>
-                </ol>
-            </div>
-            <div style="min-width: 260px;">
-                <label class="form-label text-muted small mb-1">Token de conexão</label>
-                <div class="input-group input-group-sm mb-2">
-                    <input type="text" id="extToken" class="form-control" value="{{ extension_token }}" readonly style="background: var(--bg-input); color:#fff;">
-                    <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('extToken').value); window.showToast &&showToast('Token copiado!','success')"><i class="bi bi-clipboard"></i></button>
-                </div>
-                <label class="form-label text-muted small mb-1">URL da plataforma</label>
-                <div class="input-group input-group-sm mb-2">
-                    <input type="text" id="extUrl" class="form-control" value="{{ connect_url }}" readonly style="background: var(--bg-input); color:#fff;">
-                    <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('extUrl').value); window.showToast && showToast('URL copiada!','success')"><i class="bi bi-clipboard"></i></button>
-                </div>
-                <form hx-post="{% url 'instagram:regenerate_token' %}" hx-swap="none" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-link btn-sm text-muted p-0" onclick="return confirm('Gerar um novo token invalida o atual. Continuar?')">
-                        <i class="bi bi-arrow-repeat"></i> Gerar novo token
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="account-list">
     {% for account in accounts %}
