@@ -25,9 +25,20 @@ class InstagramEngine:
             
         self.client.challenge_code_handler = custom_challenge_code_handler
 
+    def _attempt_login(self, username, password, relogin=False):
+        try:
+            self.client.login(username, password, relogin=relogin)
+        except BadPassword:
+            # Trick 2: Double-Tap (Bypass do erro falso de Senha Incorreta em Datacenter)
+            self.client.login(username, password, relogin=relogin)
+
     def login(self):
         if self.account.proxy_url:
             self.client.set_proxy(self.account.proxy_url)
+
+        # Trick 1: Spoofing de versão moderna do app para evitar bloqueio direto
+        self.client.device_settings["app_version"] = "361.0.0.39.109"
+        self.client.device_settings["version_code"] = "574767436"
 
         username = self.account.ig_username
         password = self.account.get_ig_password()
@@ -37,16 +48,16 @@ class InstagramEngine:
         try:
             if session_loaded:
                 try:
-                    self.client.login(username, password)
+                    self._attempt_login(username, password)
                     self.client.get_timeline_feed()
                 except LoginRequired:
                     old = self.client.get_settings()
                     self.client.set_settings({})
                     self.client.set_uuids(old.get('uuids', {}))
-                    self.client.login(username, password, relogin=True)
+                    self._attempt_login(username, password, relogin=True)
             else:
                 SessionManager.ensure_device(self.account, self.client)
-                self.client.login(username, password)
+                self._attempt_login(username, password)
 
             SessionManager.save_session(self.account, self.client)
             self.account.status = 'active'
