@@ -5,48 +5,27 @@
 (function () {
   'use strict';
 
-  /* ── Diamond Rain Animation ─────────────────────────────── */
-  function initDiamondRain() {
-    const container = document.querySelector('.diamond-rain');
-    if (!container) return;
+  /* ── Theme Toggler ─────────────────────────────── */
+  function initThemeToggle() {
+    const toggleBtn = document.getElementById('theme-toggle');
+    const toggleIcon = document.getElementById('theme-icon');
+    if (!toggleBtn) return;
 
-    const DIAMOND_COUNT = 35;
-
-    for (let i = 0; i < DIAMOND_COUNT; i++) {
-      createDiamond(container);
+    function updateIcon() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if(toggleIcon) toggleIcon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
     }
-  }
 
-  function createDiamond(container) {
-    const diamond = document.createElement('span');
-    diamond.className = 'diamond';
+    updateIcon();
 
-    const size = Math.random() * 6 + 4;          // 4-10px
-    const left = Math.random() * 100;             // 0-100%
-    const delay = Math.random() * 15;             // 0-15s
-    const duration = Math.random() * 12 + 10;     // 10-22s
-    const opacity = Math.random() * 0.10 + 0.04;  // 0.04-0.14
-
-    diamond.style.cssText = `
-      width: ${size}px;
-      height: ${size}px;
-      left: ${left}%;
-      top: -20px;
-      animation-delay: ${delay}s;
-      animation-duration: ${duration}s;
-      opacity: ${opacity};
-    `;
-
-    // Alternate colors
-    const colors = [
-      'rgba(168, 85, 247, 0.6)',
-      'rgba(124, 58, 237, 0.5)',
-      'rgba(232, 121, 249, 0.4)',
-      'rgba(139, 92, 246, 0.5)',
-    ];
-    diamond.style.background = colors[Math.floor(Math.random() * colors.length)];
-
-    container.appendChild(diamond);
+    toggleBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const newTheme = isDark ? 'light' : 'dark';
+      
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateIcon();
+    });
   }
 
   /* ── Toast Notification System ──────────────────────────── */
@@ -327,7 +306,7 @@
 
   /* ── Init ───────────────────────────────────────────────── */
   function init() {
-    initDiamondRain();
+    initThemeToggle();
     initMobileMenu();
     initHTMX();
     initStatusPolling();

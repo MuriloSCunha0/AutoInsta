@@ -6,64 +6,106 @@
 /* ── CSS Custom Properties ─────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg-body:        #050508;
-  --bg-sidebar:     #07060e;
-  --bg-panel:       rgba(12, 10, 20, 0.85);
-  --bg-card:        rgba(14, 11, 24, 0.80);
-  --bg-card-hover:  rgba(18, 14, 30, 0.92);
-  --bg-input:       rgba(16, 13, 28, 0.90);
-  --bg-topbar:      rgba(7, 6, 14, 0.70);
-  --bg-modal:       rgba(10, 8, 18, 0.95);
-  --bg-toast:       rgba(14, 11, 24, 0.96);
+  --bg-body:        #f8fafc;
+  --bg-sidebar:     #ffffff;
+  --bg-panel:       #ffffff;
+  --bg-card:        #ffffff;
+  --bg-card-hover:  #f8fafc;
+  --bg-input:       #f1f5f9;
+  --bg-topbar:      rgba(255, 255, 255, 0.85);
+  --bg-modal:       #ffffff;
+  --bg-toast:       #ffffff;
 
   /* Borders */
-  --border-subtle:  rgba(168, 85, 247, 0.12);
-  --border-medium:  rgba(168, 85, 247, 0.20);
-  --border-strong:  rgba(168, 85, 247, 0.35);
-  --border-input:   rgba(168, 85, 247, 0.18);
+  --border-subtle:  #e2e8f0;
+  --border-medium:  #cbd5e1;
+  --border-strong:  #94a3b8;
+  --border-input:   #cbd5e1;
 
   /* Text */
-  --text-primary:   #f5f3ff;
-  --text-secondary: #c4c0d9;
-  --text-muted:     #a3a0b5;
-  --text-faint:     #6b6880;
+  --text-primary:   #0f172a;
+  --text-secondary: #334155;
+  --text-muted:     #64748b;
+  --text-faint:     #94a3b8;
 
   /* Accents */
-  --accent:         #a855f7;
-  --accent-dark:    #7c3aed;
-  --accent-glow:    #e879f9;
-  --accent-bg:      rgba(168, 85, 247, 0.10);
+  --accent:         #0f172a;
+  --accent-dark:    #000000;
+  --accent-glow:    #334155;
+  --accent-bg:      #f1f5f9;
 
   /* Status */
-  --success:        #22c55e;
+  --success:        #10b981;
   --warning:        #f59e0b;
   --error:          #ef4444;
   --info:           #3b82f6;
 
   /* Gradients */
-  --grad-primary:   linear-gradient(135deg, #a855f7, #7c3aed);
-  --grad-glow:      linear-gradient(135deg, #a855f7, #e879f9);
-  --grad-subtle:    linear-gradient(180deg, rgba(168,85,247,0.08) 0%, transparent 100%);
+  --grad-primary:   linear-gradient(135deg, #0f172a, #334155);
+  --grad-glow:      linear-gradient(135deg, #0f172a, #334155);
+  --grad-subtle:    linear-gradient(180deg, #f8fafc 0%, transparent 100%);
 
   /* Shadows */
-  --shadow-card:    0 2px 16px rgba(0, 0, 0, 0.35);
-  --shadow-glow:    0 4px 32px rgba(168, 85, 247, 0.12);
-  --shadow-glow-lg: 0 8px 48px rgba(168, 85, 247, 0.18);
-  --shadow-modal:   0 24px 80px rgba(0, 0, 0, 0.65);
+  --shadow-card:    0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-glow:    0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-glow-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
+  --shadow-modal:   0 20px 40px rgba(0, 0, 0, 0.12);
 
   /* Layout */
-  --sidebar-w:      280px;
-  --topbar-h:       72px;
-  --radius-sm:      10px;
-  --radius-md:      16px;
-  --radius-lg:      20px;
-  --radius-xl:      24px;
+  --sidebar-w:      260px;
+  --topbar-h:       64px;
+  --radius-sm:      6px;
+  --radius-md:      8px;
+  --radius-lg:      12px;
+  --radius-xl:      16px;
 
   /* Transitions */
   --tr-fast:        0.15s ease;
   --tr-base:        0.2s ease;
   --tr-smooth:      0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --tr-bounce:      0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-body:        #0a0a0a;
+  --bg-sidebar:     #111111;
+  --bg-panel:       #111111;
+  --bg-card:        #111111;
+  --bg-card-hover:  #171717;
+  --bg-input:       #1a1a1a;
+  --bg-topbar:      rgba(17, 17, 17, 0.85);
+  --bg-modal:       #171717;
+  --bg-toast:       #171717;
+
+  /* Borders */
+  --border-subtle:  #262626;
+  --border-medium:  #333333;
+  --border-strong:  #525252;
+  --border-input:   #333333;
+
+  /* Text */
+  --text-primary:   #fafafa;
+  --text-secondary: #a3a3a3;
+  --text-muted:     #737373;
+  --text-faint:     #525252;
+
+  /* Accents */
+  --accent:         #ffffff;
+  --accent-dark:    #d4d4d4;
+  --accent-glow:    #ffffff;
+  --accent-bg:      #262626;
+
+  /* Gradients */
+  --grad-primary:   linear-gradient(135deg, #262626, #404040);
+  --grad-glow:      linear-gradient(135deg, #333333, #525252);
+  --grad-subtle:    linear-gradient(180deg, #171717 0%, transparent 100%);
+
+  /* Shadows */
+  --shadow-card:    0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-glow:    0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-glow-lg: 0 10px 25px rgba(0, 0, 0, 0.8);
+  --shadow-modal:   0 20px 40px rgba(0, 0, 0, 0.8);
 }
 
 /* ── Reset & Base ──────────────────────────────────────────── */
@@ -88,32 +130,7 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
-}
-
-/* ── Grid Overlay (subtle futuristic grid) ─────────────────── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(ellipse at 30% 20%, rgba(124, 58, 237, 0.06) 0%, transparent 50%),
-              radial-gradient(ellipse at 70% 80%, rgba(168, 85, 247, 0.04) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
+  transition: background-color var(--tr-smooth), color var(--tr-smooth);
 }
 
 /* ── Custom Scrollbar ──────────────────────────────────────── */
@@ -167,42 +184,6 @@ a:hover {
 ::selection {
   background: rgba(168, 85, 247, 0.30);
   color: #fff;
-}
-
-/* ── Diamond Rain Animation ────────────────────────────────── */
-.diamond-rain {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.diamond-rain .diamond {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  background: var(--accent);
-  opacity: 0;
-  transform: rotate(45deg);
-  animation: diamondFall linear infinite;
-}
-
-@keyframes diamondFall {
-  0% {
-    opacity: 0;
-    transform: rotate(45deg) translate(0, -20px) scale(0.5);
-  }
-  10% {
-    opacity: 0.12;
-  }
-  90% {
-    opacity: 0.08;
-  }
-  100% {
-    opacity: 0;
-    transform: rotate(45deg) translate(80px, 100vh) scale(0.3);
-  }
 }
 
 /* ── App Shell ─────────────────────────────────────────────── */

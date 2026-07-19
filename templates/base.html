@@ -13,9 +13,15 @@
     <link href="{% static 'css/theme.css' %}" rel="stylesheet">
     
     {% block extra_css %}{% endblock %}
+    
+    <!-- Theme Script (prevents FOUC) -->
+    <script>
+        const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
+    </script>
 </head>
 <body class="app-body">
-    <div class="diamond-rain"></div>
+
 
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
@@ -37,23 +43,18 @@
             <nav class="side-links">
                 <a href="{% url 'analytics:dashboard' %}" class="{% if request.resolver_match.namespace == 'analytics' %}active{% endif %}">
                     <i class="bi bi-grid-1x2-fill"></i> <span class="nav-text">Dashboard</span>
-                    <div class="nav-diamond"></div>
                 </a>
                 <a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.namespace == 'instagram' %}active{% endif %}">
                     <i class="bi bi-instagram"></i> <span class="nav-text">Contas</span>
-                    <div class="nav-diamond"></div>
                 </a>
                 <a href="{% url 'publisher:queue' %}" class="{% if request.resolver_match.namespace == 'publisher' %}active{% endif %}">
                     <i class="bi bi-send-fill"></i> <span class="nav-text">Fila de Posts</span>
-                    <div class="nav-diamond"></div>
                 </a>
                 <a href="{% url 'library:captions' %}" class="{% if 'captions' in request.path %}active{% endif %}">
                     <i class="bi bi-chat-quote-fill"></i> <span class="nav-text">Legendas</span>
-                    <div class="nav-diamond"></div>
                 </a>
                 <a href="{% url 'library:audios' %}" class="{% if 'audios' in request.path %}active{% endif %}">
                     <i class="bi bi-music-note-beamed"></i> <span class="nav-text">Áudios</span>
-                    <div class="nav-diamond"></div>
                 </a>
             </nav>
             
@@ -77,6 +78,9 @@
                 <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
                 <div class="top-actions">
                     {% block top_actions %}{% endblock %}
+                    <button class="btn btn-outline-secondary ms-2" id="theme-toggle" aria-label="Toggle Theme" style="border: 1px solid var(--border-subtle); color: var(--text-primary); background: transparent;">
+                        <i class="bi bi-moon-fill" id="theme-icon"></i>
+                    </button>
                 </div>
             </header>
             
