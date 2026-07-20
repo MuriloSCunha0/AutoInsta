@@ -1,4 +1,4 @@
-sandraoflow.com {
+sandraoflow.com, www.sandraoflow.com {
     reverse_proxy web:8000
     
     handle_path /static/* {
