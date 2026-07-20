@@ -50,5 +50,75 @@
             </form>
         </div>
     </div>
+    <div class="col-12 mt-4">
+        <div class="card glass-modal border-0 p-4">
+            <h5 class="text-white mb-4"><i class="bi bi-meta text-primary me-2"></i> Integração Meta API (Instagram)</h5>
+            <p class="text-muted mb-4">Insira as credenciais do aplicativo Meta para puxar dados detalhados (Insights) das suas contas do Instagram. Selecione a conta desejada e informe o token.</p>
+            
+            <form action="{% url 'accounts:settings' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_meta_api">
+                
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Conta do Instagram</label>
+                        <select name="account_id" class="form-select text-white border-subtle" style="background: var(--bg-input);" required>
+                            <option value="">Selecione a conta...</option>
+                            {% for acc in accounts %}
+                            <option value="{{ acc.id }}">@{{ acc.ig_username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Token de Acesso (Meta Graph API)</label>
+                        <input type="text" name="meta_token" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="EAA... (Token de longa duração)" required>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Atualizar Token</button>
+                    </div>
+                </div>
+            </form>
+            
+            <hr class="border-secondary opacity-25 my-4">
+            
+            <h6 class="text-white mb-3">Status dos Tokens Atuais</h6>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0" style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th class="text-muted fw-medium border-0">Conta</th>
+                            <th class="text-muted fw-medium border-0">Token</th>
+                            <th class="text-muted fw-medium border-0">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for acc in accounts %}
+                        <tr>
+                            <td class="text-white border-0">@{{ acc.ig_username }}</td>
+                            <td class="text-muted border-0">
+                                {% if acc.meta_access_token %}
+                                    <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Configurado</span>
+                                {% else %}
+                                    <span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i> Não configurado</span>
+                                {% endif %}
+                            </td>
+                            <td class="border-0">
+                                {% if acc.meta_access_token %}
+                                    <span class="badge bg-success bg-opacity-25 text-success rounded-pill">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary bg-opacity-25 text-secondary rounded-pill">Pendente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted border-0 py-4">Nenhuma conta conectada ainda.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

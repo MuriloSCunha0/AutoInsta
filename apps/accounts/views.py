@@ -66,6 +66,22 @@ def profile_update(request):
                 
     return redirect('accounts:profile')
 
+from apps.instagram.models import InstagramAccount
+
 @login_required
 def settings_view(request):
-    return render(request, 'accounts/settings.html')
+    accounts = InstagramAccount.objects.filter(owner=request.user)
+    
+    if request.method == 'POST' and request.POST.get('action') == 'update_meta_api':
+        account_id = request.POST.get('account_id')
+        meta_token = request.POST.get('meta_token')
+        try:
+            acc = accounts.get(id=account_id)
+            acc.meta_access_token = meta_token
+            acc.save()
+            messages.success(request, f'Token da Meta atualizado para a conta @{acc.ig_username}.')
+        except InstagramAccount.DoesNotExist:
+            messages.error(request, 'Conta não encontrada.')
+        return redirect('accounts:settings')
+
+    return render(request, 'accounts/settings.html', {'accounts': accounts})
