@@ -191,6 +191,57 @@ def connect_extension(request):
 
 @login_required
 @require_POST
+def add_account_meta(request):
+    """
+    Salva uma conta usando o Token da Meta Graph API.
+    """
+    ig_username = request.POST.get('ig_username', '').strip().lower()
+    meta_access_token = request.POST.get('meta_access_token', '').strip()
+    ig_user_id = request.POST.get('ig_user_id', '').strip()
+
+    if not ig_username or not meta_access_token:
+        return HttpResponse(
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Usuário e Token Meta são obrigatórios.</div>'
+        )
+
+    # Verifica limite de contas
+    current_count = InstagramAccount.objects.filter(owner=request.user).count()
+    if current_count >= request.user.max_ig_accounts:
+        return HttpResponse(
+            '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> '
+            f'Limite do plano atingido (máx {request.user.max_ig_accounts} contas). Assine o PRO.</div>'
+        )
+
+    try:
+        acc, created = InstagramAccount.objects.get_or_create(
+            owner=request.user,
+            ig_username=ig_username,
+            defaults={
+                'meta_access_token': meta_access_token,
+                'status': 'active', # Se já temos token meta, ela pode ser considerada ativa
+                'ig_user_id': int(ig_user_id) if ig_user_id.isdigit() else None
+            }
+        )
+
+        if not created:
+            # Atualiza token existente
+            acc.meta_access_token = meta_access_token
+            if ig_user_id.isdigit():
+                acc.ig_user_id = int(ig_user_id)
+            acc.status = 'active'
+            acc.save()
+
+        # Retorna o card atualizado para inserir na lista via HTMX
+        return render(request, 'instagram/partials/account_card.html', {'account': acc})
+
+    except Exception as e:
+        return HttpResponse(
+            f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token Meta: {str(e)}</div>'
+        )
+
+
+@login_required
+@require_POST
 def regenerate_extension_token(request):
     """Gera um novo token de conexão (invalida o anterior)."""
     request.user.rotate_extension_token()

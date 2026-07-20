@@ -18,6 +18,11 @@
                             <i class="bi bi-shield-lock me-1"></i> Avançado (sessão)
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-meta" type="button">
+                            <i class="bi bi-facebook me-1"></i> Token Meta
+                        </button>
+                    </li>
                 </ul>
             </div>
 
@@ -89,6 +94,39 @@
                         <div class="modal-footer border-0">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-primary">Importar Sessão</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ABA META: conectar via Graph API -->
+                <div class="tab-pane fade" id="tab-meta">
+                    <form hx-post="{% url 'instagram:add_meta' %}"
+                          hx-target="#account-list"
+                          hx-swap="afterbegin">
+                        {% csrf_token %}
+                        <div class="modal-body pt-0">
+                            <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-3" style="line-height:1.6">
+                                <i class="bi bi-facebook text-primary me-1"></i> Use esta opção se você possui um <strong>Token da Meta Graph API</strong> para publicar diretamente pela API oficial.
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Nome de Usuário (Instagram)</label>
+                                <input type="text" name="ig_username" class="form-control" placeholder="@usuario" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Token Meta (Access Token)</label>
+                                <input type="text" name="meta_access_token" class="form-control" placeholder="EAA..." required autocomplete="off">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Instagram User ID (Opcional)</label>
+                                <input type="text" name="ig_user_id" class="form-control" placeholder="ID numérico da conta IG">
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Salvar Token Meta</button>
                         </div>
                     </form>
                 </div>

@@ -42,6 +42,7 @@ class InstagramAccount(models.Model):
 
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='connecting')
     session_blob = models.JSONField(null=True, blank=True)
+    meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)
     challenge_type = models.CharField(max_length=50, blank=True)
     last_login_at = models.DateTimeField(null=True, blank=True)
