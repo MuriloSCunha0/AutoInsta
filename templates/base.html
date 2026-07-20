@@ -56,6 +56,12 @@
                 <a href="{% url 'library:audios' %}" class="{% if 'audios' in request.path %}active{% endif %}">
                     <i class="bi bi-music-note-beamed"></i> <span class="nav-text">Áudios</span>
                 </a>
+                {% if request.user.is_staff %}
+                <div style="height: 1px; background: var(--border-subtle); margin: 10px 20px;"></div>
+                <a href="/admin/" target="_blank" class="text-danger">
+                    <i class="bi bi-shield-lock-fill"></i> <span class="nav-text">Painel Gestão</span>
+                </a>
+                {% endif %}
             </nav>
             
             <div class="side-footer mt-auto">
@@ -101,6 +107,9 @@
             <a href="{% url 'publisher:queue' %}"><i class="bi bi-send-fill"></i> Fila</a>
             <a href="{% url 'library:captions' %}"><i class="bi bi-chat-quote-fill"></i> Legendas</a>
             <a href="{% url 'library:audios' %}"><i class="bi bi-music-note-beamed"></i> Áudios</a>
+            {% if request.user.is_staff %}
+            <a href="/admin/" target="_blank" class="text-danger"><i class="bi bi-shield-lock-fill"></i> Gestão</a>
+            {% endif %}
         </div>
     </nav>
 
