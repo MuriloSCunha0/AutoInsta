@@ -2,7 +2,99 @@
 {% block title %}Loops - SandraoFlow{% endblock %}
 {% block page_title %}Agendamento em Loop{% endblock %}
 {% block content %}
-<div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-arrow-repeat me-2"></i> O recurso de Loop permite que Reels de alta performance sejam repostados automaticamente. Em breve!
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="text-white mb-0"><i class="bi bi-arrow-repeat text-info me-2"></i> Meus Loops Ativos</h5>
+    <button class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addLoopModal">
+        <i class="bi bi-plus-lg"></i> Novo Loop
+    </button>
+</div>
+
+<div class="card glass-modal border-0 p-0">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0" style="background: transparent;">
+            <thead>
+                <tr>
+                    <th class="text-muted fw-medium border-0 ps-4">Conta</th>
+                    <th class="text-muted fw-medium border-0">Formato</th>
+                    <th class="text-muted fw-medium border-0">Intervalo</th>
+                    <th class="text-muted fw-medium border-0">Status</th>
+                    <th class="text-muted fw-medium border-0 text-end pe-4">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loop in loops %}
+                <tr>
+                    <td class="text-white border-0 ps-4">@{{ loop.account.ig_username }}</td>
+                    <td class="text-muted border-0">{{ loop.get_post_type_display }}</td>
+                    <td class="text-muted border-0">A cada {{ loop.interval_days }} dias</td>
+                    <td class="border-0">
+                        {% if loop.is_active %}
+                            <span class="badge bg-success bg-opacity-25 text-success rounded-pill">Ativo</span>
+                        {% else %}
+                            <span class="badge bg-secondary bg-opacity-25 text-secondary rounded-pill">Pausado</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end border-0 pe-4">
+                        <a href="{% url 'publisher:toggle_loop' loop.id %}" class="btn btn-sm btn-outline-info border-opacity-25 text-info me-1" title="Pausar/Retomar">
+                            <i class="bi {% if loop.is_active %}bi-pause-fill{% else %}bi-play-fill{% endif %}"></i>
+                        </a>
+                        <a href="{% url 'publisher:delete_loop' loop.id %}" class="btn btn-sm btn-outline-danger border-opacity-25 text-danger" onclick="return confirm('Excluir este Loop?')">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted border-0 py-5">
+                        <i class="bi bi-arrow-repeat d-block mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
+                        Você não tem nenhum conteúdo em Loop.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Loop -->
+<div class="modal fade" id="addLoopModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-arrow-repeat me-2 text-info"></i> Novo Loop Perpétuo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'publisher:add_loop' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Conta</label>
+                        {{ form.account }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Formato</label>
+                        {{ form.post_type }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Arquivo (Mídia)</label>
+                        {{ form.video_file }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Legenda</label>
+                        {{ form.caption }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Intervalo (Dias)</label>
+                        {{ form.interval_days }}
+                        <small class="text-muted d-block mt-1">Este post será republicado a cada N dias automaticamente.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Ativar Loop</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

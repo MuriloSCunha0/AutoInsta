@@ -2,7 +2,53 @@
 {% block title %}Configurações - SandraoFlow{% endblock %}
 {% block page_title %}Configurações do Sistema{% endblock %}
 {% block content %}
-<div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-gear-fill me-2"></i> Configurações de API e Fuso Horário em breve.
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card glass-modal border-0 p-4 h-100">
+            <h5 class="text-white mb-4"><i class="bi bi-person-badge text-info me-2"></i> Meus Dados Pessoais</h5>
+            <form action="{% url 'accounts:profile_update' %}" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_details">
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted">Nome</label>
+                    <input type="text" name="first_name" class="form-control text-white border-subtle" style="background: var(--bg-input);" value="{{ request.user.first_name }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Sobrenome</label>
+                    <input type="text" name="last_name" class="form-control text-white border-subtle" style="background: var(--bg-input);" value="{{ request.user.last_name }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">E-mail</label>
+                    <input type="email" name="email" class="form-control text-white border-subtle" style="background: var(--bg-input);" value="{{ request.user.email }}" readonly>
+                    <small class="text-muted">O e-mail de login não pode ser alterado.</small>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Salvar Dados</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card glass-modal border-0 p-4 h-100">
+            <h5 class="text-white mb-4"><i class="bi bi-shield-lock text-warning me-2"></i> Alterar Senha</h5>
+            <form action="{% url 'accounts:profile_update' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_password">
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted">Senha Atual</label>
+                    <input type="password" name="old_password" class="form-control text-white border-subtle" style="background: var(--bg-input);" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Nova Senha</label>
+                    <input type="password" name="new_password" class="form-control text-white border-subtle" style="background: var(--bg-input);" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Confirmar Nova Senha</label>
+                    <input type="password" name="confirm_password" class="form-control text-white border-subtle" style="background: var(--bg-input);" required>
+                </div>
+                <button type="submit" class="btn btn-outline-warning w-100 border-opacity-25 text-warning">Atualizar Senha</button>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

@@ -304,6 +304,23 @@
     input.focus();
   });
 
+  /* ── Sidebar Scroll Persistence ────────────────────────── */
+  function preserveSidebarScroll() {
+    const sidebar = document.querySelector('.side-nav');
+    if (!sidebar) return;
+
+    // Restore scroll position
+    const scrollPos = sessionStorage.getItem('sidebar-scroll-pos');
+    if (scrollPos) {
+      sidebar.scrollTop = parseInt(scrollPos, 10);
+    }
+
+    // Save scroll position on scroll
+    sidebar.addEventListener('scroll', () => {
+      sessionStorage.setItem('sidebar-scroll-pos', sidebar.scrollTop);
+    });
+  }
+
   /* ── Init ───────────────────────────────────────────────── */
   function init() {
     initThemeToggle();
@@ -312,6 +329,7 @@
     initStatusPolling();
     highlightActiveNav();
     relocateModals();
+    preserveSidebarScroll();
   }
 
   // Run on DOM ready

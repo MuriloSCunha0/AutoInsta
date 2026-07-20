@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import ScheduledPost
-from .forms import ScheduledPostForm
+from .models import ScheduledPost, PostLoop
+from .forms import ScheduledPostForm, PostLoopForm
 from django.http import JsonResponse
 from django.utils import timezone
 
@@ -32,11 +32,40 @@ def remove_post(request, post_id):
 
 @login_required
 def loops(request):
-    return render(request, 'publisher/loops.html')
+    loops_list = PostLoop.objects.filter(owner=request.user)
+    form = PostLoopForm()
+    form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
+    return render(request, 'publisher/loops.html', {'loops': loops_list, 'form': form})
+
+@login_required
+def add_loop(request):
+    if request.method == 'POST':
+        form = PostLoopForm(request.POST, request.FILES)
+        if form.is_valid():
+            loop = form.save(commit=False)
+            loop.owner = request.user
+            loop.save()
+    return redirect('publisher:loops')
+
+@login_required
+def toggle_loop(request, loop_id):
+    loop = get_object_or_404(PostLoop, id=loop_id, owner=request.user)
+    loop.is_active = not loop.is_active
+    loop.save()
+    return redirect('publisher:loops')
+
+@login_required
+def delete_loop(request, loop_id):
+    loop = get_object_or_404(PostLoop, id=loop_id, owner=request.user)
+    loop.delete()
+    return redirect('publisher:loops')
 
 @login_required
 def stories(request):
-    return render(request, 'publisher/stories.html')
+    posts = ScheduledPost.objects.filter(owner=request.user, post_type='STORY')
+    form = ScheduledPostForm(initial={'post_type': 'STORY'})
+    form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
+    return render(request, 'publisher/stories.html', {'posts': posts, 'form': form})
 
 @login_required
 def schedule(request):

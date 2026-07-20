@@ -171,6 +171,9 @@ def health(request):
         
     return render(request, 'analytics/health.html', {'account_health': account_health})
 
+from .models import DailySnapshot, SystemLog
+
 @login_required
 def logs_view(request):
-    return render(request, 'analytics/logs.html')
+    logs = SystemLog.objects.filter(owner=request.user)
+    return render(request, 'analytics/logs.html', {'logs': logs})

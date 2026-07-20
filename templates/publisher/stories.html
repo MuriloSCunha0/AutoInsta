@@ -2,7 +2,49 @@
 {% block title %}Stories - SandraoFlow{% endblock %}
 {% block page_title %}Automação de Stories{% endblock %}
 {% block content %}
-<div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-play-btn me-2"></i> Funcionalidade de repostagem automática nos Stories está em fase de testes.
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="text-white mb-0"><i class="bi bi-play-btn text-warning me-2"></i> Meus Stories Agendados</h5>
+    <button class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addPostModal">
+        <i class="bi bi-plus-lg"></i> Agendar Story
+    </button>
 </div>
+
+<div class="row g-3">
+    {% for post in posts %}
+    <div class="col-6 col-md-3">
+        <div class="card glass-modal border-0 h-100 overflow-hidden" style="border-radius: 16px;">
+            <div class="bg-dark text-center" style="height: 200px; display: flex; align-items: center; justify-content: center;">
+                {% if post.video_file %}
+                    <i class="bi bi-file-earmark-play-fill text-muted" style="font-size: 3rem;"></i>
+                {% else %}
+                    <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                {% endif %}
+            </div>
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge {% if post.status == 'queued' %}bg-warning{% elif post.status == 'published' %}bg-success{% elif post.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-25 text-white rounded-pill" style="font-size: 0.7rem;">
+                        {{ post.get_status_display }}
+                    </span>
+                    <a href="{% url 'publisher:remove' post.id %}" class="text-danger" onclick="return confirm('Remover agendamento?')" title="Remover"><i class="bi bi-trash"></i></a>
+                </div>
+                <h6 class="text-white mb-1 fs-6">@{{ post.account.ig_username }}</h6>
+                <p class="text-muted mb-0" style="font-size: 0.8rem;">
+                    <i class="bi bi-clock"></i> {{ post.scheduled_for|date:"d/m/Y H:i" }}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card glass-modal border-0 text-center py-5">
+            <i class="bi bi-play-btn d-block mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
+            <h5 class="text-white">Nenhum Story agendado</h5>
+            <p class="text-muted">Programe Stories que desaparecem após 24h clicando no botão acima.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Post Modal -->
+{% include 'publisher/partials/add_modal.html' %}
 {% endblock %}
