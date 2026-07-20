@@ -121,7 +121,7 @@
                             <div class="metric-icon m-0 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; font-size: 1.2rem; color: #818cf8; background: rgba(99, 102, 241, 0.15); border-radius: 10px;"><i class="bi bi-instagram"></i></div>
                             <div>
                                 <strong class="d-block" style="color: #f1f5f9; font-size: 0.95rem;">Nova Conta</strong>
-                                <small style="color: #94a3b8; font-size: 0.85rem;">Conectar ao sistema</small>
+                                <small style="color: #a6b0d8; font-size: 0.85rem;">Conectar ao sistema</small>
                             </div>
                         </div>
                         <i class="bi bi-chevron-right" style="color: #818cf8;"></i>
@@ -132,7 +132,7 @@
                             <div class="metric-icon m-0 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; font-size: 1.2rem; color: #60a5fa; background: rgba(59, 130, 246, 0.15); border-radius: 10px;"><i class="bi bi-send-plus"></i></div>
                             <div>
                                 <strong class="d-block" style="color: #f1f5f9; font-size: 0.95rem;">Agendar Post</strong>
-                                <small style="color: #94a3b8; font-size: 0.85rem;">Adicionar à fila</small>
+                                <small style="color: #a6b0d8; font-size: 0.85rem;">Adicionar à fila</small>
                             </div>
                         </div>
                         <i class="bi bi-chevron-right" style="color: #60a5fa;"></i>
@@ -155,54 +155,43 @@
                     Global
                 </span>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle" style="background: transparent; color: var(--text-primary);">
-                        <thead class="text-muted border-bottom" style="border-color: var(--border-subtle) !important;">
-                            <tr>
-                                <th class="border-0 ps-4" style="width: 80px;">Posição</th>
-                                <th class="border-0">Criador</th>
-                                <th class="border-0 text-center">Posts Publicados</th>
-                                <th class="border-0 text-center">Seguidores</th>
-                                <th class="border-0 text-end pe-4">Pontuação Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in ranking_list %}
-                            <tr style="background: {% if item.is_me %}rgba(99, 102, 241, 0.1){% else %}transparent{% endif %}; border-bottom: 1px solid var(--border-subtle);">
-                                <td class="border-0 ps-4 py-3">
-                                    {% if item.position == 1 %}
-                                        <div class="avatar bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style="width: 36px; height: 36px; font-size: 0.9rem;">1º</div>
-                                    {% elif item.position == 2 %}
-                                        <div class="avatar bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style="width: 36px; height: 36px; font-size: 0.9rem;">2º</div>
-                                    {% elif item.position == 3 %}
-                                        <div class="avatar text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style="width: 36px; height: 36px; background-color: #cd7f32; font-size: 0.9rem;">3º</div>
-                                    {% else %}
-                                        <div class="avatar rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 36px; height: 36px; background: rgba(255,255,255,0.05); color: #94a3b8; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">{{ item.position }}º</div>
-                                    {% endif %}
-                                </td>
-                                <td class="border-0 py-3">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="avatar rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">
-                                            {{ item.username|make_list|first|upper }}
-                                        </div>
-                                        <strong style="color: #f1f5f9;">{{ item.username }}</strong>
-                                        {% if item.is_me %}
-                                            <span class="badge rounded-pill" style="font-size: 0.65rem; background: #6366f1; color: white;">Você</span>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td class="border-0 text-center py-3" style="color: #34d399; font-weight: 600;">{{ item.posts }}</td>
-                                <td class="border-0 text-center py-3" style="color: #38bdf8; font-weight: 600;">{{ item.followers }}</td>
-                                <td class="border-0 text-end pe-4 py-3">
-                                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.85rem; font-weight: 700;">
-                                        <i class="bi bi-star-fill me-1"></i> {{ item.score }} pts
-                                    </span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="card-body">
+                <div class="ranking-list">
+                    {% for item in ranking_list %}
+                    <div class="ranking-row {% if item.is_me %}is-me{% endif %}">
+                        <div class="ranking-pos">
+                            {% if item.position == 1 %}
+                                <span class="ranking-medal gold"><i class="bi bi-trophy-fill"></i></span>
+                            {% elif item.position == 2 %}
+                                <span class="ranking-medal silver">2º</span>
+                            {% elif item.position == 3 %}
+                                <span class="ranking-medal bronze">3º</span>
+                            {% else %}
+                                <span class="ranking-medal plain">{{ item.position }}º</span>
+                            {% endif %}
+                        </div>
+                        <div class="ranking-user">
+                            <div class="ranking-avatar">{{ item.username|make_list|first|upper }}</div>
+                            <div class="min-w-0">
+                                <div class="ranking-name">
+                                    {{ item.username }}
+                                    {% if item.is_me %}<span class="ranking-you">VOCÊ</span>{% endif %}
+                                </div>
+                                <div class="ranking-sub">
+                                    <i class="bi bi-collection-play"></i> {{ item.posts }} posts
+                                    <span class="ranking-dot">·</span>
+                                    <i class="bi bi-people"></i> {{ item.followers }} seguidores
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ranking-score"><i class="bi bi-star-fill me-1"></i>{{ item.score }} pts</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state text-center py-4">
+                        <i class="bi bi-trophy text-muted mb-2" style="font-size: 2.5rem;"></i>
+                        <p class="text-muted mb-0">Publique conteúdo para entrar no ranking global.</p>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
