@@ -1,0 +1,26 @@
+{% extends 'base_auth.html' %}
+
+{% block title %}Cadastro em Análise | SandraoFlow{% endblock %}
+
+{% block content %}
+<section class="auth-card text-center">
+    <div class="mb-4">
+        <i class="bi bi-clock-history text-primary" style="font-size: 3rem;"></i>
+    </div>
+    <span class="page-kicker">Sucesso</span>
+    <h1>Cadastro em Análise</h1>
+    
+    <div class="alert alert-info mt-4 text-start" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i> Olá <strong>{{ user.username }}</strong>, seu cadastro foi recebido!
+    </div>
+    
+    <p class="text-muted mt-3 mb-4">
+        Por medidas de segurança e qualidade, todos os novos acessos precisam ser aprovados manualmente por um administrador antes de utilizar o <strong>SandraoFlow</strong>.
+    </p>
+    <p class="text-muted">
+        Assim que sua conta for ativada, você poderá fazer o login normalmente com seu usuário e senha.
+    </p>
+
+    <a href="{% url 'accounts:login' %}" class="btn btn-primary w-100 mt-4">Voltar para o Login</a>
+</section>
+{% endblock %}
