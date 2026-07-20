@@ -74,23 +74,23 @@
                                 <input type="hidden" name="action" value="update_details">
                                 <div class="row g-3">
                                     <div class="col-md-6">
-                                        <label class="form-label text-muted">Nome</label>
+                                        <label class="form-label fw-medium text-secondary">Nome</label>
                                         <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label text-muted">Sobrenome</label>
+                                        <label class="form-label fw-medium text-secondary">Sobrenome</label>
                                         <input type="text" name="last_name" class="form-control" value="{{ request.user.last_name }}">
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label text-muted">E-mail</label>
+                                        <label class="form-label fw-medium text-secondary">E-mail</label>
                                         <input type="email" name="email" class="form-control" value="{{ request.user.email }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label text-muted">Telefone</label>
+                                        <label class="form-label fw-medium text-secondary">Telefone</label>
                                         <input type="text" name="phone" class="form-control" value="{{ request.user.phone }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label text-muted">Foto de Perfil</label>
+                                        <label class="form-label fw-medium text-secondary">Foto de Perfil</label>
                                         <input type="file" name="avatar" class="form-control" accept="image/*">
                                     </div>
                                     <div class="col-12 mt-4 text-end">
@@ -107,15 +107,15 @@
                                 <input type="hidden" name="action" value="update_password">
                                 <div class="row g-3">
                                     <div class="col-12">
-                                        <label class="form-label text-muted">Senha Atual</label>
+                                        <label class="form-label fw-medium text-secondary">Senha Atual</label>
                                         <input type="password" name="old_password" class="form-control" required>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label text-muted">Nova Senha</label>
+                                        <label class="form-label fw-medium text-secondary">Nova Senha</label>
                                         <input type="password" name="new_password" class="form-control" required minlength="8">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label text-muted">Confirmar Nova Senha</label>
+                                        <label class="form-label fw-medium text-secondary">Confirmar Nova Senha</label>
                                         <input type="password" name="confirm_password" class="form-control" required minlength="8">
                                     </div>
                                     <div class="col-12 mt-4 text-end">
