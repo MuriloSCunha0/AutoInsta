@@ -216,3 +216,11 @@ FERNET_KEY = env("FERNET_KEY", default="")
 # Configuração Padrão de Campo Primário
 # =============================================================================
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# =============================================================================
+# Meta / Facebook API OAuth
+# =============================================================================
+META_APP_ID = env("META_APP_ID", default="")
+META_APP_SECRET = env("META_APP_SECRET", default="")
+META_REDIRECT_URI = env("META_REDIRECT_URI", default="http://localhost:8000/instagram/oauth/callback/")
+

@@ -1,0 +1,51 @@
+<div class="modal-body pt-0 text-center">
+    <div class="alert alert-primary bg-primary bg-opacity-10 border-0 text-start small mb-4">
+        <i class="bi bi-info-circle me-1"></i> Autorize o aplicativo na Meta. Você pode escanear o QR Code pelo celular ou clicar no botão para abrir no navegador.
+    </div>
+
+    <!-- QR Code Container -->
+    <div id="qrcode-container" class="bg-white p-3 d-inline-block rounded-3 shadow-sm mb-4"></div>
+
+    <div class="d-grid gap-2">
+        <a href="{{ auth_url }}" target="_blank" class="btn btn-primary btn-lg">
+            <i class="bi bi-box-arrow-up-right me-2"></i> Conectar via Meta API
+        </a>
+        <button type="button" class="btn btn-outline-secondary" onclick="copyOAuthLink()">
+            <i class="bi bi-copy me-2"></i> Copiar Link
+        </button>
+    </div>
+</div>
+<div class="modal-footer border-0">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+</div>
+
+<input type="hidden" id="oauth-url-input" value="{{ auth_url }}">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    setTimeout(() => {
+        var url = document.getElementById('oauth-url-input').value;
+        if(url && document.getElementById('qrcode-container')) {
+            document.getElementById('qrcode-container').innerHTML = '';
+            new QRCode(document.getElementById("qrcode-container"), {
+                text: url,
+                width: 180,
+                height: 180,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+        }
+    }, 100);
+
+    function copyOAuthLink() {
+        var url = document.getElementById('oauth-url-input').value;
+        navigator.clipboard.writeText(url).then(function() {
+            if (typeof _toast !== 'undefined') {
+                _toast('Link copiado para a área de transferência!', 'success');
+            } else {
+                alert('Link copiado!');
+            }
+        });
+    }
+</script>
