@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Meu Perfil | AutoInsta{% endblock %}
+{% block page_title %}Meu Perfil{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card bg-surface border-subtle">
+            <div class="card-header border-subtle bg-transparent">
+                <h5 class="mb-0"><i class="bi bi-person-circle text-primary me-2"></i> Informações da Conta</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-4 pb-4 border-bottom border-subtle">
+                    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-4" style="width: 80px; height: 80px; font-size: 2rem;">
+                        {{ request.user.username|make_list|first|upper }}
+                    </div>
+                    <div>
+                        <h3 class="mb-1 fw-bold">{{ request.user.username }}</h3>
+                        <p class="text-muted mb-0">{{ request.user.email }}</p>
+                        <div class="mt-2">
+                            {% if request.user.is_active %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"><i class="bi bi-check-circle"></i> Conta Ativa</span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25"><i class="bi bi-hourglass-split"></i> Conta Pendente</span>
+                            {% endif %}
+                            {% if request.user.is_staff %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 ms-1"><i class="bi bi-shield-lock-fill"></i> Administrador</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-body rounded border border-subtle">
+                            <h6 class="text-muted mb-1 text-uppercase" style="font-size: 0.75rem;">Membro desde</h6>
+                            <p class="mb-0 fw-medium">{{ request.user.date_joined|date:"d/m/Y" }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-body rounded border border-subtle">
+                            <h6 class="text-muted mb-1 text-uppercase" style="font-size: 0.75rem;">Último Acesso</h6>
+                            <p class="mb-0 fw-medium">{{ request.user.last_login|date:"d/m/Y H:i"|default:"N/A" }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="mb-3 mt-4"><i class="bi bi-star text-warning me-2"></i> Meu Plano</h5>
+                <div class="p-4 rounded border border-subtle" style="background: var(--bg-body);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0 text-primary fw-bold">Plano Pro</h4>
+                        <span class="badge bg-primary text-white">Ativo</span>
+                    </div>
+                    <p class="text-muted mb-3">Você tem acesso total à plataforma de automação e agendamentos ilimitados.</p>
+                    
+                    <ul class="list-unstyled mb-0">
+                        <li class="d-flex align-items-center mb-2">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            <span>Até <strong>{{ request.user.max_ig_accounts }}</strong> contas de Instagram conectadas</span>
+                        </li>
+                        <li class="d-flex align-items-center mb-2">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            <span>Postagens e Agendamentos Ilimitados</span>
+                        </li>
+                        <li class="d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            <span>Acesso à biblioteca de Áudios e Legendas</span>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

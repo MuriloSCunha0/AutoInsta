@@ -84,6 +84,22 @@
                 <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
                 <div class="top-actions">
                     {% block top_actions %}{% endblock %}
+                    <div class="dropdown d-inline-block ms-2">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false" style="border: 1px solid var(--border-subtle); color: var(--text-primary); background: transparent;">
+                            <i class="bi bi-person-circle"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu" style="background: var(--bg-card); border-color: var(--border-subtle);">
+                            <li><h6 class="dropdown-header text-muted">@{{ request.user.username }}</h6></li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}" style="color: var(--text-primary);"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
+                            <li><hr class="dropdown-divider" style="border-color: var(--border-subtle);"></li>
+                            <li>
+                                <form method="post" action="{% url 'accounts:logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>Sair</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                     <button class="btn btn-outline-secondary ms-2" id="theme-toggle" aria-label="Toggle Theme" style="border: 1px solid var(--border-subtle); color: var(--text-primary); background: transparent;">
                         <i class="bi bi-moon-fill" id="theme-icon"></i>
                     </button>
