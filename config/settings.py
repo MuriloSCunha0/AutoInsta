@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.library.apps.LibraryConfig",
     "apps.analytics.apps.AnalyticsConfig",
     "apps.notifications.apps.NotificationsConfig",
+    "apps.management.apps.ManagementConfig",
 ]
 
 # =============================================================================

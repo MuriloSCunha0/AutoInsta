@@ -1,0 +1,74 @@
+{% extends 'management/base_management.html' %}
+
+{% block page_title %}Gestão de Usuários{% endblock %}
+
+{% block management_content %}
+<div class="card bg-surface border-subtle">
+    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Todos os Usuários</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Email</th>
+                        <th>Data de Cadastro</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                    {{ u.username|make_list|first|upper }}
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">{{ u.username }}</h6>
+                                    {% if u.is_superuser %}
+                                    <small class="text-danger"><i class="bi bi-shield-lock-fill"></i> Admin</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ u.email }}</td>
+                        <td>{{ u.date_joined|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">Pendente/Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <form method="POST" action="{% url 'management:user_toggle' u.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                {% if u.is_active %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" {% if request.user == u %}disabled{% endif %}>
+                                        <i class="bi bi-x-circle"></i> Bloquear
+                                    </button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-check-circle"></i> Aprovar
+                                    </button>
+                                {% endif %}
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            Nenhum usuário cadastrado.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

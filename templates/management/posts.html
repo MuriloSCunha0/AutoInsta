@@ -1,0 +1,66 @@
+{% extends 'management/base_management.html' %}
+
+{% block page_title %}Fila de Postagens Global{% endblock %}
+
+{% block management_content %}
+<div class="card bg-surface border-subtle">
+    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Auditoria de Postagens</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th>Conteúdo</th>
+                        <th>Dono</th>
+                        <th>Conta Destino</th>
+                        <th>Data Agendada</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for post in posts %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if post.media %}
+                                <img src="{{ post.media.file.url }}" class="rounded me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                                {% else %}
+                                <div class="bg-secondary rounded me-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                    <i class="bi bi-image text-white"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <span class="d-inline-block text-truncate text-wrap" style="max-width: 250px; font-size: 0.9em;">
+                                        {{ post.caption|truncatechars:100|default:"Sem legenda" }}
+                                    </span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ post.account.owner.username }}</td>
+                        <td><strong>@{{ post.account.username }}</strong></td>
+                        <td>{{ post.scheduled_time|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if post.status == 'PENDING' %}
+                                <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Pendente</span>
+                            {% elif post.status == 'PUBLISHED' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Publicado</span>
+                            {% elif post.status == 'FAILED' %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Erro</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            Nenhum post agendado na plataforma.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

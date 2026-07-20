@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-surface border-subtle">
+            <div class="card-body p-0">
+                <ul class="nav nav-pills p-2" style="gap: 5px;">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'management:dashboard' %}">
+                            <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'users' %}active{% endif %}" href="{% url 'management:users' %}">
+                            <i class="bi bi-people-fill me-1"></i> Usuários
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'instagram' %}active{% endif %}" href="{% url 'management:instagram' %}">
+                            <i class="bi bi-instagram me-1"></i> Contas IG
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'posts' %}active{% endif %}" href="{% url 'management:posts' %}">
+                            <i class="bi bi-send-fill me-1"></i> Fila Global
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block management_content %}{% endblock %}
+{% endblock %}

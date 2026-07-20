@@ -1,0 +1,108 @@
+{% extends 'management/base_management.html' %}
+
+{% block page_title %}Painel de Gestão{% endblock %}
+
+{% block management_content %}
+<div class="row g-4">
+    <div class="col-md-3">
+        <div class="card bg-surface border-subtle h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-muted mb-0">Total de Usuários</h5>
+                    <div class="icon-shape bg-primary bg-opacity-10 text-primary rounded-circle p-2">
+                        <i class="bi bi-people-fill fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="display-6 fw-bold mb-0 text-primary">{{ total_users }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-surface border-subtle h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-muted mb-0">Pendentes</h5>
+                    <div class="icon-shape bg-warning bg-opacity-10 text-warning rounded-circle p-2">
+                        <i class="bi bi-person-fill-exclamation fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="display-6 fw-bold mb-0 text-warning">{{ pending_users }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-surface border-subtle h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-muted mb-0">Contas IG</h5>
+                    <div class="icon-shape bg-success bg-opacity-10 text-success rounded-circle p-2">
+                        <i class="bi bi-instagram fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="display-6 fw-bold mb-0 text-success">{{ total_ig }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-surface border-subtle h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-muted mb-0">Total Posts</h5>
+                    <div class="icon-shape bg-info bg-opacity-10 text-info rounded-circle p-2">
+                        <i class="bi bi-send-fill fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="display-6 fw-bold mb-0 text-info">{{ total_posts }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-surface border-subtle">
+            <div class="card-header border-subtle bg-transparent">
+                <h5 class="mb-0">Posts Recentes na Plataforma</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light text-muted">
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Conta IG</th>
+                                <th>Data Agendada</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in recent_posts %}
+                            <tr>
+                                <td>{{ post.account.owner.username }}</td>
+                                <td>@{{ post.account.username }}</td>
+                                <td>{{ post.scheduled_time|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if post.status == 'PENDING' %}
+                                        <span class="badge bg-warning">Pendente</span>
+                                    {% elif post.status == 'PUBLISHED' %}
+                                        <span class="badge bg-success">Publicado</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Erro</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    Nenhum post agendado.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

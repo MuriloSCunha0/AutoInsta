@@ -1,0 +1,57 @@
+{% extends 'management/base_management.html' %}
+
+{% block page_title %}Monitoramento de Contas IG{% endblock %}
+
+{% block management_content %}
+<div class="card bg-surface border-subtle">
+    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Todas as Contas do Instagram</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th>Dono</th>
+                        <th>Username IG</th>
+                        <th>Status da Sessão</th>
+                        <th>Data de Conexão</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for account in accounts %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle fs-5 text-muted me-2"></i>
+                                <span>{{ account.owner.username }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <img src="{{ account.profile_pic_url }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/32'">
+                                <strong>@{{ account.username }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            {% if account.is_valid %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Conectado</span>
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">Desconectado</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ account.created_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-muted">
+                            Nenhuma conta de Instagram conectada na plataforma.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

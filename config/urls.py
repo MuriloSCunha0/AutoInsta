@@ -28,6 +28,7 @@ urlpatterns = [
     path("library/", include("apps.library.urls", namespace="library")),
     path("analytics/", include("apps.analytics.urls", namespace="analytics")),
     path("notifications/", include("apps.notifications.urls", namespace="notifications")),
+    path("management/", include("apps.management.urls", namespace="management")),
 ]
 
 # Servir arquivos de mídia em desenvolvimento
