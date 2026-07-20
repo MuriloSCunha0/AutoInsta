@@ -13,9 +13,13 @@
             </div>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-4 pb-4 border-bottom border-subtle">
-                    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-4" style="width: 80px; height: 80px; font-size: 2rem;">
-                        {{ request.user.username|make_list|first|upper }}
-                    </div>
+                    {% if request.user.avatar %}
+                        <img src="{{ request.user.avatar.url }}" alt="Avatar" class="rounded-circle me-4" style="width: 80px; height: 80px; object-fit: cover; border: 2px solid var(--border-medium);">
+                    {% else %}
+                        <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-4" style="width: 80px; height: 80px; font-size: 2rem;">
+                            {{ request.user.username|make_list|first|upper }}
+                        </div>
+                    {% endif %}
                     <div>
                         <h3 class="mb-1 fw-bold">{{ request.user.username }}</h3>
                         <p class="text-muted mb-0">{{ request.user.email }}</p>
@@ -47,28 +51,80 @@
                     </div>
                 </div>
 
-                <h5 class="mb-3 mt-4"><i class="bi bi-star text-warning me-2"></i> Meu Plano</h5>
-                <div class="p-4 rounded border border-subtle" style="background: var(--bg-body);">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="mb-0 text-primary fw-bold">Plano Pro</h4>
-                        <span class="badge bg-primary text-white">Ativo</span>
-                    </div>
-                    <p class="text-muted mb-3">Você tem acesso total à plataforma de automação e agendamentos ilimitados.</p>
-                    
-                    <ul class="list-unstyled mb-0">
-                        <li class="d-flex align-items-center mb-2">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <span>Até <strong>{{ request.user.max_ig_accounts }}</strong> contas de Instagram conectadas</span>
+                <!-- Settings Forms -->
+                <div class="mt-5">
+                    <ul class="nav nav-pills mb-4" id="profileTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="details-tab" data-bs-toggle="pill" data-bs-target="#details" type="button" role="tab" aria-controls="details" aria-selected="true">
+                                <i class="bi bi-person-lines-fill me-2"></i>Meus Dados
+                            </button>
                         </li>
-                        <li class="d-flex align-items-center mb-2">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <span>Postagens e Agendamentos Ilimitados</span>
-                        </li>
-                        <li class="d-flex align-items-center">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <span>Acesso à biblioteca de Áudios e Legendas</span>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="security-tab" data-bs-toggle="pill" data-bs-target="#security" type="button" role="tab" aria-controls="security" aria-selected="false">
+                                <i class="bi bi-shield-lock-fill me-2"></i>Segurança
+                            </button>
                         </li>
                     </ul>
+
+                    <div class="tab-content" id="profileTabsContent">
+                        <!-- Details Tab -->
+                        <div class="tab-pane fade show active" id="details" role="tabpanel" aria-labelledby="details-tab">
+                            <form method="post" action="{% url 'accounts:profile_update' %}" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="update_details">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted">Nome</label>
+                                        <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted">Sobrenome</label>
+                                        <input type="text" name="last_name" class="form-control" value="{{ request.user.last_name }}">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label text-muted">E-mail</label>
+                                        <input type="email" name="email" class="form-control" value="{{ request.user.email }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted">Telefone</label>
+                                        <input type="text" name="phone" class="form-control" value="{{ request.user.phone }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted">Foto de Perfil</label>
+                                        <input type="file" name="avatar" class="form-control" accept="image/*">
+                                    </div>
+                                    <div class="col-12 mt-4 text-end">
+                                        <button type="submit" class="btn btn-primary fw-medium px-4">Salvar Alterações</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Security Tab -->
+                        <div class="tab-pane fade" id="security" role="tabpanel" aria-labelledby="security-tab">
+                            <form method="post" action="{% url 'accounts:profile_update' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="update_password">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label text-muted">Senha Atual</label>
+                                        <input type="password" name="old_password" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted">Nova Senha</label>
+                                        <input type="password" name="new_password" class="form-control" required minlength="8">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted">Confirmar Nova Senha</label>
+                                        <input type="password" name="confirm_password" class="form-control" required minlength="8">
+                                    </div>
+                                    <div class="col-12 mt-4 text-end">
+                                        <button type="submit" class="btn btn-warning fw-medium px-4">Alterar Senha</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
             </div>
