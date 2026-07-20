@@ -168,3 +168,82 @@ class InstagramEngine:
             thumbnail=thumbnail_path
         )
         return media.dict()
+
+    def upload_reel_meta_api(self, video_url, caption, cover_url=None):
+        """
+        Publica um Reel usando a API oficial da Meta.
+        Exige que a conta seja Business/Creator e que tenha um meta_access_token ativo.
+        O video_url e cover_url devem ser URLs públicas acessíveis pelos servidores da Meta.
+        """
+        import requests
+        import time
+        from django.conf import settings
+
+        if not self.account.meta_access_token:
+            raise ValueError("Conta não possui token Meta configurado.")
+            
+        ig_user_id = self.account.ig_user_id
+        if not ig_user_id:
+            raise ValueError("Conta não possui ig_user_id. Reconecte o Meta API.")
+
+        token = self.account.meta_access_token
+        
+        # 1. Cria o contêiner de mídia
+        url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media"
+        payload = {
+            'media_type': 'REELS',
+            'video_url': video_url,
+            'caption': caption,
+            'access_token': token
+        }
+        if cover_url:
+            payload['cover_url'] = cover_url
+            
+        res = requests.post(url, data=payload, timeout=20)
+        data = res.json()
+        
+        if 'id' not in data:
+            raise Exception(f"Erro ao criar contêiner Meta: {data.get('error', data)}")
+            
+        creation_id = data['id']
+        
+        # 2. Polling para ver se o vídeo terminou de processar
+        status_url = f"https://graph.instagram.com/v21.0/{creation_id}"
+        status_params = {
+            'fields': 'status_code',
+            'access_token': token
+        }
+        
+        max_attempts = 12
+        ready = False
+        
+        for _ in range(max_attempts):
+            time.sleep(10)
+            status_res = requests.get(status_url, params=status_params, timeout=10)
+            status_data = status_res.json()
+            
+            status_code = status_data.get('status_code')
+            if status_code == 'FINISHED':
+                ready = True
+                break
+            elif status_code == 'ERROR':
+                raise Exception(f"Erro no processamento do vídeo pela Meta: {status_data}")
+                
+        if not ready:
+            raise Exception("Timeout aguardando processamento do vídeo na Meta.")
+            
+        # 3. Publica a mídia
+        publish_url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media_publish"
+        publish_payload = {
+            'creation_id': creation_id,
+            'access_token': token
+        }
+        
+        pub_res = requests.post(publish_url, data=publish_payload, timeout=20)
+        pub_data = pub_res.json()
+        
+        if 'id' not in pub_data:
+            raise Exception(f"Erro ao publicar mídia via Meta: {pub_data.get('error', pub_data)}")
+            
+        return {'id': pub_data['id'], 'creation_id': creation_id}
+

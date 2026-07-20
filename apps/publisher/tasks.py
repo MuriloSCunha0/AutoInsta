@@ -44,18 +44,50 @@ def publish_reel(post_id):
                 caption_obj.used_count += 1
                 caption_obj.save()
 
-        video_path = post.video_file.path
-        thumbnail_path = post.thumbnail.path if post.thumbnail else None
+        # Spintax: Processar variáveis dinâmicas na legenda
+        hoje = timezone.now()
+        dias_semana = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
         
-        media_info = engine.upload_reel(
-            video_path=video_path,
-            caption=final_caption,
-            thumbnail_path=thumbnail_path
-        )
+        spintax_map = {
+            '{nome_conta}': post.account.ig_username,
+            '{dia_semana}': dias_semana[hoje.weekday()],
+            '{data_hoje}': hoje.strftime('%d/%m/%Y'),
+        }
+        
+        for key, value in spintax_map.items():
+            final_caption = final_caption.replace(key, value)
+
+        # Lógica de Roteamento: API Oficial (Meta) vs Automação (Session/Selenium)
+        if post.account.meta_access_token:
+            from django.conf import settings
+            # Exige que SITE_URL esteja configurado no .env (ex: https://meusite.com)
+            site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000').rstrip('/')
+            
+            video_url = f"{site_url}{post.video_file.url}"
+            cover_url = f"{site_url}{post.thumbnail.url}" if post.thumbnail else None
+            
+            print(f"Publicando {post.id} via Meta Graph API Oficial...")
+            media_info = engine.upload_reel_meta_api(
+                video_url=video_url,
+                caption=final_caption,
+                cover_url=cover_url
+            )
+            post.ig_media_id = str(media_info.get('id', ''))
+            
+        else:
+            print(f"Publicando {post.id} via Automação (Session)...")
+            video_path = post.video_file.path
+            thumbnail_path = post.thumbnail.path if post.thumbnail else None
+            
+            media_info = engine.upload_reel(
+                video_path=video_path,
+                caption=final_caption,
+                thumbnail_path=thumbnail_path
+            )
+            post.ig_media_id = str(media_info.get('id', ''))
         
         post.status = 'published'
         post.published_at = timezone.now()
-        post.ig_media_id = str(media_info.get('id', ''))
         post.save()
         
     except Exception as e:
