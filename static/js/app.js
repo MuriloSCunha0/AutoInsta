@@ -306,10 +306,134 @@
     });
   }
 
+  /* ── Sidebar Collapse (desktop) ─────────────────────────── */
+  function initSidebarCollapse() {
+    const btn = document.getElementById('desk-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const collapsed = document.documentElement.getAttribute('data-nav') === 'collapsed';
+      if (collapsed) {
+        document.documentElement.removeAttribute('data-nav');
+        localStorage.removeItem('nav-collapsed');
+      } else {
+        document.documentElement.setAttribute('data-nav', 'collapsed');
+        localStorage.setItem('nav-collapsed', '1');
+      }
+    });
+  }
+
+  /* ── Command Palette (busca rápida ⌘K / Ctrl+K) ─────────── */
+  function initCommandPalette() {
+    const overlay = document.getElementById('cmdk-overlay');
+    const input = document.getElementById('cmdk-input');
+    const list = document.getElementById('cmdk-list');
+    const empty = document.getElementById('cmdk-empty');
+    const trigger = document.getElementById('cmdk-trigger');
+    if (!overlay || !input || !list) return;
+
+    // Monta os itens a partir dos links da sidebar (rótulo + ícone + href).
+    const items = [];
+    document.querySelectorAll('.side-links a').forEach((a) => {
+      const label = (a.querySelector('.nav-text')?.textContent || a.textContent || '').trim();
+      const icon = a.querySelector('i')?.className || 'bi bi-arrow-right';
+      const href = a.getAttribute('href');
+      if (label && href) {
+        items.push({ label, icon, href });
+        a.dataset.label = label; // usado no tooltip da sidebar colapsada
+      }
+    });
+
+    let active = 0;
+
+    function render() {
+      const q = input.value.toLowerCase().trim();
+      const matches = items.filter((it) => it.label.toLowerCase().includes(q));
+      if (active >= matches.length) active = Math.max(matches.length - 1, 0);
+      list.innerHTML = matches.map((it, i) =>
+        '<li class="' + (i === active ? 'active' : '') + '"><a href="' + it.href + '">' +
+        '<i class="' + it.icon + '"></i>' + it.label + '</a></li>'
+      ).join('');
+      empty.hidden = matches.length > 0;
+    }
+
+    function open() {
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+      input.value = '';
+      active = 0;
+      render();
+      setTimeout(() => input.focus(), 30);
+    }
+    function close() {
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    if (trigger) trigger.addEventListener('click', open);
+
+    input.addEventListener('input', () => { active = 0; render(); });
+
+    input.addEventListener('keydown', (e) => {
+      const rows = list.querySelectorAll('li');
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, rows.length - 1); render(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); }
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        const link = list.querySelector('li.active a') || list.querySelector('li a');
+        if (link) window.location.href = link.getAttribute('href');
+      }
+    });
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        overlay.classList.contains('open') ? close() : open();
+      } else if (e.key === 'Escape' && overlay.classList.contains('open')) {
+        close();
+      }
+    });
+  }
+
+  /* ── Barra de progresso global (navegação + HTMX) ───────── */
+  function initProgressBar() {
+    const bar = document.getElementById('app-progress');
+    if (!bar) return;
+    let timer = null;
+
+    function start() {
+      clearInterval(timer);
+      bar.classList.add('active');
+      let w = 8;
+      bar.style.width = w + '%';
+      timer = setInterval(() => {
+        w = Math.min(w + Math.random() * 8, 90);
+        bar.style.width = w + '%';
+      }, 300);
+    }
+    function done() {
+      clearInterval(timer);
+      bar.style.width = '100%';
+      setTimeout(() => {
+        bar.classList.remove('active');
+        bar.style.width = '0';
+      }, 250);
+    }
+
+    window.addEventListener('beforeunload', start);
+    document.addEventListener('htmx:beforeRequest', start);
+    document.addEventListener('htmx:afterRequest', done);
+    document.addEventListener('htmx:responseError', done);
+  }
+
   /* ── Init ───────────────────────────────────────────────── */
   function init() {
     initThemeToggle();
     initMobileMenu();
+    initSidebarCollapse();
+    initCommandPalette();
+    initProgressBar();
     initHTMX();
     initStatusPolling();
     relocateModals();

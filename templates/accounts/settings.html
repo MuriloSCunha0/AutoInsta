@@ -52,16 +52,65 @@
     </div>
     <div class="col-12 mt-4">
         <div class="card glass-modal border-0 p-4">
-            <h5 class="text-white mb-4"><i class="bi bi-meta text-primary me-2"></i> Integração Meta API (Instagram)</h5>
-            <p class="text-muted mb-4">Insira as credenciais do aplicativo Meta para puxar dados detalhados (Insights) das suas contas do Instagram. Selecione a conta desejada e informe o token.</p>
-            
-            <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
-                <i class="bi bi-info-circle me-1"></i> A conexão com a Meta API agora é feita de forma 100% oficial e segura através do <strong>Login com Instagram</strong>. 
-                <br><br>
-                Vá até a aba <a href="{% url 'instagram:list' %}" class="text-info text-decoration-underline fw-bold">Contas</a>, clique em "Adicionar conta" e escolha "Conectar Oficial (Meta)".
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h5 class="text-white mb-0"><i class="bi bi-meta text-primary me-2"></i> Conexão Meta API (Instagram)</h5>
+                {% if meta_ready %}
+                    <span class="badge bg-success bg-opacity-25 text-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i> Pronto para conectar</span>
+                {% else %}
+                    <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill"><i class="bi bi-exclamation-triangle-fill me-1"></i> Configuração incompleta</span>
+                {% endif %}
             </div>
-            
-            <h6 class="text-white mb-3">Status dos Tokens Atuais</h6>
+            <p class="text-muted mb-4">Necessária para conectar contas Business/Creator do Instagram pela API oficial. Configure as credenciais abaixo no servidor e depois conecte na aba <a href="{% url 'instagram:list' %}" class="text-info text-decoration-underline fw-bold">Contas</a> em "Conectar via Meta".</p>
+
+            <h6 class="text-white mb-2"><i class="bi bi-key text-info me-2"></i>Credenciais do seu app Meta</h6>
+            <p class="text-muted small mb-3">
+                Crie um app no
+                <a href="https://developers.facebook.com/" target="_blank" rel="noopener" class="text-info text-decoration-underline">Meta for Developers</a>
+                e informe abaixo o <strong class="text-white">App ID</strong> e o <strong class="text-white">App Secret</strong> dele.
+                O App Secret é guardado <strong class="text-white">criptografado</strong> e nunca é exibido de volta.
+            </p>
+
+            <form action="{% url 'accounts:update_meta_credentials' %}" method="POST" class="mb-4">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">App ID</label>
+                        <input type="text" name="meta_app_id" class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" value="{{ meta_app_id }}"
+                               placeholder="Ex: 1234567890123456" autocomplete="off">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">App Secret</label>
+                        <input type="password" name="meta_app_secret" class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" autocomplete="off"
+                               placeholder="{% if meta_secret_set %}•••••••••• (já configurado — deixe em branco para manter){% else %}Cole o App Secret{% endif %}">
+                        <small class="text-muted">
+                            {% if meta_secret_set %}
+                                <i class="bi bi-check-circle-fill text-success me-1"></i> Secret configurado. Preencha só se quiser trocar.
+                            {% else %}
+                                <i class="bi bi-x-circle-fill text-danger me-1"></i> Nenhum secret salvo ainda.
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted">URL de callback (OAuth Redirect URI)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                                   value="{{ meta_redirect_uri }}" readonly>
+                        </div>
+                        <small class="text-muted">Registre exatamente esta URL no seu app Meta, em "Valid OAuth Redirect URIs".</small>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Salvar Credenciais</button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
+                <i class="bi bi-shield-lock me-1"></i> A conexão das contas é 100% oficial via <strong>Login com Instagram</strong> (sem senha, sem automação de navegador). Depois de salvar as credenciais, vá em <a href="{% url 'instagram:list' %}" class="text-info text-decoration-underline fw-bold">Contas</a> e clique em "Conectar via Meta".
+            </div>
+
+            <h6 class="text-white mb-3">Status dos Tokens por Conta</h6>
             <div class="table-responsive">
                 <table class="table table-dark table-hover mb-0" style="background: transparent;">
                     <thead>

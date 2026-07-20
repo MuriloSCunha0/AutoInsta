@@ -2,33 +2,105 @@
 {% block title %}Performance - SandraoFlow{% endblock %}
 {% block page_title %}Performance{% endblock %}
 {% block content %}
-<div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-graph-up-arrow me-2"></i> Gráficos detalhados em desenvolvimento.
-</div>
-<div class="row g-4 mt-3">
-    <div class="col-md-3">
+<div class="row g-4 mb-4">
+    <div class="col-6 col-md-3">
         <div class="card glass-modal p-3 border-0">
             <h6 class="text-muted">Total de Seguidores</h6>
             <h3 class="text-white">{{ followers_total }}</h3>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card glass-modal p-3 border-0">
             <h6 class="text-muted">Total Seguindo</h6>
             <h3 class="text-white">{{ following_total }}</h3>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card glass-modal p-3 border-0">
             <h6 class="text-muted">Contas Analisadas</h6>
             <h3 class="text-white">{{ accounts_count }}</h3>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card glass-modal p-3 border-0">
             <h6 class="text-muted">Taxa de Engajamento</h6>
             <h3 class="text-white">{{ engagement_rate }}%</h3>
         </div>
     </div>
 </div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card p-4">
+            <h6 class="text-white mb-3"><i class="bi bi-bar-chart-line text-purple me-2"></i> Seguidores por conta</h6>
+            <canvas id="followersChart" height="120"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-4">
+            <h6 class="text-white mb-3"><i class="bi bi-pie-chart text-purple me-2"></i> Status das publicações</h6>
+            <canvas id="statusChart" height="220"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const accounts = {{ chart_accounts|safe }};
+    const followers = {{ chart_followers|safe }};
+    const statusData = {{ chart_status|safe }};
+
+    const gridColor = 'rgba(139, 92, 246, 0.08)';
+    const tickColor = '#8b93c4';
+
+    const fc = document.getElementById('followersChart');
+    if (fc && accounts.length) {
+        new Chart(fc, {
+            type: 'bar',
+            data: {
+                labels: accounts.map(a => '@' + a),
+                datasets: [{
+                    label: 'Seguidores',
+                    data: followers,
+                    backgroundColor: 'rgba(124, 58, 237, 0.6)',
+                    borderColor: '#22d3ee',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: { color: tickColor } },
+                    y: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true }
+                }
+            }
+        });
+    } else if (fc) {
+        fc.parentElement.innerHTML += '<p class="text-muted small mb-0">Sem contas para exibir ainda.</p>';
+    }
+
+    const sc = document.getElementById('statusChart');
+    if (sc) {
+        new Chart(sc, {
+            type: 'doughnut',
+            data: {
+                labels: ['Publicados', 'Na fila', 'Processando', 'Falhas'],
+                datasets: [{
+                    data: statusData,
+                    backgroundColor: ['#22c55e', '#a855f7', '#f59e0b', '#ef4444'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                plugins: { legend: { position: 'bottom', labels: { color: tickColor } } },
+                cutout: '62%'
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

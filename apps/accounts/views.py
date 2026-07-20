@@ -67,8 +67,41 @@ def profile_update(request):
     return redirect('accounts:profile')
 
 from apps.instagram.models import InstagramAccount
+from django.conf import settings as django_settings
+
+
+@login_required
+def update_meta_credentials(request):
+    """Salva o App ID / App Secret do app Meta do próprio usuário."""
+    if request.method == 'POST':
+        app_id = (request.POST.get('meta_app_id') or '').strip()
+        app_secret = (request.POST.get('meta_app_secret') or '').strip()
+
+        request.user.meta_app_id = app_id
+        # Campo de senha em branco = mantém o secret atual (não sobrescreve).
+        if app_secret:
+            request.user.set_meta_app_secret(app_secret)
+        elif not app_id:
+            # Limpou tudo: zera também o secret.
+            request.user.set_meta_app_secret('')
+
+        request.user.save(update_fields=['meta_app_id', 'meta_app_secret_enc'])
+        messages.success(request, 'Credenciais do app Meta salvas com sucesso.')
+
+    return redirect('accounts:settings')
+
 
 @login_required
 def settings_view(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
-    return render(request, 'accounts/settings.html', {'accounts': accounts})
+
+    # URL de callback (global) que o usuário precisa registrar no app Meta dele.
+    redirect_uri = getattr(django_settings, 'META_REDIRECT_URI', '')
+
+    return render(request, 'accounts/settings.html', {
+        'accounts': accounts,
+        'meta_app_id': request.user.meta_app_id,
+        'meta_secret_set': bool(request.user.meta_app_secret_enc),
+        'meta_ready': request.user.has_meta_credentials,
+        'meta_redirect_uri': redirect_uri,
+    })

@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block title %}Postar | AutoInsta{% endblock %}
+{% block page_title %}Composer — Publicação em Massa{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'publisher:composer' %}" enctype="multipart/form-data" id="composer-form">
+    {% csrf_token %}
+    <div class="row g-4">
+        <!-- ── Coluna esquerda: mídia + legenda ── -->
+        <div class="col-lg-7">
+            <!-- Upload / biblioteca de vídeos -->
+            <div class="card p-4 mb-4">
+                <h6 class="text-white mb-3"><i class="bi bi-collection-play text-purple me-2"></i> Vídeos</h6>
+
+                <label class="form-label text-muted">Enviar novos vídeos (MP4/MOV)</label>
+                <input type="file" name="videos" accept="video/*" multiple id="video-upload"
+                       class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);">
+                <small class="text-muted d-block mb-3">Pode selecionar vários. Ou escolha da biblioteca abaixo.</small>
+
+                {% if library_videos %}
+                <label class="form-label text-muted">Da biblioteca</label>
+                <div class="row row-cols-3 row-cols-md-4 g-2">
+                    {% for asset in library_videos %}
+                    <div class="col">
+                        <label class="media-pick d-block position-relative" style="cursor: pointer;">
+                            <input type="checkbox" name="library_videos" value="{{ asset.id }}"
+                                   class="form-check-input position-absolute top-0 start-0 m-1 lib-video-check" style="z-index: 2;">
+                            <div style="aspect-ratio: 9/16; background: #05070f; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-subtle);">
+                                <video src="{{ asset.file.url }}" preload="metadata" muted
+                                       style="width: 100%; height: 100%; object-fit: cover;"></video>
+                            </div>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-muted small">
+                    <i class="bi bi-info-circle"></i> Nenhum vídeo na
+                    <a href="{% url 'library:media' %}" class="text-info">biblioteca</a> ainda.
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Capa -->
+            <div class="card p-4 mb-4">
+                <h6 class="text-white mb-3"><i class="bi bi-image text-purple me-2"></i> Capa do Reel <span class="text-muted small">(opcional)</span></h6>
+                <input type="file" name="cover" accept="image/*"
+                       class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);">
+                {% if library_covers %}
+                <label class="form-label text-muted mt-2">Ou usar da biblioteca</label>
+                <select name="cover_library" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                    <option value="">— Nenhuma —</option>
+                    {% for cover in library_covers %}
+                    <option value="{{ cover.id }}">{{ cover.original_name|default:"capa" }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+            </div>
+
+            <!-- Legenda -->
+            <div class="card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-white mb-0"><i class="bi bi-chat-quote text-purple me-2"></i> Legenda</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="ai-generate-btn">
+                        <i class="bi bi-stars"></i> Gerar com IA
+                    </button>
+                </div>
+                <textarea name="caption" rows="4" maxlength="2200" id="caption-input"
+                          class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);"
+                          placeholder="Escreva a legenda. Use variáveis: {nome_conta}, {dia_semana}, {data_hoje}"></textarea>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        {% if caption_sets %}
+                        <select name="caption_set" class="form-select form-select-sm text-white border-subtle d-inline-block w-auto" style="background: var(--bg-input);">
+                            <option value="">Banco de legendas…</option>
+                            {% for cs in caption_sets %}
+                            <option value="{{ cs.id }}">{{ cs.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted"><span id="caption-count">0</span>/2200</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Coluna direita: contas + agendamento + envio ── -->
+        <div class="col-lg-5">
+            <!-- Contas -->
+            <div class="card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-white mb-0"><i class="bi bi-people text-purple me-2"></i> Contas</h6>
+                    {% if accounts %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-all-accounts">Todas</button>
+                    {% endif %}
+                </div>
+                {% if accounts %}
+                <div style="max-height: 220px; overflow-y: auto;">
+                    {% for acc in accounts %}
+                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle" style="cursor: pointer;">
+                        <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check">
+                        <span class="text-white">@{{ acc.ig_username }}</span>
+                        <span class="badge {% if acc.status == 'active' %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 ms-auto">{{ acc.get_status_display }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">Nenhuma conta conectada.
+                    <a href="{% url 'instagram:list' %}" class="text-info">Conectar agora</a>.</p>
+                {% endif %}
+            </div>
+
+            <!-- Formato -->
+            <div class="card p-4 mb-4">
+                <h6 class="text-white mb-3"><i class="bi bi-grid text-purple me-2"></i> Formato</h6>
+                <select name="post_type" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                    {% for value, label in post_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Agendamento -->
+            <div class="card p-4 mb-4">
+                <h6 class="text-white mb-3"><i class="bi bi-clock text-purple me-2"></i> Quando publicar</h6>
+                <div class="btn-group w-100 mb-3" role="group">
+                    <input type="radio" class="btn-check" name="schedule_mode" id="mode-now" value="now" checked>
+                    <label class="btn btn-outline-secondary" for="mode-now">Agora</label>
+                    <input type="radio" class="btn-check" name="schedule_mode" id="mode-schedule" value="schedule">
+                    <label class="btn btn-outline-secondary" for="mode-schedule">Agendar</label>
+                </div>
+                <div id="schedule-fields" style="display: none;">
+                    <label class="form-label text-muted">Início</label>
+                    <input type="datetime-local" name="start" class="form-control text-white border-subtle mb-3" style="background: var(--bg-input);">
+                </div>
+                <label class="form-label text-muted">Intervalo entre posts da mesma conta (min)</label>
+                <input type="number" name="interval_minutes" value="5" min="0"
+                       class="form-control text-white border-subtle" style="background: var(--bg-input);">
+            </div>
+
+            <!-- Resumo + envio -->
+            <div class="card p-4">
+                <div class="d-flex justify-content-between text-muted small mb-1">
+                    <span><span id="sum-accounts">0</span> conta(s)</span>
+                    <span><span id="sum-videos">0</span> vídeo(s)</span>
+                </div>
+                <div class="h4 text-white text-center my-2">= <span id="sum-total">0</span> publicações</div>
+                <button type="submit" class="btn btn-primary w-100" id="composer-submit">
+                    <i class="bi bi-send"></i> Enfileirar publicações
+                </button>
+                <small class="text-muted d-block text-center mt-2">Selecione ao menos 1 conta e 1 vídeo.</small>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const form = document.getElementById('composer-form');
+    if (!form) return;
+
+    const sumAccounts = document.getElementById('sum-accounts');
+    const sumVideos = document.getElementById('sum-videos');
+    const sumTotal = document.getElementById('sum-total');
+    const submitBtn = document.getElementById('composer-submit');
+    const upload = document.getElementById('video-upload');
+
+    function countVideos() {
+        const libChecked = form.querySelectorAll('.lib-video-check:checked').length;
+        const uploaded = upload && upload.files ? upload.files.length : 0;
+        return libChecked + uploaded;
+    }
+    function recount() {
+        const accs = form.querySelectorAll('.acc-check:checked').length;
+        const vids = countVideos();
+        sumAccounts.textContent = accs;
+        sumVideos.textContent = vids;
+        sumTotal.textContent = accs * vids;
+        if (submitBtn) submitBtn.disabled = !(accs > 0 && vids > 0);
+    }
+
+    form.addEventListener('change', recount);
+    if (upload) upload.addEventListener('change', recount);
+
+    // Selecionar todas as contas
+    const toggleAll = document.getElementById('toggle-all-accounts');
+    if (toggleAll) {
+        toggleAll.addEventListener('click', () => {
+            const boxes = form.querySelectorAll('.acc-check');
+            const allOn = [...boxes].every((b) => b.checked);
+            boxes.forEach((b) => { b.checked = !allOn; });
+            recount();
+        });
+    }
+
+    // Mostrar/ocultar campos de agendamento
+    form.querySelectorAll('input[name="schedule_mode"]').forEach((r) => {
+        r.addEventListener('change', () => {
+            document.getElementById('schedule-fields').style.display =
+                document.getElementById('mode-schedule').checked ? 'block' : 'none';
+        });
+    });
+
+    // Contador de caracteres da legenda
+    const caption = document.getElementById('caption-input');
+    const captionCount = document.getElementById('caption-count');
+    if (caption && captionCount) {
+        caption.addEventListener('input', () => { captionCount.textContent = caption.value.length; });
+    }
+
+    // Gerar legenda com IA
+    const aiBtn = document.getElementById('ai-generate-btn');
+    if (aiBtn && caption) {
+        const csrf = form.querySelector('[name=csrfmiddlewaretoken]');
+        aiBtn.addEventListener('click', async () => {
+            const theme = prompt('Sobre o que é a legenda? (tema/produto/nicho)');
+            if (!theme) return;
+            const original = aiBtn.innerHTML;
+            aiBtn.disabled = true;
+            aiBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando…';
+            try {
+                const res = await fetch("{% url 'library:generate_caption_ai' %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrf ? csrf.value : '' },
+                    body: new URLSearchParams({ prompt: theme }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    caption.value = data.text;
+                    caption.dispatchEvent(new Event('input'));
+                } else {
+                    showToast(data.error || 'Falha ao gerar legenda.', 'error');
+                }
+            } catch (e) {
+                showToast('Erro de rede ao gerar legenda.', 'error');
+            } finally {
+                aiBtn.disabled = false;
+                aiBtn.innerHTML = original;
+            }
+        });
+    }
+
+    recount();
+})();
+</script>
+{% endblock %}

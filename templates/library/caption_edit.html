@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Legenda | AutoInsta{% endblock %}
+{% block page_title %}Editar Conjunto de Legendas{% endblock %}
+
+{% block top_actions %}
+<a href="{% url 'library:captions' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Dados do conjunto -->
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h6 class="text-white mb-3"><i class="bi bi-pencil-square text-purple me-2"></i> Dados do conjunto</h6>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_set">
+                <div class="mb-3">
+                    <label class="form-label text-muted">Nome</label>
+                    <input type="text" name="name" value="{{ caption_set.name }}" required
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Descrição</label>
+                    <textarea name="description" rows="3" class="form-control text-white border-subtle"
+                              style="background: var(--bg-input);">{{ caption_set.description }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Salvar</button>
+            </form>
+        </div>
+
+        <div class="card p-4 mt-4">
+            <h6 class="text-white mb-3"><i class="bi bi-plus-circle text-purple me-2"></i> Nova variação</h6>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_variation">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label text-muted mb-0">Texto da legenda</label>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="ai-generate-btn">
+                            <i class="bi bi-stars"></i> Gerar com IA
+                        </button>
+                    </div>
+                    <textarea name="text" id="ai-target" rows="4" required class="form-control text-white border-subtle mt-2"
+                              style="background: var(--bg-input);"
+                              placeholder="Use variáveis: {nome_conta}, {dia_semana}, {data_hoje}"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Hashtags</label>
+                    <input type="text" name="hashtags" class="form-control text-white border-subtle"
+                           style="background: var(--bg-input);" placeholder="#viral #reels #brasil">
+                </div>
+                <button type="submit" class="btn btn-outline-secondary w-100"><i class="bi bi-plus-lg"></i> Adicionar variação</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de variações -->
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-white mb-0"><i class="bi bi-card-list text-purple me-2"></i> Variações</h6>
+                <span class="badge bg-secondary bg-opacity-25 text-secondary">{{ captions|length }}</span>
+            </div>
+            {% for c in captions %}
+            <div class="border border-subtle rounded p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="me-3">
+                        <p class="text-white mb-1" style="white-space: pre-wrap;">{{ c.text }}</p>
+                        {% if c.hashtags %}<div class="text-info small">{{ c.hashtags }}</div>{% endif %}
+                        <small class="text-muted"><i class="bi bi-play-circle"></i> usada {{ c.used_count }}x</small>
+                    </div>
+                    <a href="{% url 'library:delete_variation' c.id %}" class="text-danger opacity-75 text-decoration-none"
+                       onclick="return confirm('Excluir esta variação?')"><i class="bi bi-trash"></i></a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state text-center py-4">
+                <i class="bi bi-card-text text-muted mb-2" style="font-size: 2rem;"></i>
+                <p class="text-muted mb-0">Nenhuma variação ainda. Adicione a primeira ao lado.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const btn = document.getElementById('ai-generate-btn');
+    const target = document.getElementById('ai-target');
+    if (!btn || !target) return;
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+
+    btn.addEventListener('click', async () => {
+        const theme = prompt('Sobre o que é a legenda? (tema/produto/nicho)');
+        if (!theme) return;
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando…';
+        try {
+            const body = new URLSearchParams({ prompt: theme });
+            const res = await fetch("{% url 'library:generate_caption_ai' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf ? csrf.value : '' },
+                body,
+            });
+            const data = await res.json();
+            if (data.ok) {
+                target.value = data.text;
+                target.dispatchEvent(new Event('input'));
+            } else {
+                showToast(data.error || 'Falha ao gerar legenda.', 'error');
+            }
+        } catch (e) {
+            showToast('Erro de rede ao gerar legenda.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+    });
+})();
+</script>
+{% endblock %}

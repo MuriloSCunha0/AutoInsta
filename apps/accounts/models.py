@@ -1,7 +1,23 @@
 import secrets
 
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from cryptography.fernet import Fernet
+
+
+def _get_fernet():
+    """Fernet a partir da FERNET_KEY. Helper local para evitar import circular
+    com apps.instagram.models (que já importa este módulo)."""
+    key = (settings.FERNET_KEY or "").strip()
+    try:
+        return Fernet(key.encode())
+    except Exception:
+        raise ImproperlyConfigured(
+            "FERNET_KEY ausente ou inválida. Defina a variável de ambiente FERNET_KEY."
+        )
+
 
 class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True)
@@ -15,7 +31,32 @@ class User(AbstractUser):
     # Token secreto usado pela extensão de navegador para autenticar o envio
     # do sessionid capturado do instagram.com (ver apps.instagram.views.connect_extension).
     extension_token = models.CharField(max_length=64, blank=True, db_index=True)
+    # Credenciais do app Meta do PRÓPRIO usuário (cada um traz o seu app).
+    # O App ID não é sigiloso; o App Secret é guardado criptografado (Fernet).
+    meta_app_id = models.CharField(max_length=64, blank=True)
+    meta_app_secret_enc = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def set_meta_app_secret(self, raw_secret):
+        """Criptografa e guarda o App Secret do Meta."""
+        raw_secret = (raw_secret or '').strip()
+        self.meta_app_secret_enc = (
+            _get_fernet().encrypt(raw_secret.encode()).decode() if raw_secret else ''
+        )
+
+    def get_meta_app_secret(self):
+        """App Secret em texto puro (ou '' se não configurado)."""
+        stored = self.meta_app_secret_enc or ''
+        if not stored:
+            return ''
+        try:
+            return _get_fernet().decrypt(stored.encode()).decode()
+        except Exception:
+            return ''
+
+    @property
+    def has_meta_credentials(self):
+        return bool((self.meta_app_id or '').strip()) and bool(self.meta_app_secret_enc)
 
     def ensure_extension_token(self):
         """Retorna o token da extensão, gerando um na primeira vez."""

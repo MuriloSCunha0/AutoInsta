@@ -28,7 +28,7 @@
                 <div class="caption-count">
                     <i class="bi bi-card-text"></i> {{ caption_set.captions.count }} Variações
                 </div>
-                <button class="btn btn-sm btn-outline-secondary border-opacity-25 text-white">Editar</button>
+                <a href="{% url 'library:edit_caption' caption_set.id %}" class="btn btn-sm btn-outline-secondary border-opacity-25 text-white">Editar</a>
             </div>
         </div>
     </div>

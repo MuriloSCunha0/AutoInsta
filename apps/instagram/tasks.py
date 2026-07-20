@@ -74,3 +74,91 @@ def connect_by_sessionid(account_id, sessionid):
         engine.login_by_session(sessionid)
     except Exception as e:
         pass
+
+
+# =============================================================================
+# Onda 4 — Diferenciais da engine (warm-up e edição de perfil em massa)
+# =============================================================================
+# Lote pequeno por execução (o beat roda a cada 30min → várias execuções/dia
+# distribuem o alvo diário sem picos robóticos).
+WARMUP_BATCH = {'likes': 4, 'follows': 1, 'views': 6}
+
+
+@shared_task
+def run_warmups():
+    """Percorre as contas com warm-up ligado e executa um lote pequeno de ações,
+    respeitando o alvo diário por intensidade."""
+    from django.utils import timezone
+    from .models import WarmupConfig
+
+    today = timezone.localdate()
+    for cfg in WarmupConfig.objects.filter(enabled=True).select_related('account'):
+        # Reseta contadores no virar do dia.
+        if cfg.counter_date != today:
+            cfg.counter_date = today
+            cfg.likes_today = cfg.follows_today = cfg.views_today = 0
+
+        target_likes, target_follows, target_views = cfg.daily_targets
+        batch_likes = max(min(WARMUP_BATCH['likes'], target_likes - cfg.likes_today), 0)
+        batch_follows = max(min(WARMUP_BATCH['follows'], target_follows - cfg.follows_today), 0)
+        batch_views = max(min(WARMUP_BATCH['views'], target_views - cfg.views_today), 0)
+
+        if not (batch_likes or batch_follows or batch_views):
+            cfg.save()
+            continue
+
+        run_account_warmup.delay(cfg.id, batch_likes, batch_follows, batch_views)
+        cfg.save()
+
+
+@shared_task(soft_time_limit=240, time_limit=280)
+def run_account_warmup(config_id, likes, follows, views):
+    from django.utils import timezone
+    from .models import WarmupConfig
+
+    try:
+        cfg = WarmupConfig.objects.select_related('account').get(id=config_id)
+    except WarmupConfig.DoesNotExist:
+        return
+
+    try:
+        engine = InstagramEngine(cfg.account)
+        done = engine.run_warmup(likes=likes, follows=follows, views=views, hashtag=cfg.target_hashtag or 'reels')
+        cfg.likes_today += done.get('likes', 0)
+        cfg.follows_today += done.get('follows', 0)
+        cfg.views_today += done.get('views', 0)
+        cfg.last_result = f"+{done.get('likes',0)} curtidas, +{done.get('follows',0)} follows, +{done.get('views',0)} views"
+    except Exception as e:
+        cfg.last_result = f"Erro: {str(e)[:180]}"
+
+    cfg.last_run = timezone.now()
+    cfg.save()
+
+
+@shared_task(soft_time_limit=300, time_limit=340)
+def bulk_edit_profiles(account_ids, full_name, biography, external_url, picture_path=None):
+    """Edita bio/nome/link (e opcionalmente foto) de várias contas de uma vez.
+    Aplica spintax ({nome_conta}) por conta. Funciona em contas Pessoais."""
+    for acc_id in account_ids:
+        try:
+            account = InstagramAccount.objects.get(id=acc_id)
+        except InstagramAccount.DoesNotExist:
+            continue
+
+        try:
+            engine = InstagramEngine(account)
+
+            bio = (biography or '').replace('{nome_conta}', account.ig_username) if biography else None
+            name = (full_name or '').replace('{nome_conta}', account.ig_username) if full_name else None
+            link = external_url or None
+
+            if bio is not None or name is not None or link is not None:
+                engine.edit_profile(full_name=name, biography=bio, external_url=link)
+            if picture_path:
+                engine.change_profile_picture(picture_path)
+
+            account.last_error = ''
+            account.save(update_fields=['last_error'])
+        except Exception as e:
+            account.last_error = f"Falha ao editar perfil: {str(e)[:200]}"
+            account.save(update_fields=['last_error'])

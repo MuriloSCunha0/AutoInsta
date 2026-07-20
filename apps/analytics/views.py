@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from apps.instagram.models import InstagramAccount
 from apps.publisher.models import ScheduledPost
@@ -10,11 +10,22 @@ User = get_user_model()
 
 @login_required
 def dashboard(request):
+    from django.utils import timezone
+    from datetime import timedelta
     accounts = InstagramAccount.objects.filter(owner=request.user)
     posts_queued = ScheduledPost.objects.filter(owner=request.user, status='queued').count()
-    
+
     followers_total = accounts.aggregate(Sum('followers_count'))['followers_count__sum'] or 0
-    
+
+    today = timezone.localdate()
+    published_today = ScheduledPost.objects.filter(
+        owner=request.user, status='published', published_at__date=today
+    ).count()
+    published_yesterday = ScheduledPost.objects.filter(
+        owner=request.user, status='published',
+        published_at__date=today - timedelta(days=1)
+    ).count()
+
     recent_posts = ScheduledPost.objects.filter(owner=request.user).order_by('-created_at')[:5]
     
     # Calculate Global Ranking
@@ -47,6 +58,8 @@ def dashboard(request):
         'accounts_count': accounts.count(),
         'queued_count': posts_queued,
         'followers_total': followers_total,
+        'published_today': published_today,
+        'published_yesterday': published_yesterday,
         'recent_posts': recent_posts,
         'accounts': accounts,
         'ranking_list': ranking_list,
@@ -67,12 +80,32 @@ def performance(request):
         engagement_rate = round((posts_total * 0.1), 2)
         if engagement_rate > 100: engagement_rate = 100
         
+    # Dados para os gráficos (Chart.js)
+    import json
+    chart_accounts = list(accounts.order_by('-followers_count')[:8].values_list('ig_username', flat=True))
+    chart_followers = list(accounts.order_by('-followers_count')[:8].values_list('followers_count', flat=True))
+
+    status_counts = ScheduledPost.objects.filter(owner=request.user).aggregate(
+        published=Count('id', filter=Q(status='published')),
+        queued=Count('id', filter=Q(status='queued')),
+        processing=Count('id', filter=Q(status='processing')),
+        failed=Count('id', filter=Q(status='failed')),
+    )
+
     context = {
         'followers_total': followers_total,
         'following_total': following_total,
         'posts_total': posts_total,
         'engagement_rate': engagement_rate,
         'accounts_count': accounts.count(),
+        'chart_accounts': json.dumps(chart_accounts),
+        'chart_followers': json.dumps(chart_followers),
+        'chart_status': json.dumps([
+            status_counts['published'] or 0,
+            status_counts['queued'] or 0,
+            status_counts['processing'] or 0,
+            status_counts['failed'] or 0,
+        ]),
     }
     return render(request, 'analytics/performance.html', context)
 
@@ -98,7 +131,7 @@ def top_posts(request):
             url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media"
             params = {
                 'fields': 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,username,comments_count,like_count',
-                'access_token': account.meta_access_token,
+                'access_token': account.get_meta_token(),
                 'limit': 20
             }
             try:
@@ -153,7 +186,7 @@ def health(request):
         else:
             # Check token validy
             url = "https://graph.instagram.com/v21.0/me"
-            params = {'access_token': acc.meta_access_token}
+            params = {'access_token': acc.get_meta_token()}
             try:
                 res = requests.get(url, params=params, timeout=5)
                 if res.status_code != 200:
@@ -177,3 +210,14 @@ from .models import DailySnapshot, SystemLog
 def logs_view(request):
     logs = SystemLog.objects.filter(owner=request.user)
     return render(request, 'analytics/logs.html', {'logs': logs})
+
+
+@login_required
+def sync_top_posts(request):
+    """Invalida o cache de mídias das contas para forçar nova busca na Meta API."""
+    from django.contrib import messages
+    accounts = InstagramAccount.objects.filter(owner=request.user)
+    for acc in accounts:
+        cache.delete(f'ig_media_{acc.id}')
+    messages.success(request, 'Insights re-sincronizados a partir da API do Instagram.')
+    return redirect('analytics:top_posts')

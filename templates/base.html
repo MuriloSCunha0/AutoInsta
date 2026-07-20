@@ -18,10 +18,13 @@
     <script>
         const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
+        // Estado da sidebar (colapsada) aplicado antes da pintura para evitar flash.
+        if (localStorage.getItem('nav-collapsed') === '1') document.documentElement.setAttribute('data-nav', 'collapsed');
     </script>
 </head>
 <body class="app-body">
 
+    <div class="app-progress" id="app-progress"></div>
 
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
@@ -47,8 +50,11 @@
                 </a>
                 
                 <div class="nav-category">Publicação</div>
+                <a href="{% url 'publisher:composer' %}" class="{% if request.resolver_match.url_name == 'composer' %}active{% endif %}">
+                    <i class="bi bi-send-plus-fill"></i> <span class="nav-text">Postar</span>
+                </a>
                 <a href="{% url 'publisher:queue' %}" class="{% if request.resolver_match.url_name == 'queue' %}active{% endif %}">
-                    <i class="bi bi-send-fill"></i> <span class="nav-text">Fila de Posts</span>
+                    <i class="bi bi-list-check"></i> <span class="nav-text">Fila de Posts</span>
                 </a>
                 <a href="{% url 'publisher:loops' %}" class="{% if request.resolver_match.url_name == 'loops' %}active{% endif %}">
                     <i class="bi bi-arrow-repeat"></i> <span class="nav-text">Loop</span>
@@ -61,11 +67,14 @@
                 </a>
 
                 <div class="nav-category">Conteúdo</div>
-                <a href="{% url 'library:audios' %}" class="{% if request.resolver_match.url_name == 'audios' %}active{% endif %}">
+                <a href="{% url 'library:media' %}" class="{% if request.resolver_match.url_name == 'media' %}active{% endif %}">
                     <i class="bi bi-collection-play-fill"></i> <span class="nav-text">Biblioteca</span>
                 </a>
                 <a href="{% url 'library:captions' %}" class="{% if request.resolver_match.url_name == 'captions' %}active{% endif %}">
                     <i class="bi bi-chat-quote-fill"></i> <span class="nav-text">Legendas</span>
+                </a>
+                <a href="{% url 'library:audios' %}" class="{% if request.resolver_match.url_name == 'audios' %}active{% endif %}">
+                    <i class="bi bi-music-note-beamed"></i> <span class="nav-text">Áudios</span>
                 </a>
 
                 <div class="nav-category">Análise</div>
@@ -88,6 +97,14 @@
                 </a>
                 <a href="{% url 'instagram:proxies' %}" class="{% if request.resolver_match.url_name == 'proxies' %}active{% endif %}">
                     <i class="bi bi-hdd-network-fill"></i> <span class="nav-text">Proxies</span>
+                </a>
+
+                <div class="nav-category">Crescimento</div>
+                <a href="{% url 'instagram:warmup' %}" class="{% if request.resolver_match.url_name == 'warmup' %}active{% endif %}">
+                    <i class="bi bi-fire"></i> <span class="nav-text">Aquecimento</span>
+                </a>
+                <a href="{% url 'instagram:bulk_edit' %}" class="{% if request.resolver_match.url_name == 'bulk_edit' %}active{% endif %}">
+                    <i class="bi bi-pencil-square"></i> <span class="nav-text">Edição em Massa</span>
                 </a>
 
                 <div class="nav-category">Sistema</div>
@@ -115,9 +132,44 @@
                 <button class="mobile-toggle" id="mobile-toggle" aria-label="Abrir menu">
                     <i class="bi bi-list"></i>
                 </button>
+                <button class="desk-toggle" id="desk-toggle" aria-label="Recolher menu" title="Recolher menu">
+                    <i class="bi bi-list"></i>
+                </button>
                 <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
                 <div class="top-actions">
+                    <button class="cmdk-trigger" id="cmdk-trigger" type="button" aria-label="Busca rápida">
+                        <i class="bi bi-search"></i>
+                        <span class="cmdk-trigger-label">Buscar…</span>
+                        <span class="cmdk-kbd">Ctrl K</span>
+                    </button>
                     {% block top_actions %}{% endblock %}
+                    <div class="dropdown d-inline-block ms-2">
+                        <button class="btn btn-outline-secondary position-relative" type="button" id="notifMenu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notificações" style="border: 1px solid var(--border-subtle); color: var(--text-primary); background: transparent;">
+                            <i class="bi bi-bell"></i>
+                            {% if nav_unread_count %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem;">{{ nav_unread_count }}</span>
+                            {% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="notifMenu" style="background: var(--bg-card); border-color: var(--border-subtle); min-width: 320px; max-height: 400px; overflow-y: auto;">
+                            <li><h6 class="dropdown-header text-muted d-flex justify-content-between align-items-center">Notificações {% if nav_unread_count %}<span class="badge bg-danger rounded-pill">{{ nav_unread_count }}</span>{% endif %}</h6></li>
+                            {% for n in nav_notifications %}
+                            <li>
+                                <div class="dropdown-item d-flex gap-2 {% if not n.is_read %}fw-semibold{% endif %}" style="white-space: normal; color: var(--text-primary);">
+                                    <i class="bi {% if n.notification_type == 'success' %}bi-check-circle-fill text-success{% elif n.notification_type == 'error' %}bi-x-circle-fill text-danger{% elif n.notification_type == 'warning' %}bi-exclamation-triangle-fill text-warning{% else %}bi-info-circle-fill text-info{% endif %} mt-1"></i>
+                                    <div>
+                                        <div class="small">{{ n.title }}</div>
+                                        <div class="text-muted" style="font-size: 0.78rem;">{{ n.message|truncatechars:80 }}</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">{{ n.created_at|date:"d/m H:i" }}</div>
+                                    </div>
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li><div class="dropdown-item text-muted small" style="white-space: normal;">Nenhuma notificação.</div></li>
+                            {% endfor %}
+                            <li><hr class="dropdown-divider" style="border-color: var(--border-subtle);"></li>
+                            <li><a class="dropdown-item text-center text-info small" href="{% url 'notifications:list' %}">Ver todas</a></li>
+                        </ul>
+                    </div>
                     <div class="dropdown d-inline-block ms-2">
                         <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false" style="border: 1px solid var(--border-subtle); color: var(--text-primary); background: transparent;">
                             <i class="bi bi-person-circle"></i>
@@ -153,8 +205,9 @@
     <nav class="mobile-nav">
         <div class="mobile-links">
             <a href="{% url 'analytics:dashboard' %}"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            <a href="{% url 'publisher:composer' %}"><i class="bi bi-send-plus-fill"></i> Postar</a>
             <a href="{% url 'instagram:list' %}"><i class="bi bi-instagram"></i> Contas</a>
-            <a href="{% url 'publisher:queue' %}"><i class="bi bi-send-fill"></i> Fila</a>
+            <a href="{% url 'library:media' %}"><i class="bi bi-collection-play-fill"></i> Mídia</a>
             <a href="{% url 'library:captions' %}"><i class="bi bi-chat-quote-fill"></i> Legendas</a>
             <a href="{% url 'library:audios' %}"><i class="bi bi-music-note-beamed"></i> Áudios</a>
             {% if request.user.is_staff %}
@@ -162,6 +215,19 @@
             {% endif %}
         </div>
     </nav>
+
+    <!-- Command Palette (busca rápida ⌘K / Ctrl+K) -->
+    <div class="cmdk-overlay" id="cmdk-overlay" aria-hidden="true">
+        <div class="cmdk-box" role="dialog" aria-modal="true" aria-label="Busca rápida">
+            <div class="cmdk-input-wrap">
+                <i class="bi bi-search"></i>
+                <input type="text" id="cmdk-input" placeholder="Buscar telas e ações…" autocomplete="off" spellcheck="false">
+                <span class="cmdk-esc">ESC</span>
+            </div>
+            <ul class="cmdk-list" id="cmdk-list"></ul>
+            <div class="cmdk-empty" id="cmdk-empty" hidden>Nada encontrado</div>
+        </div>
+    </div>
 
     <!-- JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

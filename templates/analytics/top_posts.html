@@ -12,9 +12,9 @@
         <option>Este Mês</option>
         <option>Desde o início</option>
     </select>
-    <button class="btn btn-primary btn-sm rounded-pill px-3 shadow-glow" onclick="alert('Atualizando estatísticas via API da Meta...')">
+    <a href="{% url 'analytics:sync_top_posts' %}" class="btn btn-primary btn-sm rounded-pill px-3 shadow-glow">
         <i class="bi bi-arrow-repeat me-1"></i> Sincronizar
-    </button>
+    </a>
 </div>
 {% endblock %}
 

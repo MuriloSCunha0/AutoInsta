@@ -19,6 +19,15 @@ staticfiles/
 # Environment
 .env
 *.env.local
+senhas_locais.md
+
+# Artefatos de análise (screenshots do site modelo / Playwright)
+/.playwright-mcp/
+/connect-api.png
+/login-attempt.png
+/signup-attempt.png
+/model-composer.jpeg
+/model-settings-meta.png
 
 # IDE
 .vscode/

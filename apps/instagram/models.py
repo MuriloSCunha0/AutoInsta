@@ -61,9 +61,63 @@ class InstagramAccount(models.Model):
     def get_ig_password(self):
         return _get_fernet().decrypt(self.ig_password.encode()).decode()
 
+    def set_meta_token(self, raw_token):
+        """Criptografa e guarda o token da Meta Graph API (mesmo cofre da senha)."""
+        self.meta_access_token = (
+            _get_fernet().encrypt(raw_token.encode()).decode() if raw_token else ''
+        )
+
+    def get_meta_token(self):
+        """Token Meta em texto puro. Tolera tokens legados salvos sem criptografia."""
+        stored = self.meta_access_token or ''
+        if not stored:
+            return ''
+        try:
+            return _get_fernet().decrypt(stored.encode()).decode()
+        except Exception:
+            # Token gravado antes da criptografia: devolve como está (retrocompat).
+            return stored
+
     @property
     def is_active(self):
         return self.status == 'active'
+
+class WarmupConfig(models.Model):
+    """Configuração de aquecimento (warm-up) por conta — ações sociais graduais
+    para maturar contas novas. Só possível pela engine cinza (a API oficial não
+    expõe likes/follows/views), o que é um diferencial sobre soluções API-only."""
+    INTENSITY_CHOICES = [
+        ('low', 'Leve'),
+        ('medium', 'Moderado'),
+        ('high', 'Agressivo'),
+    ]
+    # Alvos diários por intensidade: (likes, follows, views)
+    INTENSITY_TARGETS = {
+        'low': (10, 2, 20),
+        'medium': (25, 5, 50),
+        'high': (50, 10, 100),
+    }
+
+    account = models.OneToOneField(InstagramAccount, on_delete=models.CASCADE, related_name='warmup')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    enabled = models.BooleanField(default=False)
+    intensity = models.CharField(max_length=10, choices=INTENSITY_CHOICES, default='low')
+    target_hashtag = models.CharField(max_length=100, default='reels')
+
+    # Contadores do dia (resetam quando counter_date muda)
+    counter_date = models.DateField(null=True, blank=True)
+    likes_today = models.IntegerField(default=0)
+    follows_today = models.IntegerField(default=0)
+    views_today = models.IntegerField(default=0)
+
+    last_run = models.DateTimeField(null=True, blank=True)
+    last_result = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def daily_targets(self):
+        return self.INTENSITY_TARGETS.get(self.intensity, self.INTENSITY_TARGETS['low'])
+
 
 class Proxy(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)

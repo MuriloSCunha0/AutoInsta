@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Aquecimento | AutoInsta{% endblock %}
+{% block page_title %}Aquecimento de Contas{% endblock %}
+
+{% block content %}
+<div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
+    <i class="bi bi-fire me-1"></i> O aquecimento executa <strong>ações sociais graduais</strong> (curtidas, follows e views)
+    para maturar contas novas e reduzir risco de bloqueio. Funciona em contas <strong>Pessoais</strong> também —
+    algo que soluções 100% API oficial não conseguem fazer.
+</div>
+
+<div class="row g-4">
+    {% for row in rows %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-white mb-0">@{{ row.account.ig_username }}</h6>
+                {% if row.cfg and row.cfg.enabled %}
+                <span class="badge bg-success bg-opacity-25 text-success"><i class="bi bi-fire"></i> Ligado</span>
+                {% else %}
+                <span class="badge bg-secondary bg-opacity-25 text-secondary">Desligado</span>
+                {% endif %}
+            </div>
+
+            <form method="post" action="{% url 'instagram:warmup_save' row.account.id %}">
+                {% csrf_token %}
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" name="enabled" id="en{{ row.account.id }}"
+                           {% if row.cfg and row.cfg.enabled %}checked{% endif %}>
+                    <label class="form-check-label text-muted" for="en{{ row.account.id }}">Ativar aquecimento</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Intensidade</label>
+                    <select name="intensity" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                        {% for value, label in intensity_choices %}
+                        <option value="{{ value }}" {% if row.cfg and row.cfg.intensity == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Hashtag alvo</label>
+                    <input type="text" name="target_hashtag" class="form-control text-white border-subtle"
+                           style="background: var(--bg-input);" value="{{ row.cfg.target_hashtag|default:'reels' }}">
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button>
+            </form>
+
+            {% if row.cfg %}
+            <div class="mt-3 pt-3 border-top border-subtle small text-muted">
+                <div>Hoje: {{ row.cfg.likes_today }} curtidas · {{ row.cfg.follows_today }} follows · {{ row.cfg.views_today }} views</div>
+                {% if row.cfg.last_result %}<div class="mt-1"><i class="bi bi-clock-history"></i> {{ row.cfg.last_result }}</div>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="empty-state text-center py-5">
+            <i class="bi bi-fire text-muted mb-3" style="font-size: 3rem;"></i>
+            <h4 class="text-white">Nenhuma conta conectada</h4>
+            <p class="text-muted">Conecte uma conta para configurar o aquecimento.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

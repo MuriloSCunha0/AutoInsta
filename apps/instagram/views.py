@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import User
 from django.contrib import messages
 from django.conf import settings
+from django.core import signing
 from .models import InstagramAccount, Proxy
 import requests
 from urllib.parse import urlencode
@@ -51,6 +52,21 @@ def _toast(message, toast_type='info'):
     resp['X-Toast-Type'] = toast_type
     return resp
 
+
+# =============================================================================
+# OAuth state (anti-CSRF)
+# =============================================================================
+# O parâmetro `state` do OAuth é assinado com timestamp e amarrado ao usuário.
+# Assim garantimos que o callback que chega veio de um fluxo iniciado por nós
+# (e pelo mesmo usuário logado), fechando a brecha de CSRF do state fixo.
+_STATE_MAX_AGE = 600  # 10 minutos
+
+
+def _state_signer():
+    key = getattr(settings, 'IG_STATE_SECRET', '') or None
+    return signing.TimestampSigner(key=key, salt='ig-oauth-state')
+
+
 @login_required
 def account_list(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
@@ -62,6 +78,7 @@ def account_list(request):
         'extension_token': request.user.ensure_extension_token(),
         'connect_url': connect_url,
     })
+
 
 @login_required
 def add_account(request):
@@ -92,6 +109,7 @@ def add_account(request):
 
     # Retornar o card da conta (HTMX injeta na lista)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
+
 
 @login_required
 def add_account_session(request):
@@ -130,6 +148,7 @@ def add_account_session(request):
     connect_by_sessionid.delay(account.id, sessionid)
 
     return render(request, 'instagram/partials/account_card.html', {'account': account})
+
 
 @csrf_exempt
 def connect_extension(request):
@@ -197,7 +216,7 @@ def connect_extension(request):
 @require_POST
 def add_account_meta(request):
     """
-    Salva uma conta usando o Token da Meta Graph API.
+    Salva uma conta usando o Token da Meta Graph API (inserido manualmente).
     """
     ig_username = request.POST.get('ig_username', '').strip().lower()
     meta_access_token = request.POST.get('meta_access_token', '').strip()
@@ -210,30 +229,25 @@ def add_account_meta(request):
 
     # Verifica limite de contas
     current_count = InstagramAccount.objects.filter(owner=request.user).count()
-    if current_count >= request.user.max_ig_accounts:
+    already = InstagramAccount.objects.filter(owner=request.user, ig_username=ig_username).exists()
+    if not already and current_count >= request.user.max_ig_accounts:
         return HttpResponse(
             '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> '
             f'Limite do plano atingido (máx {request.user.max_ig_accounts} contas). Assine o PRO.</div>'
         )
 
     try:
-        acc, created = InstagramAccount.objects.get_or_create(
+        acc, _created = InstagramAccount.objects.get_or_create(
             owner=request.user,
             ig_username=ig_username,
-            defaults={
-                'meta_access_token': meta_access_token,
-                'status': 'active', # Se já temos token meta, ela pode ser considerada ativa
-                'ig_user_id': int(ig_user_id) if ig_user_id.isdigit() else None
-            }
+            defaults={'status': 'active'},
         )
 
-        if not created:
-            # Atualiza token existente
-            acc.meta_access_token = meta_access_token
-            if ig_user_id.isdigit():
-                acc.ig_user_id = int(ig_user_id)
-            acc.status = 'active'
-            acc.save()
+        acc.set_meta_token(meta_access_token)
+        if ig_user_id.isdigit():
+            acc.ig_user_id = int(ig_user_id)
+        acc.status = 'active'
+        acc.save()
 
         # Retorna o card atualizado para inserir na lista via HTMX
         return render(request, 'instagram/partials/account_card.html', {'account': acc})
@@ -256,6 +270,7 @@ def regenerate_extension_token(request):
 def account_status_partial(request, account_id):
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
+
 
 @login_required
 def submit_challenge(request, account_id):
@@ -305,206 +320,15 @@ def remove_account(request, account_id):
 @login_required
 def oauth_url(request):
     """Retorna a URL OAuth e renderiza o HTML para o modal."""
-    app_id = getattr(settings, 'META_APP_ID', '')
+    # Prioriza as credenciais do próprio usuário; cai para as globais do .env.
+    app_id = (request.user.meta_app_id or '').strip() or getattr(settings, 'META_APP_ID', '')
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
-    
+
     if not app_id:
-        return HttpResponse('<div class="alert alert-danger">META_APP_ID não configurado no .env.</div>')
-
-    scopes = [
-        'instagram_business_basic',
-        'instagram_business_manage_messages',
-        'instagram_business_manage_comments',
-        'instagram_business_content_publish',
-        'instagram_business_manage_insights',
-    ]
-    
-    params = {
-        'client_id': app_id,
-        'redirect_uri': redirect_uri,
-        'scope': ','.join(scopes),
-        'response_type': 'code',
-        'state': 'new',
-    }
-    
-    auth_url = f"https://www.instagram.com/oauth/authorize?{urlencode(params)}"
-    
-    context = {
-        'auth_url': auth_url
-    }
-    return render(request, 'instagram/partials/oauth_link.html', context)
-
-
-@login_required
-def oauth_callback(request):
-    """Callback redirecionado pelo Facebook."""
-    code = request.GET.get('code')
-    error = request.GET.get('error')
-    
-    if error:
-        messages.error(request, f"Erro na autorização Meta: {error}")
-        return redirect('instagram:list')
-        
-    if not code:
-        messages.error(request, "Nenhum código de autorização recebido.")
-        return redirect('instagram:list')
-        
-    app_id = getattr(settings, 'META_APP_ID', '')
-    app_secret = getattr(settings, 'META_APP_SECRET', '')
-    redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
-    
-    # 1. Trocar código por short-lived token
-    url = "https://api.instagram.com/oauth/access_token"
-    payload = {
-        'client_id': app_id,
-        'client_secret': app_secret,
-        'grant_type': 'authorization_code',
-        'redirect_uri': redirect_uri,
-        'code': code
-    }
-    
-    try:
-        response = requests.post(url, data=payload, timeout=15)
-        data = response.json()
-        
-        if 'access_token' not in data:
-            messages.error(request, f"Falha ao obter token (curto): {data.get('error_message', str(data))}")
-            return redirect('instagram:list')
-            
-        short_token = data['access_token']
-        user_id = str(data.get('user_id', ''))
-        
-        # 2. Trocar short por long-lived
-        ll_url = "https://graph.instagram.com/access_token"
-        ll_params = {
-            'grant_type': 'ig_exchange_token',
-            'client_secret': app_secret,
-            'access_token': short_token
-        }
-        
-        ll_response = requests.get(ll_url, params=ll_params, timeout=15)
-        ll_data = ll_response.json()
-        
-        access_token = ll_data.get('access_token', short_token)
-            
-        # 3. Buscar Perfil Instagram
-        me_url = f"https://graph.instagram.com/v21.0/{user_id}" if user_id else "https://graph.instagram.com/v21.0/me"
-        me_params = {
-            'fields': 'id,username,name,followers_count,media_count,profile_picture_url',
-            'access_token': access_token
-        }
-        
-        profile_data = {}
-        me_response = requests.get(me_url, params=me_params, timeout=15)
-        if me_response.status_code == 200:
-            profile_data = me_response.json()
-            
-        if not profile_data.get('username') and not user_id:
-            me_response_fb = requests.get("https://graph.instagram.com/v21.0/me", params=me_params, timeout=15)
-            if me_response_fb.status_code == 200:
-                profile_data = me_response_fb.json()
-                
-        username = profile_data.get('username', user_id)
-        if not username:
-             messages.error(request, "Não foi possível obter o username da Meta.")
-             return redirect('instagram:list')
-        
-        # 4. Salvar / Atualizar Conta
-        account, created = InstagramAccount.objects.get_or_create(
-            owner=request.user,
-            ig_username=username,
-            defaults={
-                'meta_access_token': access_token,
-                'ig_user_id': int(user_id) if user_id.isdigit() else None,
-                'status': 'active'
-            }
-        )
-        
-        if not created:
-            account.meta_access_token = access_token
-            if user_id.isdigit():
-                account.ig_user_id = int(user_id)
-            account.status = 'active'
-            if ig_user_id.isdigit():
-                acc.ig_user_id = int(ig_user_id)
-            acc.status = 'active'
-            acc.save()
-
-        # Retorna o card atualizado para inserir na lista via HTMX
-        return render(request, 'instagram/partials/account_card.html', {'account': acc})
-
-    except Exception as e:
         return HttpResponse(
-            f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token Meta: {str(e)}</div>'
+            '<div class="alert alert-danger">Configure o <strong>App ID</strong> do seu app Meta em '
+            '<a href="/accounts/settings/" class="alert-link">Configurações</a> antes de conectar.</div>'
         )
-
-
-@login_required
-@require_POST
-def regenerate_extension_token(request):
-    """Gera um novo token de conexão (invalida o anterior)."""
-    request.user.rotate_extension_token()
-    return _toast('Novo token gerado. Atualize-o na extensão.', 'success')
-
-
-@login_required
-def account_status_partial(request, account_id):
-    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
-    return render(request, 'instagram/partials/account_card.html', {'account': account})
-
-@login_required
-def submit_challenge(request, account_id):
-    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
-    if request.method == 'POST':
-        code = (request.POST.get('code') or '').strip()
-        if code:
-            account.status = 'connecting'
-            account.save(update_fields=['status'])
-            # Entrega o código à task de login web que está aguardando (Playwright).
-            # A chave espelha engine/tasks -> _code_cache_key(account_id).
-            cache.set(f'ig_login_code:{account_id}', code, timeout=300)
-    return render(request, 'instagram/partials/account_card.html', {'account': account})
-
-
-@login_required
-@require_POST
-def resend_challenge(request, account_id):
-    """Reenvia o código / recomeça o login.
-
-    Útil quando o código não chegou (e-mail/SMS do checkpoint) ou a tentativa
-    anterior expirou. Reserva uma nova geração (o que faz a task antiga fechar
-    o navegador e parar de escrever status) e dispara um login web novo — no
-    checkpoint isso reenvia o código; no 2FA, apenas reinicia a espera.
-    """
-    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
-
-    # Limpa qualquer código velho pendente e reinicia o estado visível.
-    cache.delete(f'ig_login_code:{account_id}')
-    account.status = 'connecting'
-    account.last_error = ''
-    account.save(update_fields=['status', 'last_error'])
-
-    gen = claim_login_generation(account.id)
-    web_login_account.delay(account.id, gen)
-
-    return render(request, 'instagram/partials/account_card.html', {'account': account})
-
-
-@login_required
-def remove_account(request, account_id):
-    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
-    account.delete()
-    return redirect('instagram:list')
-
-
-@login_required
-def oauth_url(request):
-    """Retorna a URL OAuth e renderiza o HTML para o modal."""
-    app_id = getattr(settings, 'META_APP_ID', '')
-    redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
-    
-    if not app_id:
-        return HttpResponse('<div class="alert alert-danger">META_APP_ID não configurado no .env.</div>')
 
     scopes = [
         'instagram_business_basic',
@@ -513,41 +337,58 @@ def oauth_url(request):
         'instagram_business_content_publish',
         'instagram_business_manage_insights',
     ]
-    
+
+    # `state` assinado (usuário + timestamp) para validar o callback (anti-CSRF).
+    state = _state_signer().sign(str(request.user.id))
+
     params = {
         'client_id': app_id,
         'redirect_uri': redirect_uri,
         'scope': ','.join(scopes),
         'response_type': 'code',
-        'state': 'new',
+        'state': state,
     }
-    
+
     auth_url = f"https://www.instagram.com/oauth/authorize?{urlencode(params)}"
-    
-    context = {
-        'auth_url': auth_url
-    }
-    return render(request, 'instagram/partials/oauth_link.html', context)
+
+    return render(request, 'instagram/partials/oauth_link.html', {'auth_url': auth_url})
 
 
 @login_required
 def oauth_callback(request):
-    """Callback redirecionado pelo Facebook."""
+    """Callback redirecionado pelo Instagram após a autorização OAuth."""
     code = request.GET.get('code')
     error = request.GET.get('error')
-    
+    state = request.GET.get('state', '')
+
     if error:
         messages.error(request, f"Erro na autorização Meta: {error}")
         return redirect('instagram:list')
-        
+
     if not code:
         messages.error(request, "Nenhum código de autorização recebido.")
         return redirect('instagram:list')
-        
-    app_id = getattr(settings, 'META_APP_ID', '')
-    app_secret = getattr(settings, 'META_APP_SECRET', '')
+
+    # Valida o `state` assinado: precisa ter sido gerado por nós, não ter
+    # expirado e pertencer ao usuário logado (proteção anti-CSRF).
+    try:
+        signed_user = _state_signer().unsign(state, max_age=_STATE_MAX_AGE)
+    except signing.SignatureExpired:
+        messages.error(request, "A autorização expirou. Tente conectar novamente.")
+        return redirect('instagram:list')
+    except signing.BadSignature:
+        messages.error(request, "State OAuth inválido. Reinicie a conexão pela plataforma.")
+        return redirect('instagram:list')
+
+    if signed_user != str(request.user.id):
+        messages.error(request, "Este fluxo de conexão não pertence à sua conta.")
+        return redirect('instagram:list')
+
+    # Mesmas credenciais usadas na geração da URL: as do usuário, com fallback global.
+    app_id = (request.user.meta_app_id or '').strip() or getattr(settings, 'META_APP_ID', '')
+    app_secret = request.user.get_meta_app_secret() or getattr(settings, 'META_APP_SECRET', '')
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
-    
+
     # 1. Trocar código por short-lived token
     url = "https://api.instagram.com/oauth/access_token"
     payload = {
@@ -555,78 +396,73 @@ def oauth_callback(request):
         'client_secret': app_secret,
         'grant_type': 'authorization_code',
         'redirect_uri': redirect_uri,
-        'code': code
+        'code': code,
     }
-    
+
     try:
         response = requests.post(url, data=payload, timeout=15)
         data = response.json()
-        
+
         if 'access_token' not in data:
             messages.error(request, f"Falha ao obter token (curto): {data.get('error_message', str(data))}")
             return redirect('instagram:list')
-            
+
         short_token = data['access_token']
         user_id = str(data.get('user_id', ''))
-        
+
         # 2. Trocar short por long-lived
         ll_url = "https://graph.instagram.com/access_token"
         ll_params = {
             'grant_type': 'ig_exchange_token',
             'client_secret': app_secret,
-            'access_token': short_token
+            'access_token': short_token,
         }
-        
+
         ll_response = requests.get(ll_url, params=ll_params, timeout=15)
         ll_data = ll_response.json()
-        
+
         access_token = ll_data.get('access_token', short_token)
-            
+
         # 3. Buscar Perfil Instagram
         me_url = f"https://graph.instagram.com/v21.0/{user_id}" if user_id else "https://graph.instagram.com/v21.0/me"
         me_params = {
             'fields': 'id,username,name,followers_count,media_count,profile_picture_url',
-            'access_token': access_token
+            'access_token': access_token,
         }
-        
+
         profile_data = {}
         me_response = requests.get(me_url, params=me_params, timeout=15)
         if me_response.status_code == 200:
             profile_data = me_response.json()
-            
+
         if not profile_data.get('username') and not user_id:
             me_response_fb = requests.get("https://graph.instagram.com/v21.0/me", params=me_params, timeout=15)
             if me_response_fb.status_code == 200:
                 profile_data = me_response_fb.json()
-                
+
         username = profile_data.get('username', user_id)
         if not username:
-             messages.error(request, "Não foi possível obter o username da Meta.")
-             return redirect('instagram:list')
-        
+            messages.error(request, "Não foi possível obter o username da Meta.")
+            return redirect('instagram:list')
+
         # 4. Salvar / Atualizar Conta
-        account, created = InstagramAccount.objects.get_or_create(
+        account, _created = InstagramAccount.objects.get_or_create(
             owner=request.user,
             ig_username=username,
-            defaults={
-                'meta_access_token': access_token,
-                'ig_user_id': int(user_id) if user_id.isdigit() else None,
-                'status': 'active'
-            }
+            defaults={'status': 'active'},
         )
-        
-        if not created:
-            account.meta_access_token = access_token
-            if user_id.isdigit():
-                account.ig_user_id = int(user_id)
-            account.status = 'active'
-            account.save()
-             
+
+        account.set_meta_token(access_token)
+        if user_id.isdigit():
+            account.ig_user_id = int(user_id)
+        account.status = 'active'
+        account.save()
+
         messages.success(request, f"Conta @{username} conectada com sucesso via Meta API!")
-        
+
     except Exception as e:
         messages.error(request, f"Erro interno na conexão OAuth: {str(e)}")
-        
+
     return redirect('instagram:list')
 
 
@@ -635,7 +471,113 @@ def profile(request):
     account = InstagramAccount.objects.filter(owner=request.user).first()
     return render(request, 'instagram/profile.html', {'account': account})
 
+
 @login_required
 def proxies(request):
     proxy_list = Proxy.objects.filter(owner=request.user)
     return render(request, 'instagram/proxies.html', {'proxies': proxy_list})
+
+
+@login_required
+@require_POST
+def add_proxy(request):
+    ip_address = (request.POST.get('ip_address') or '').strip()
+    port = (request.POST.get('port') or '').strip()
+    if not ip_address or not port.isdigit():
+        messages.error(request, 'Informe um IP/host e uma porta válida.')
+        return redirect('instagram:proxies')
+
+    Proxy.objects.create(
+        owner=request.user,
+        ip_address=ip_address,
+        port=int(port),
+        username=(request.POST.get('username') or '').strip(),
+        password=(request.POST.get('password') or '').strip(),
+        protocol=(request.POST.get('protocol') or 'http').strip(),
+        is_active=True,
+    )
+    messages.success(request, 'Proxy adicionado com sucesso.')
+    return redirect('instagram:proxies')
+
+
+@login_required
+def toggle_proxy(request, proxy_id):
+    proxy = get_object_or_404(Proxy, id=proxy_id, owner=request.user)
+    proxy.is_active = not proxy.is_active
+    proxy.save(update_fields=['is_active'])
+    return redirect('instagram:proxies')
+
+
+@login_required
+def delete_proxy(request, proxy_id):
+    proxy = get_object_or_404(Proxy, id=proxy_id, owner=request.user)
+    proxy.delete()
+    return redirect('instagram:proxies')
+
+
+# =============================================================================
+# Onda 4 — Aquecimento (warm-up) de contas
+# =============================================================================
+@login_required
+def warmup(request):
+    from .models import WarmupConfig
+    accounts = InstagramAccount.objects.filter(owner=request.user)
+    configs = {c.account_id: c for c in WarmupConfig.objects.filter(owner=request.user)}
+    rows = [{'account': acc, 'cfg': configs.get(acc.id)} for acc in accounts]
+    return render(request, 'instagram/warmup.html', {
+        'rows': rows,
+        'intensity_choices': WarmupConfig.INTENSITY_CHOICES,
+    })
+
+
+@login_required
+@require_POST
+def warmup_save(request, account_id):
+    from .models import WarmupConfig
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    cfg, _ = WarmupConfig.objects.get_or_create(account=account, defaults={'owner': request.user})
+    cfg.owner = request.user
+    cfg.enabled = request.POST.get('enabled') == 'on'
+    cfg.intensity = request.POST.get('intensity', 'low')
+    cfg.target_hashtag = (request.POST.get('target_hashtag') or 'reels').lstrip('#').strip() or 'reels'
+    cfg.save()
+    messages.success(request, f'Aquecimento de @{account.ig_username} atualizado.')
+    return redirect('instagram:warmup')
+
+
+# =============================================================================
+# Onda 4 — Edição de perfil em massa (bio/nome/link/foto)
+# =============================================================================
+@login_required
+def bulk_edit(request):
+    if request.method == 'POST':
+        from django.core.files.storage import default_storage
+        from .tasks import bulk_edit_profiles
+
+        account_ids = request.POST.getlist('accounts')
+        if not account_ids:
+            messages.error(request, 'Selecione ao menos uma conta.')
+            return redirect('instagram:bulk_edit')
+
+        full_name = (request.POST.get('full_name') or '').strip()
+        biography = request.POST.get('biography')
+        external_url = (request.POST.get('external_url') or '').strip()
+
+        picture_path = None
+        if 'picture' in request.FILES:
+            name = default_storage.save(f'profile_pics/{request.FILES["picture"].name}', request.FILES['picture'])
+            try:
+                picture_path = default_storage.path(name)
+            except NotImplementedError:
+                picture_path = None  # storage remoto não expõe path local
+
+        # Garante que as contas são do usuário.
+        owned_ids = list(
+            InstagramAccount.objects.filter(id__in=account_ids, owner=request.user).values_list('id', flat=True)
+        )
+        bulk_edit_profiles.delay(owned_ids, full_name, biography, external_url, picture_path)
+        messages.success(request, f'Edição de perfil disparada para {len(owned_ids)} conta(s). Pode levar alguns minutos.')
+        return redirect('instagram:bulk_edit')
+
+    accounts = InstagramAccount.objects.filter(owner=request.user)
+    return render(request, 'instagram/bulk_edit.html', {'accounts': accounts})

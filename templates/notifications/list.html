@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Notificações | AutoInsta{% endblock %}
+{% block page_title %}Central de Notificações{% endblock %}
+
+{% block content %}
+<div class="card p-0">
+    <div class="list-group list-group-flush">
+        {% for n in notifications %}
+        <div class="list-group-item bg-transparent border-subtle d-flex gap-3 py-3">
+            <i class="bi {% if n.notification_type == 'success' %}bi-check-circle-fill text-success{% elif n.notification_type == 'error' %}bi-x-circle-fill text-danger{% elif n.notification_type == 'warning' %}bi-exclamation-triangle-fill text-warning{% else %}bi-info-circle-fill text-info{% endif %} fs-5 mt-1"></i>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between">
+                    <strong class="text-white">{{ n.title }}</strong>
+                    <small class="text-muted">{{ n.created_at|date:"d/m/Y H:i" }}</small>
+                </div>
+                <p class="text-muted mb-0 small">{{ n.message }}</p>
+                {% if n.related_account %}
+                <small class="text-info">@{{ n.related_account.ig_username }}</small>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state text-center py-5">
+            <i class="bi bi-bell-slash text-muted mb-3" style="font-size: 3rem;"></i>
+            <h4 class="text-white">Nenhuma notificação</h4>
+            <p class="text-muted">Eventos importantes das suas contas e publicações aparecerão aqui.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

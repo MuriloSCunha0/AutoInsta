@@ -5,7 +5,7 @@
 <div class="card glass-modal border-0 p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h5 class="text-white mb-0"><i class="bi bi-hdd-network text-info me-2"></i> Meus Proxies IPv4/IPv6</h5>
-        <button class="btn btn-sm btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> Adicionar Proxy</button>
+        <button class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addProxyModal"><i class="bi bi-plus-lg"></i> Adicionar Proxy</button>
     </div>
     
     <div class="table-responsive">
@@ -21,17 +21,22 @@
             <tbody>
                 {% for proxy in proxies %}
                 <tr>
-                    <td class="text-white border-0">{{ proxy.ip_address }}</td>
+                    <td class="text-white border-0">
+                        <span class="badge bg-secondary bg-opacity-25 text-secondary me-2">{{ proxy.protocol }}</span>{{ proxy.ip_address }}
+                    </td>
                     <td class="text-muted border-0">{{ proxy.port }}</td>
                     <td class="border-0">
+                        <a href="{% url 'instagram:toggle_proxy' proxy.id %}" class="text-decoration-none">
                         {% if proxy.is_active %}
                             <span class="badge bg-success bg-opacity-25 text-success rounded-pill">Ativo</span>
                         {% else %}
                             <span class="badge bg-danger bg-opacity-25 text-danger rounded-pill">Inativo</span>
                         {% endif %}
+                        </a>
                     </td>
                     <td class="text-end border-0">
-                        <button class="btn btn-sm btn-outline-danger border-opacity-25 text-danger"><i class="bi bi-trash"></i></button>
+                        <a href="{% url 'instagram:delete_proxy' proxy.id %}" class="btn btn-sm btn-outline-danger border-opacity-25 text-danger"
+                           onclick="return confirm('Excluir este proxy?')"><i class="bi bi-trash"></i></a>
                     </td>
                 </tr>
                 {% empty %}
@@ -44,6 +49,53 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal: Adicionar Proxy -->
+<div class="modal fade" id="addProxyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-hdd-network text-info me-2"></i> Novo Proxy</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'instagram:add_proxy' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <label class="form-label text-muted">Protocolo</label>
+                            <select name="protocol" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                                <option value="http">http</option>
+                                <option value="https">https</option>
+                                <option value="socks5">socks5</option>
+                            </select>
+                        </div>
+                        <div class="col-8">
+                            <label class="form-label text-muted">IP / Host</label>
+                            <input type="text" name="ip_address" required class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="192.168.0.1">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-muted">Porta</label>
+                            <input type="number" name="port" required class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="8080">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-muted">Usuário</label>
+                            <input type="text" name="username" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="opcional">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-muted">Senha</label>
+                            <input type="text" name="password" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="opcional">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Proxy</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

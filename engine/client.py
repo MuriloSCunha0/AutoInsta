@@ -158,6 +158,77 @@ class InstagramEngine:
             self.account.save()
             raise
 
+    def _prepare_client(self):
+        """Garante um client logado via sessão salva (para ações fora do upload)."""
+        if self.account.proxy_url:
+            self.client.set_proxy(self.account.proxy_url)
+        SessionManager.load_session(self.account, self.client)
+        self.client.login(self.account.ig_username, self.account.get_ig_password())
+
+    def edit_profile(self, full_name=None, biography=None, external_url=None):
+        """Edita bio/nome/link do perfil (via engine cinza — funciona em contas
+        Pessoais também, o que a API oficial não permite)."""
+        self._prepare_client()
+        data = {}
+        if full_name is not None:
+            data['full_name'] = full_name
+        if biography is not None:
+            data['biography'] = biography
+        if external_url is not None:
+            data['external_url'] = external_url
+        result = self.client.account_edit(**data)
+        try:
+            self._fetch_profile_info()
+        except Exception:
+            pass
+        return result
+
+    def change_profile_picture(self, image_path):
+        """Troca a foto de perfil da conta."""
+        self._prepare_client()
+        return self.client.account_change_picture(image_path)
+
+    def run_warmup(self, likes=0, follows=0, views=0, hashtag='reels'):
+        """Aquecimento gradual: curte/visualiza/segue conteúdo de um hashtag.
+        Best-effort — cada ação é isolada para uma falha não abortar o lote."""
+        self._prepare_client()
+        done = {'likes': 0, 'follows': 0, 'views': 0}
+
+        amount = max(likes, follows, views, 1)
+        try:
+            medias = self.client.hashtag_medias_recent(hashtag, amount=amount)
+        except Exception:
+            try:
+                medias = self.client.hashtag_medias_top(hashtag, amount=amount)
+            except Exception:
+                medias = []
+
+        # Visualizações (media_seen aceita lista de pks)
+        if views and medias:
+            try:
+                self.client.media_seen([m.pk for m in medias[:views]])
+                done['views'] = min(views, len(medias))
+            except Exception:
+                pass
+
+        # Curtidas
+        for m in medias[:likes]:
+            try:
+                self.client.media_like(m.id)
+                done['likes'] += 1
+            except Exception:
+                pass
+
+        # Follows (usuários dos primeiros posts)
+        for m in medias[:follows]:
+            try:
+                self.client.user_follow(m.user.pk)
+                done['follows'] += 1
+            except Exception:
+                pass
+
+        return done
+
     def upload_reel(self, video_path, caption, thumbnail_path=None):
         SessionManager.load_session(self.account, self.client)
         self.client.login(self.account.ig_username, self.account.get_ig_password())
@@ -186,8 +257,8 @@ class InstagramEngine:
         if not ig_user_id:
             raise ValueError("Conta não possui ig_user_id. Reconecte o Meta API.")
 
-        token = self.account.meta_access_token
-        
+        token = self.account.get_meta_token()
+
         # 1. Cria o contêiner de mídia
         url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media"
         payload = {

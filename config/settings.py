@@ -88,6 +88,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.notifications.context_processors.notifications",
             ],
         },
     },
@@ -190,6 +191,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.publisher.tasks.process_scheduled_posts",
         "schedule": 60.0,
     },
+    # Aquecimento gradual das contas (ações sociais em pequenos lotes).
+    "run-account-warmups": {
+        "task": "apps.instagram.tasks.run_warmups",
+        "schedule": 1800.0,  # a cada 30 min
+    },
 }
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos
@@ -223,4 +229,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 META_APP_ID = env("META_APP_ID", default="")
 META_APP_SECRET = env("META_APP_SECRET", default="")
 META_REDIRECT_URI = env("META_REDIRECT_URI", default="http://localhost:8000/instagram/oauth/callback/")
+# Segredo que assina o parâmetro `state` do OAuth (proteção anti-CSRF).
+# Se vazio, o fluxo usa a SECRET_KEY do Django como chave de assinatura.
+IG_STATE_SECRET = env("IG_STATE_SECRET", default="")
+
+# =============================================================================
+# OpenAI (geração de legendas com IA)
+# =============================================================================
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
 

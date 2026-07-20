@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Biblioteca de Mídia | AutoInsta{% endblock %}
+{% block page_title %}Biblioteca de Mídia{% endblock %}
+
+{% block top_actions %}
+<button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addFolderModal">
+    <i class="bi bi-folder-plus"></i> Nova pasta
+</button>
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadMediaModal">
+    <i class="bi bi-cloud-arrow-up"></i> Enviar mídia
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card p-3">
+            <div class="text-muted small text-uppercase">Vídeos</div>
+            <div class="h3 mb-0 text-white">{{ total_videos }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3">
+            <div class="text-muted small text-uppercase">Capas/Imagens</div>
+            <div class="h3 mb-0 text-white">{{ total_images }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3">
+            <div class="text-muted small text-uppercase">Pastas</div>
+            <div class="h3 mb-0 text-white">{{ folders|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Folder tabs -->
+<div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
+    <a href="{% url 'library:media' %}"
+       class="btn btn-sm {% if not current_folder %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-collection"></i> Todas
+    </a>
+    {% for folder in folders %}
+    <div class="btn-group">
+        <a href="{% url 'library:media' %}?folder={{ folder.id }}"
+           class="btn btn-sm {% if current_folder.id == folder.id %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-folder-fill"></i> {{ folder.name }}
+            <span class="badge bg-dark bg-opacity-25 ms-1">{{ folder.assets.count }}</span>
+        </a>
+        <a href="{% url 'library:delete_folder' folder.id %}"
+           class="btn btn-sm btn-outline-secondary text-danger"
+           onclick="return confirm('Excluir a pasta \'{{ folder.name }}\'? As mídias dentro dela não serão apagadas, apenas soltas.')"
+           title="Excluir pasta"><i class="bi bi-x"></i></a>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Assets grid -->
+<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+    {% for asset in assets %}
+    <div class="col">
+        <div class="card h-100 overflow-hidden">
+            <div style="aspect-ratio: 9/16; background: #05070f; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                {% if asset.kind == 'video' %}
+                    <video src="{{ asset.file.url }}" preload="metadata" muted
+                           style="width: 100%; height: 100%; object-fit: cover;"
+                           onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0;"></video>
+                {% else %}
+                    <img src="{{ asset.file.url }}" alt="{{ asset.original_name }}"
+                         style="width: 100%; height: 100%; object-fit: cover;">
+                {% endif %}
+            </div>
+            <div class="p-2 d-flex justify-content-between align-items-center">
+                <div class="text-truncate small text-muted" style="max-width: 70%;" title="{{ asset.original_name }}">
+                    <i class="bi {% if asset.kind == 'video' %}bi-play-btn{% else %}bi-image{% endif %}"></i>
+                    {{ asset.original_name|default:"mídia" }}
+                </div>
+                <a href="{% url 'library:delete_media' asset.id %}" class="text-danger opacity-75 text-decoration-none"
+                   onclick="return confirm('Excluir esta mídia?')"><i class="bi bi-trash"></i></a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="empty-state text-center py-5">
+            <i class="bi bi-collection-play text-muted mb-3" style="font-size: 3rem;"></i>
+            <h4 class="text-white">
+                {% if current_folder %}Pasta "{{ current_folder.name }}" vazia{% else %}Nenhuma mídia ainda{% endif %}
+            </h4>
+            <p class="text-muted">Envie vídeos (Reels) e capas para usar no Composer e nos Loops.</p>
+            <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#uploadMediaModal">
+                Enviar mídia
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal: Upload -->
+<div class="modal fade" id="uploadMediaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-cloud-upload text-purple me-2"></i> Enviar mídia</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'library:upload_media' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Pasta de destino</label>
+                        <select name="folder" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                            <option value="">— Sem pasta —</option>
+                            {% for folder in folders %}
+                            <option value="{{ folder.id }}" {% if current_folder.id == folder.id %}selected{% endif %}>{{ folder.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label text-muted">Arquivos (vídeos MP4/MOV ou imagens)</label>
+                        <input type="file" name="files" accept="video/*,image/*" multiple required
+                               class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                        <small class="text-muted">Pode selecionar vários arquivos de uma vez.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nova pasta -->
+<div class="modal fade" id="addFolderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-folder-plus text-purple me-2"></i> Nova pasta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'library:add_folder' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Nome da pasta</label>
+                        <input type="text" name="name" required class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" placeholder="Ex: Reels virais">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -11,4 +11,5 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('profile/update/', views.profile_update, name='profile_update'),
     path('settings/', views.settings_view, name='settings'),
+    path('settings/meta-credentials/', views.update_meta_credentials, name='update_meta_credentials'),
 ]

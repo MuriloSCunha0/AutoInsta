@@ -18,4 +18,10 @@ urlpatterns = [
     path('remove/<int:account_id>/', views.remove_account, name='remove'),
     path('profile/', views.profile, name='profile'),
     path('proxies/', views.proxies, name='proxies'),
+    path('proxies/add/', views.add_proxy, name='add_proxy'),
+    path('proxies/toggle/<int:proxy_id>/', views.toggle_proxy, name='toggle_proxy'),
+    path('proxies/delete/<int:proxy_id>/', views.delete_proxy, name='delete_proxy'),
+    path('warmup/', views.warmup, name='warmup'),
+    path('warmup/<int:account_id>/save/', views.warmup_save, name='warmup_save'),
+    path('bulk-edit/', views.bulk_edit, name='bulk_edit'),
 ]

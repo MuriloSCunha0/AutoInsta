@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Edição em Massa | AutoInsta{% endblock %}
+{% block page_title %}Editar Perfis em Massa{% endblock %}
+
+{% block content %}
+<div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
+    <i class="bi bi-people-fill me-1"></i> Edite <strong>bio, nome e foto</strong> de várias contas ao mesmo tempo.
+    Use <code>{nome_conta}</code> para inserir o @ de cada conta automaticamente. A API oficial não permite isso —
+    aqui funciona pela engine (inclusive em contas Pessoais).
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card p-4">
+                <h6 class="text-white mb-3"><i class="bi bi-pencil-square text-purple me-2"></i> Novos dados</h6>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Nome de exibição</label>
+                    <input type="text" name="full_name" class="form-control text-white border-subtle"
+                           style="background: var(--bg-input);" placeholder="Deixe vazio para não alterar">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Biografia</label>
+                    <textarea name="biography" rows="4" class="form-control text-white border-subtle"
+                              style="background: var(--bg-input);" placeholder="Ex: 🚀 {nome_conta} • link abaixo"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">Link (URL)</label>
+                    <input type="url" name="external_url" class="form-control text-white border-subtle"
+                           style="background: var(--bg-input);" placeholder="https://...">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted">Foto de perfil (opcional)</label>
+                    <input type="file" name="picture" accept="image/*" class="form-control text-white border-subtle"
+                           style="background: var(--bg-input);">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card p-4 h-100 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-white mb-0"><i class="bi bi-people text-purple me-2"></i> Aplicar em</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-all">Todas</button>
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for acc in accounts %}
+                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle" style="cursor: pointer;">
+                        <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check">
+                        <span class="text-white">@{{ acc.ig_username }}</span>
+                    </label>
+                    {% empty %}
+                    <p class="text-muted small">Nenhuma conta conectada.</p>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-3"><i class="bi bi-send"></i> Aplicar edição</button>
+                <small class="text-muted d-block text-center mt-2">A alteração roda em segundo plano e pode levar alguns minutos.</small>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+(function () {
+    const btn = document.getElementById('toggle-all');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const boxes = document.querySelectorAll('.acc-check');
+        const allOn = [...boxes].every((b) => b.checked);
+        boxes.forEach((b) => { b.checked = !allOn; });
+    });
+})();
+</script>
+{% endblock %}

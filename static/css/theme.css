@@ -2228,3 +2228,192 @@ textarea.form-control {
   border-bottom-color: rgba(139, 92, 246, 0.1);
 }
 
+/* ============================================================
+   ONDA 1 — Fundação de UX: sidebar colapsável · ⌘K · progresso
+   ============================================================ */
+
+/* ── Barra de progresso global (navegação + HTMX) ─────────── */
+.app-progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: 0;
+  background: var(--grad-primary, linear-gradient(90deg, #7c3aed, #06b6d4));
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.7);
+  z-index: 2000;
+  opacity: 0;
+  transition: width 0.2s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+.app-progress.active { opacity: 1; }
+
+/* ── Toggle de colapsar a sidebar (somente desktop) ───────── */
+.desk-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: all var(--tr-base);
+}
+.desk-toggle:hover { color: var(--text-primary); background: var(--accent-bg); }
+
+@media (min-width: 769px) {
+  .desk-toggle { display: inline-flex; align-items: center; }
+
+  :root[data-nav="collapsed"] { --sidebar-w: 78px; }
+
+  [data-nav="collapsed"] .side-brand { padding: 24px 0; }
+  [data-nav="collapsed"] .side-brand .brand-logo { justify-content: center; gap: 0; }
+  [data-nav="collapsed"] .brand-text { display: none; }
+  [data-nav="collapsed"] .side-links { padding: 16px 10px; }
+  [data-nav="collapsed"] .side-links .nav-text,
+  [data-nav="collapsed"] .nav-category { display: none; }
+  [data-nav="collapsed"] .side-links a { justify-content: center; padding: 12px 0; gap: 0; }
+  [data-nav="collapsed"] .side-links a i { width: auto; }
+  [data-nav="collapsed"] .side-links a.active::before { display: none; }
+
+  /* Tooltip do rótulo ao passar o mouse na sidebar colapsada */
+  [data-nav="collapsed"] .side-links a::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 6px 11px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    transition: opacity var(--tr-base);
+    z-index: 300;
+  }
+  [data-nav="collapsed"] .side-links a:hover::after { opacity: 1; }
+}
+
+/* ── Gatilho da busca ⌘K na topbar ────────────────────────── */
+.cmdk-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  min-width: 220px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--tr-base);
+}
+.cmdk-trigger:hover { border-color: var(--primary); color: var(--text-primary); }
+.cmdk-trigger .cmdk-trigger-label { flex: 1; text-align: left; }
+.cmdk-kbd {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-app, transparent);
+  color: var(--text-muted);
+  line-height: 1;
+}
+@media (max-width: 768px) {
+  .cmdk-trigger { min-width: 0; }
+  .cmdk-trigger .cmdk-trigger-label, .cmdk-trigger .cmdk-kbd { display: none; }
+}
+
+/* ── Command Palette (overlay + caixa) ────────────────────── */
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 15, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 2500;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+.cmdk-overlay.open { display: flex; }
+.cmdk-box {
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 60px rgba(139, 92, 246, 0.12);
+  overflow: hidden;
+  animation: cmdk-in 0.16s ease;
+}
+@keyframes cmdk-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.cmdk-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cmdk-input-wrap i { color: var(--text-muted); font-size: 1.1rem; }
+.cmdk-input-wrap input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+.cmdk-input-wrap .cmdk-esc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.cmdk-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.cmdk-list a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.cmdk-list a i { font-size: 1.05rem; width: 22px; text-align: center; }
+.cmdk-list li.active a,
+.cmdk-list a:hover {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--text-primary);
+}
+.cmdk-list li.active a i { color: var(--primary); }
+.cmdk-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
