@@ -52,3 +52,19 @@ def dashboard(request):
         'ranking_list': ranking_list,
     }
     return render(request, 'dashboard/index.html', context)
+
+@login_required
+def performance(request):
+    return render(request, 'analytics/performance.html')
+
+@login_required
+def top_posts(request):
+    return render(request, 'analytics/top_posts.html')
+
+@login_required
+def health(request):
+    return render(request, 'analytics/health.html')
+
+@login_required
+def logs_view(request):
+    return render(request, 'analytics/logs.html')

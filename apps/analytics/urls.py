@@ -5,4 +5,8 @@ app_name = 'analytics'
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    path('performance/', views.performance, name='performance'),
+    path('top-posts/', views.top_posts, name='top_posts'),
+    path('health/', views.health, name='health'),
+    path('logs/', views.logs_view, name='logs'),
 ]

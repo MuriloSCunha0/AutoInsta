@@ -16,4 +16,6 @@ urlpatterns = [
     path('challenge/<int:account_id>/', views.submit_challenge, name='submit_challenge'),
     path('challenge/<int:account_id>/resend/', views.resend_challenge, name='resend_challenge'),
     path('remove/<int:account_id>/', views.remove_account, name='remove'),
+    path('profile/', views.profile, name='profile'),
+    path('proxies/', views.proxies, name='proxies'),
 ]

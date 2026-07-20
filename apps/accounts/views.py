@@ -65,3 +65,7 @@ def profile_update(request):
                 messages.success(request, 'Sua senha foi alterada com sucesso.')
                 
     return redirect('accounts:profile')
+
+@login_required
+def settings_view(request):
+    return render(request, 'accounts/settings.html')

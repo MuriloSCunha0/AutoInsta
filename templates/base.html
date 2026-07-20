@@ -41,21 +41,63 @@
             </div>
             
             <nav class="side-links">
+                <div class="nav-category">Geral</div>
                 <a href="{% url 'analytics:dashboard' %}" class="{% if request.resolver_match.namespace == 'analytics' %}active{% endif %}">
                     <i class="bi bi-grid-1x2-fill"></i> <span class="nav-text">Dashboard</span>
                 </a>
-                <a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.namespace == 'instagram' %}active{% endif %}">
-                    <i class="bi bi-instagram"></i> <span class="nav-text">Contas</span>
-                </a>
+                
+                <div class="nav-category">Publicação</div>
                 <a href="{% url 'publisher:queue' %}" class="{% if request.resolver_match.namespace == 'publisher' %}active{% endif %}">
                     <i class="bi bi-send-fill"></i> <span class="nav-text">Fila de Posts</span>
+                </a>
+                <a href="{% url 'publisher:loops' %}" class="{% if 'loops' in request.path %}active{% endif %}">
+                    <i class="bi bi-arrow-repeat"></i> <span class="nav-text">Loop</span>
+                </a>
+                <a href="{% url 'publisher:stories' %}" class="{% if 'stories' in request.path %}active{% endif %}">
+                    <i class="bi bi-play-btn"></i> <span class="nav-text">Stories</span>
+                </a>
+                <a href="{% url 'publisher:schedule' %}" class="{% if 'schedule' in request.path %}active{% endif %}">
+                    <i class="bi bi-calendar3"></i> <span class="nav-text">Agendamentos</span>
+                </a>
+
+                <div class="nav-category">Conteúdo</div>
+                <a href="{% url 'library:audios' %}" class="{% if 'audios' in request.path %}active{% endif %}">
+                    <i class="bi bi-collection-play-fill"></i> <span class="nav-text">Biblioteca</span>
                 </a>
                 <a href="{% url 'library:captions' %}" class="{% if 'captions' in request.path %}active{% endif %}">
                     <i class="bi bi-chat-quote-fill"></i> <span class="nav-text">Legendas</span>
                 </a>
-                <a href="{% url 'library:audios' %}" class="{% if 'audios' in request.path %}active{% endif %}">
-                    <i class="bi bi-music-note-beamed"></i> <span class="nav-text">Áudios</span>
+
+                <div class="nav-category">Análise</div>
+                <a href="{% url 'analytics:performance' %}" class="{% if 'performance' in request.path %}active{% endif %}">
+                    <i class="bi bi-bar-chart-fill"></i> <span class="nav-text">Performance</span>
                 </a>
+                <a href="{% url 'analytics:top_posts' %}" class="{% if 'top-posts' in request.path %}active{% endif %}">
+                    <i class="bi bi-trophy-fill"></i> <span class="nav-text">Top Posts</span>
+                </a>
+
+                <div class="nav-category">Gestão</div>
+                <a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.namespace == 'instagram' %}active{% endif %}">
+                    <i class="bi bi-instagram"></i> <span class="nav-text">Contas</span>
+                </a>
+                <a href="{% url 'instagram:profile' %}" class="{% if 'profile' in request.path %}active{% endif %}">
+                    <i class="bi bi-person-lines-fill"></i> <span class="nav-text">Perfil Instagram</span>
+                </a>
+                <a href="{% url 'analytics:health' %}" class="{% if 'health' in request.path %}active{% endif %}">
+                    <i class="bi bi-heart-pulse-fill"></i> <span class="nav-text">Saúde</span>
+                </a>
+                <a href="{% url 'instagram:proxies' %}" class="{% if 'proxies' in request.path %}active{% endif %}">
+                    <i class="bi bi-hdd-network-fill"></i> <span class="nav-text">Proxies</span>
+                </a>
+
+                <div class="nav-category">Sistema</div>
+                <a href="{% url 'accounts:settings' %}" class="{% if 'settings' in request.path %}active{% endif %}">
+                    <i class="bi bi-gear-fill"></i> <span class="nav-text">Configurações</span>
+                </a>
+                <a href="{% url 'analytics:logs' %}" class="{% if 'logs' in request.path %}active{% endif %}">
+                    <i class="bi bi-journal-text"></i> <span class="nav-text">Histórico</span>
+                </a>
+
                 {% if request.user.is_staff %}
                 <div style="height: 1px; background: var(--border-subtle); margin: 10px 20px;"></div>
                 <a href="{% url 'management:dashboard' %}" class="text-danger {% if request.resolver_match.namespace == 'management' %}active{% endif %}">

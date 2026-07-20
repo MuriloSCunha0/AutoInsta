@@ -27,3 +27,15 @@ def remove_post(request, post_id):
     post = get_object_or_404(ScheduledPost, id=post_id, owner=request.user)
     post.delete()
     return redirect('publisher:queue')
+
+@login_required
+def loops(request):
+    return render(request, 'publisher/loops.html')
+
+@login_required
+def stories(request):
+    return render(request, 'publisher/stories.html')
+
+@login_required
+def schedule(request):
+    return render(request, 'publisher/schedule.html')
