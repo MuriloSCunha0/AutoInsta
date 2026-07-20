@@ -29,7 +29,10 @@
         <input class="form-control mb-3" type="tel" name="phone">
 
         <label class="form-label">Senha</label>
-        {% include 'partials/pw_field.html' with name='password' required=1 wrap_css='mb-3' autocomplete='new-password' %}
+        {% include 'partials/pw_field.html' with name='password1' required=1 wrap_css='mb-3' autocomplete='new-password' %}
+
+        <label class="form-label">Confirmar Senha</label>
+        {% include 'partials/pw_field.html' with name='password2' required=1 wrap_css='mb-3' autocomplete='new-password' %}
 
         <button class="btn btn-primary w-100 mt-2" type="submit">Enviar cadastro</button>
     </form>
