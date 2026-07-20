@@ -10,4 +10,5 @@ urlpatterns = [
     path('loops/', views.loops, name='loops'),
     path('stories/', views.stories, name='stories'),
     path('schedule/', views.schedule, name='schedule'),
+    path('api/events/', views.api_events, name='api_events'),
 ]

@@ -3,6 +3,32 @@
 {% block page_title %}Performance{% endblock %}
 {% block content %}
 <div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-info-circle me-2"></i> Esta tela de Performance está em desenvolvimento. Em breve você verá gráficos detalhados do seu engajamento.
+    <i class="bi bi-graph-up-arrow me-2"></i> Gráficos detalhados em desenvolvimento.
+</div>
+<div class="row g-4 mt-3">
+    <div class="col-md-3">
+        <div class="card glass-modal p-3 border-0">
+            <h6 class="text-muted">Total de Seguidores</h6>
+            <h3 class="text-white">{{ followers_total }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card glass-modal p-3 border-0">
+            <h6 class="text-muted">Total Seguindo</h6>
+            <h3 class="text-white">{{ following_total }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card glass-modal p-3 border-0">
+            <h6 class="text-muted">Contas Analisadas</h6>
+            <h3 class="text-white">{{ accounts_count }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card glass-modal p-3 border-0">
+            <h6 class="text-muted">Taxa de Engajamento</h6>
+            <h3 class="text-white">{{ engagement_rate }}%</h3>
+        </div>
+    </div>
 </div>
 {% endblock %}

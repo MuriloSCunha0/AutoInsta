@@ -11,8 +11,15 @@ class ScheduledPost(models.Model):
         ('failed', 'Falhou ❌'),
     ]
 
+    TYPE_CHOICES = [
+        ('REELS', 'Reels'),
+        ('FEED', 'Feed'),
+        ('STORY', 'Story'),
+    ]
+
     account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    post_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='REELS')
     video_file = models.FileField(upload_to='reels/')
     thumbnail = models.FileField(upload_to='thumbnails/', null=True, blank=True)
     caption = models.TextField(blank=True)
@@ -30,3 +37,17 @@ class ScheduledPost(models.Model):
 
     class Meta:
         ordering = ['scheduled_for', 'created_at']
+
+class PostLoop(models.Model):
+    account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    post_type = models.CharField(max_length=10, choices=ScheduledPost.TYPE_CHOICES, default='REELS')
+    video_file = models.FileField(upload_to='loops/')
+    caption = models.TextField(blank=True)
+    interval_days = models.IntegerField(default=7) # Re-post every X days
+    last_posted = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

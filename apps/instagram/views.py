@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import User
 from django.contrib import messages
 from django.conf import settings
-from .models import InstagramAccount
+from .models import InstagramAccount, Proxy
 import requests
 from urllib.parse import urlencode
 from .forms import AddInstagramAccountForm
@@ -636,4 +636,5 @@ def profile(request):
 
 @login_required
 def proxies(request):
-    return render(request, 'instagram/proxies.html')
+    proxy_list = Proxy.objects.filter(owner=request.user)
+    return render(request, 'instagram/proxies.html', {'proxies': proxy_list})

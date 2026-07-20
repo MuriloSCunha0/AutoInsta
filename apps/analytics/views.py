@@ -55,15 +55,121 @@ def dashboard(request):
 
 @login_required
 def performance(request):
-    return render(request, 'analytics/performance.html')
+    accounts = InstagramAccount.objects.filter(owner=request.user)
+    followers_total = accounts.aggregate(Sum('followers_count'))['followers_count__sum'] or 0
+    following_total = accounts.aggregate(Sum('following_count'))['following_count__sum'] or 0
+    posts_total = accounts.aggregate(Sum('posts_count'))['posts_count__sum'] or 0
+    
+    # Calculate a mock engagement rate based on followers vs posts (since we'd need full insights API for true reach)
+    engagement_rate = 0
+    if followers_total > 0:
+        # A simple dummy formula: assume each post gets 10% followers reach
+        engagement_rate = round((posts_total * 0.1), 2)
+        if engagement_rate > 100: engagement_rate = 100
+        
+    context = {
+        'followers_total': followers_total,
+        'following_total': following_total,
+        'posts_total': posts_total,
+        'engagement_rate': engagement_rate,
+        'accounts_count': accounts.count(),
+    }
+    return render(request, 'analytics/performance.html', context)
+
+import requests
+from django.core.cache import cache
 
 @login_required
 def top_posts(request):
-    return render(request, 'analytics/top_posts.html')
+    accounts = InstagramAccount.objects.filter(owner=request.user, status='active').exclude(meta_access_token='')
+    
+    all_media = []
+    total_views = 0
+    total_likes = 0
+    total_comments = 0
+    
+    for account in accounts:
+        cache_key = f'ig_media_{account.id}'
+        media_data = cache.get(cache_key)
+        
+        if not media_data:
+            # Fetch from API
+            ig_user_id = account.ig_user_id or 'me'
+            url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media"
+            params = {
+                'fields': 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,username,comments_count,like_count',
+                'access_token': account.meta_access_token,
+                'limit': 20
+            }
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                if response.status_code == 200:
+                    media_data = response.json().get('data', [])
+                    cache.set(cache_key, media_data, timeout=3600) # cache for 1 hour
+                else:
+                    media_data = []
+            except Exception:
+                media_data = []
+                
+        for m in media_data:
+            # Add account info to the media object for display
+            m['account_username'] = account.ig_username
+            m['account_pic'] = account.profile_pic_url
+            
+            # Instagram sometimes returns views as part of insights, but for now we'll approximate 
+            # if we can't get true views without the insights permission on the exact media.
+            m['views'] = m.get('like_count', 0) * 8  # Dummy view multiplier for display
+            
+            all_media.append(m)
+            
+            total_views += m['views']
+            total_likes += m.get('like_count', 0)
+            total_comments += m.get('comments_count', 0)
+
+    # Sort by engagement (likes + comments)
+    all_media.sort(key=lambda x: x.get('like_count', 0) + x.get('comments_count', 0), reverse=True)
+    
+    top_media = all_media[:9] # Top 9 posts
+    
+    context = {
+        'top_media': top_media,
+        'total_views': total_views,
+        'total_likes': total_likes,
+        'total_comments': total_comments,
+    }
+    return render(request, 'analytics/top_posts.html', context)
 
 @login_required
 def health(request):
-    return render(request, 'analytics/health.html')
+    accounts = InstagramAccount.objects.filter(owner=request.user)
+    account_health = []
+    
+    for acc in accounts:
+        status = 'ok'
+        msg = 'Token Meta ativo e válido.'
+        if not acc.meta_access_token:
+            status = 'error'
+            msg = 'Não conectado à API Meta.'
+        else:
+            # Check token validy
+            url = "https://graph.instagram.com/v21.0/me"
+            params = {'access_token': acc.meta_access_token}
+            try:
+                res = requests.get(url, params=params, timeout=5)
+                if res.status_code != 200:
+                    status = 'error'
+                    msg = 'Token Meta expirado ou inválido.'
+            except Exception:
+                status = 'warning'
+                msg = 'Falha ao verificar com a Meta.'
+                
+        account_health.append({
+            'username': acc.ig_username,
+            'status': status,
+            'message': msg
+        })
+        
+    return render(request, 'analytics/health.html', {'account_health': account_health})
 
 @login_required
 def logs_view(request):

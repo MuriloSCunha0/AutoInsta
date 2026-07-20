@@ -14,13 +14,18 @@
                             {{ form.account }}
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Data/Hora (Agendamento)</label>
-                            {{ form.scheduled_for }}
+                            <label class="form-label text-muted">Formato</label>
+                            {{ form.post_type }}
                         </div>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label text-muted">Vídeo (Reel)</label>
+                        <label class="form-label text-muted">Data/Hora (Agendamento)</label>
+                        {{ form.scheduled_for }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Mídia (Vídeo/Imagem)</label>
                         {{ form.video_file }}
                     </div>
                     

@@ -64,3 +64,23 @@ class InstagramAccount(models.Model):
     @property
     def is_active(self):
         return self.status == 'active'
+
+class Proxy(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    ip_address = models.CharField(max_length=50)
+    port = models.IntegerField()
+    username = models.CharField(max_length=150, blank=True)
+    password = models.CharField(max_length=150, blank=True)
+    protocol = models.CharField(max_length=20, default='http')
+    is_active = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.protocol}://{self.ip_address}:{self.port}"
+        
+    @property
+    def url(self):
+        if self.username and self.password:
+            return f"{self.protocol}://{self.username}:{self.password}@{self.ip_address}:{self.port}"
+        return f"{self.protocol}://{self.ip_address}:{self.port}"

@@ -2,7 +2,48 @@
 {% block title %}Agendamentos - SandraoFlow{% endblock %}
 {% block page_title %}Gestor de Agendamentos (Calendário){% endblock %}
 {% block content %}
-<div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-calendar3 me-2"></i> A visão de calendário avançada será lançada em breve.
+<div class="card glass-modal border-0 p-4">
+    <div id="calendar"></div>
 </div>
+
+<!-- FullCalendar JS & CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/pt-br.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            locale: 'pt-br',
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: '/publisher/api/events/',
+            themeSystem: 'standard',
+            eventColor: '#a855f7',
+            height: 700
+        });
+        calendar.render();
+    });
+</script>
+
+<style>
+    /* Premium dark mode fixes for FullCalendar */
+    .fc-theme-standard td, .fc-theme-standard th {
+        border-color: rgba(255,255,255,0.1);
+    }
+    .fc-theme-standard .fc-scrollgrid {
+        border-color: rgba(255,255,255,0.1);
+    }
+    .fc .fc-daygrid-day.fc-day-today {
+        background-color: rgba(168, 85, 247, 0.1);
+    }
+    .fc-col-header-cell-cushion, .fc-daygrid-day-number {
+        color: var(--text-primary);
+        text-decoration: none;
+    }
+</style>
 {% endblock %}
