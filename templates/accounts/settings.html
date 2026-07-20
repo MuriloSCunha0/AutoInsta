@@ -60,21 +60,21 @@
                 <input type="hidden" name="action" value="update_meta_api">
                 
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label text-muted">Conta do Instagram</label>
-                        <select name="account_id" class="form-select text-white border-subtle" style="background: var(--bg-input);" required>
-                            <option value="">Selecione a conta...</option>
-                            {% for acc in accounts %}
-                            <option value="{{ acc.id }}">@{{ acc.ig_username }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Usuário Instagram</label>
+                        <input type="text" name="ig_username" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="@seu_usuario" required>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted">Token de Acesso (Meta Graph API)</label>
-                        <input type="text" name="meta_token" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="EAA... (Token de longa duração)" required>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Senha Instagram</label>
+                        <input type="password" name="ig_password" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="Senha">
+                        <small class="text-muted" style="font-size: 0.7rem;">(Deixe em branco se já salva)</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Meta Graph API Token</label>
+                        <input type="text" name="meta_token" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="EAA..." required>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">Atualizar Token</button>
+                        <button type="submit" class="btn btn-primary w-100">Salvar Conta</button>
                     </div>
                 </div>
             </form>

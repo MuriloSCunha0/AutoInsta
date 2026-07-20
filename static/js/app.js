@@ -312,11 +312,19 @@
     // Restore scroll position
     const scrollPos = sessionStorage.getItem('sidebar-scroll-pos');
     if (scrollPos) {
-      sidebar.scrollTop = parseInt(scrollPos, 10);
+      // Use setTimeout to ensure DOM is fully rendered before scrolling
+      setTimeout(() => {
+        sidebar.scrollTop = parseInt(scrollPos, 10);
+      }, 50);
     }
 
     // Save scroll position on scroll
     sidebar.addEventListener('scroll', () => {
+      sessionStorage.setItem('sidebar-scroll-pos', sidebar.scrollTop);
+    });
+
+    // Also save just before leaving the page to be absolutely sure
+    window.addEventListener('beforeunload', () => {
       sessionStorage.setItem('sidebar-scroll-pos', sidebar.scrollTop);
     });
   }

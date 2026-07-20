@@ -73,15 +73,27 @@ def settings_view(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
     
     if request.method == 'POST' and request.POST.get('action') == 'update_meta_api':
-        account_id = request.POST.get('account_id')
-        meta_token = request.POST.get('meta_token')
-        try:
-            acc = accounts.get(id=account_id)
+        ig_username = request.POST.get('ig_username', '').strip()
+        ig_password = request.POST.get('ig_password', '').strip()
+        meta_token = request.POST.get('meta_token', '').strip()
+        
+        if ig_username and meta_token:
+            acc, created = InstagramAccount.objects.get_or_create(
+                owner=request.user,
+                ig_username=ig_username
+            )
             acc.meta_access_token = meta_token
+            if ig_password:
+                acc.set_ig_password(ig_password)
             acc.save()
-            messages.success(request, f'Token da Meta atualizado para a conta @{acc.ig_username}.')
-        except InstagramAccount.DoesNotExist:
-            messages.error(request, 'Conta não encontrada.')
+            
+            if created:
+                messages.success(request, f'Conta @{ig_username} adicionada e Token da Meta configurado!')
+            else:
+                messages.success(request, f'Credenciais e Token da Meta atualizados para a conta @{ig_username}.')
+        else:
+            messages.error(request, 'Usuário do Instagram e Token são obrigatórios.')
+            
         return redirect('accounts:settings')
 
     return render(request, 'accounts/settings.html', {'accounts': accounts})
