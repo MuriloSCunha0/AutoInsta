@@ -259,32 +259,9 @@
   });
 
   /* ── Active Nav Link ────────────────────────────────────── */
-  function highlightActiveNav() {
-    const currentPath = window.location.pathname;
-    document.querySelectorAll('.side-links a').forEach((link) => {
-      const href = link.getAttribute('href');
-      if (!href) return;
-
-      // Exact match for dashboard, prefix match for others
-      if (href === '/' && currentPath === '/') {
-        link.classList.add('active');
-      } else if (href !== '/' && currentPath.startsWith(href)) {
-        link.classList.add('active');
-      }
-    });
-
-    // Mobile nav
-    document.querySelectorAll('.mobile-links a').forEach((link) => {
-      const href = link.getAttribute('href');
-      if (!href) return;
-
-      if (href === '/' && currentPath === '/') {
-        link.classList.add('active');
-      } else if (href !== '/' && currentPath.startsWith(href)) {
-        link.classList.add('active');
-      }
-    });
-  }
+  /* Active state is now handled server-side via Django url_name matching.
+     No JS-based prefix matching needed (which caused multiple items
+     to be highlighted when URLs shared prefixes like /instagram/). */
 
   /* ── Password reveal ("olhinho") ────────────────────────────
      Delegated so it works for fields that arrive later via HTMX
@@ -335,7 +312,6 @@
     initMobileMenu();
     initHTMX();
     initStatusPolling();
-    highlightActiveNav();
     relocateModals();
     preserveSidebarScroll();
   }
