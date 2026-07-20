@@ -632,7 +632,8 @@ def oauth_callback(request):
 
 @login_required
 def profile(request):
-    return render(request, 'instagram/profile.html')
+    account = InstagramAccount.objects.filter(owner=request.user).first()
+    return render(request, 'instagram/profile.html', {'account': account})
 
 @login_required
 def proxies(request):

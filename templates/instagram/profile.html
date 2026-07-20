@@ -2,7 +2,47 @@
 {% block title %}Perfil Instagram - SandraoFlow{% endblock %}
 {% block page_title %}Perfil Instagram{% endblock %}
 {% block content %}
-<div class="alert alert-primary bg-primary bg-opacity-10 border-0">
-    <i class="bi bi-person-lines-fill me-2"></i> Edição de Perfil em massa estará disponível em breve.
+<div class="card glass-modal border-0 p-4">
+    <div class="row align-items-center">
+        <div class="col-md-3 text-center mb-4 mb-md-0">
+            <div class="position-relative d-inline-block">
+                <img src="{% if account.profile_pic_url %}{{ account.profile_pic_url }}{% else %}https://ui-avatars.com/api/?name=Instagram&background=3b82f6&color=fff{% endif %}" 
+                     class="rounded-circle border border-2 border-primary p-1" 
+                     style="width: 120px; height: 120px; object-fit: cover;">
+                <span class="position-absolute bottom-0 end-0 p-2 bg-success border border-light rounded-circle">
+                    <span class="visually-hidden">Online</span>
+                </span>
+            </div>
+            <h5 class="text-white mt-3 mb-0">@{{ account.ig_username|default:"Nenhuma conta selecionada" }}</h5>
+            <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill mt-2">Instagram</span>
+        </div>
+        <div class="col-md-9">
+            <div class="row g-4 text-center">
+                <div class="col-4">
+                    <div class="p-3 bg-dark bg-opacity-50 rounded-3 border border-subtle">
+                        <h3 class="text-white mb-1">{{ account.followers_count|default:"0" }}</h3>
+                        <p class="text-muted mb-0 small text-uppercase fw-semibold">Seguidores</p>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-3 bg-dark bg-opacity-50 rounded-3 border border-subtle">
+                        <h3 class="text-white mb-1">{{ account.following_count|default:"0" }}</h3>
+                        <p class="text-muted mb-0 small text-uppercase fw-semibold">Seguindo</p>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-3 bg-dark bg-opacity-50 rounded-3 border border-subtle">
+                        <h3 class="text-white mb-1">{{ account.posts_count|default:"0" }}</h3>
+                        <p class="text-muted mb-0 small text-uppercase fw-semibold">Publicações</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-3 bg-dark bg-opacity-25 rounded-3 border border-subtle text-start">
+                <h6 class="text-white mb-2"><i class="bi bi-card-text text-info me-2"></i> Biografia</h6>
+                <p class="text-muted mb-0">{{ account.bio|default:"Nenhuma biografia disponível." }}</p>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
