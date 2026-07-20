@@ -140,4 +140,70 @@
         </div>
     </div>
 </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card h-100 border-subtle bg-surface">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-trophy text-warning me-2"></i> Ranking de Produtividade
+                </h5>
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">
+                    Global
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle" style="background: transparent; color: var(--text-primary);">
+                        <thead class="table-light text-muted">
+                            <tr>
+                                <th class="border-0 ps-4" style="width: 80px;">Posição</th>
+                                <th class="border-0">Criador</th>
+                                <th class="border-0 text-center">Posts Publicados</th>
+                                <th class="border-0 text-center">Seguidores</th>
+                                <th class="border-0 text-end pe-4">Pontuação Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in ranking_list %}
+                            <tr class="{% if item.is_me %}bg-primary bg-opacity-10{% endif %}">
+                                <td class="border-0 ps-4">
+                                    {% if item.position == 1 %}
+                                        <div class="avatar bg-warning text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 36px; height: 36px;">1º</div>
+                                    {% elif item.position == 2 %}
+                                        <div class="avatar bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 36px; height: 36px;">2º</div>
+                                    {% elif item.position == 3 %}
+                                        <div class="avatar text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 36px; height: 36px; background-color: #cd7f32;">3º</div>
+                                    {% else %}
+                                        <div class="avatar bg-surface-tertiary text-muted rounded-circle d-flex align-items-center justify-content-center fw-bold border border-subtle" style="width: 36px; height: 36px;">{{ item.position }}º</div>
+                                    {% endif %}
+                                </td>
+                                <td class="border-0">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.9em;">
+                                            {{ item.username|make_list|first|upper }}
+                                        </div>
+                                        <strong style="color: var(--text-primary);">{{ item.username }}</strong>
+                                        {% if item.is_me %}
+                                            <span class="badge bg-primary ms-2 rounded-pill" style="font-size: 0.7em;">Você</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="border-0 text-center text-success fw-medium">{{ item.posts }}</td>
+                                <td class="border-0 text-center text-info fw-medium">{{ item.followers }}</td>
+                                <td class="border-0 text-end pe-4">
+                                    <span class="badge bg-warning text-dark border border-warning border-opacity-50 fs-6 rounded-pill px-3 py-2">
+                                        <i class="bi bi-star-fill me-1"></i> {{ item.score }} pts
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
