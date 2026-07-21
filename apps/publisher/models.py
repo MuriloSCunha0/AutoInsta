@@ -20,8 +20,10 @@ class ScheduledPost(models.Model):
     account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     post_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='REELS')
-    video_file = models.FileField(upload_to='reels/')
-    thumbnail = models.FileField(upload_to='thumbnails/', null=True, blank=True)
+    # FileField tem max_length=100 por padrão — caminhos de mídia estouram isso
+    # ("value too long for type character varying(100)").
+    video_file = models.FileField(upload_to='reels/', max_length=500)
+    thumbnail = models.FileField(upload_to='thumbnails/', max_length=500, null=True, blank=True)
     caption = models.TextField(blank=True)
     caption_set = models.ForeignKey('library.CaptionSet', on_delete=models.SET_NULL, null=True, blank=True)
     # Reel também na grade principal do perfil (parâmetro oficial share_to_feed).
@@ -47,7 +49,7 @@ class PostLoop(models.Model):
     account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     post_type = models.CharField(max_length=10, choices=ScheduledPost.TYPE_CHOICES, default='REELS')
-    video_file = models.FileField(upload_to='loops/')
+    video_file = models.FileField(upload_to='loops/', max_length=500)
     caption = models.TextField(blank=True)
     interval_days = models.IntegerField(default=7) # Re-post every X days
     last_posted = models.DateTimeField(null=True, blank=True)

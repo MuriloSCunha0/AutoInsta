@@ -29,7 +29,7 @@ class User(AbstractUser):
         default='free'
     )
     max_ig_accounts = models.IntegerField(default=3)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    avatar = models.ImageField(upload_to='avatars/', max_length=500, null=True, blank=True)
     # Token secreto usado pela extensão de navegador para autenticar o envio
     # do sessionid capturado do instagram.com (ver apps.instagram.views.connect_extension).
     extension_token = models.CharField(max_length=64, blank=True, db_index=True)

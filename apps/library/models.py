@@ -16,7 +16,7 @@ class Caption(models.Model):
 class Audio(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
-    file = models.FileField(upload_to='audios/')
+    file = models.FileField(upload_to='audios/', max_length=500)
     duration_seconds = models.FloatField(null=True, blank=True)
     used_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -46,7 +46,7 @@ class MediaAsset(models.Model):
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='media_assets')
     folder = models.ForeignKey(MediaFolder, on_delete=models.SET_NULL, null=True, blank=True, related_name='assets')
-    file = models.FileField(upload_to='media_library/')
+    file = models.FileField(upload_to='media_library/', max_length=500)
     kind = models.CharField(max_length=10, choices=KIND_CHOICES, default='video')
     original_name = models.CharField(max_length=255, blank=True)
     size_bytes = models.BigIntegerField(default=0)
