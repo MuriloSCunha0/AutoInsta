@@ -1377,6 +1377,8 @@ textarea.form-control {
 .auth-shell {
   min-height: 100vh;
   display: flex;
+  /* coluna: a marca fica ACIMA do card (era row, e o logo ia para o lado) */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
