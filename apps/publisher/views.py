@@ -102,6 +102,27 @@ def _composer_submit(request):
     post_type = request.POST.get('post_type', 'REELS')
     cover_library_id = request.POST.get('cover_library')
 
+    # Reels + grade (share_to_feed) — valor 'grade' liga; 'reels' deixa só na aba.
+    share_to_feed = request.POST.get('grade', 'grade') == 'grade'
+
+    # Hashtags: anexadas ao final da legenda.
+    hashtags = (request.POST.get('hashtags') or '').strip()
+    if hashtags:
+        caption = f"{caption}\n\n{hashtags}".strip()
+
+    # Repetir cada mídia: sobe 1 vídeo, cria N posts (sem duplicar arquivo).
+    try:
+        repeat = max(int(request.POST.get('repeat', 1)), 1)
+    except (TypeError, ValueError):
+        repeat = 1
+
+    # Parar em (opcional): não agenda posts com horário além dessa data.
+    end_at = None
+    if request.POST.get('end'):
+        end_at = parse_datetime(request.POST.get('end'))
+        if end_at and timezone.is_naive(end_at):
+            end_at = timezone.make_aware(end_at, timezone.get_current_timezone())
+
     # ── Início do agendamento ──────────────────────────────────
     mode = request.POST.get('schedule_mode', 'now')
     if mode == 'schedule' and request.POST.get('start'):
@@ -151,21 +172,32 @@ def _composer_submit(request):
     if caption_set_id:
         caption_set = CaptionSet.objects.filter(id=caption_set_id, owner=user).first()
 
-    # ── Criação dos jobs (cada conta posta 1 vídeo por intervalo) ─
+    # A fila de cada conta é: cada vídeo × 'repeat', espaçados pelo intervalo.
+    queue_per_account = []
+    for vname in video_names:
+        queue_per_account.extend([vname] * repeat)
+
+    # ── Criação dos jobs (cada conta posta 1 item por intervalo) ─
     created = 0
+    skipped = 0
     for account_id in account_ids:
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
-        for i, vname in enumerate(video_names):
+        for i, vname in enumerate(queue_per_account):
+            when_dt = start + i * interval
+            if end_at and when_dt > end_at:
+                skipped += 1
+                continue
             post = ScheduledPost(
                 owner=user,
                 account=account,
                 post_type=post_type,
                 caption=caption,
                 caption_set=caption_set,
+                share_to_feed=share_to_feed,
                 status='queued',
-                scheduled_for=start + i * interval,
+                scheduled_for=when_dt,
             )
             post.video_file.name = vname
             if cover_name:
@@ -174,7 +206,10 @@ def _composer_submit(request):
             created += 1
 
     when = 'agora' if mode == 'now' else 'no horário agendado'
-    messages.success(request, f'{created} publicação(ões) enfileirada(s) para {len(account_ids)} conta(s) — começando {when}.')
+    msg = f'{created} publicação(ões) enfileirada(s) para {len(account_ids)} conta(s) — começando {when}.'
+    if skipped:
+        msg += f' {skipped} ignorada(s) por passar do "Parar em".'
+    messages.success(request, msg)
     return redirect('publisher:queue')
 
 

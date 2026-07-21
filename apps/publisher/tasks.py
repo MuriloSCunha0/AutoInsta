@@ -70,7 +70,8 @@ def publish_reel(post_id):
             media_info = engine.upload_reel_meta_api(
                 video_url=video_url,
                 caption=final_caption,
-                cover_url=cover_url
+                cover_url=cover_url,
+                share_to_feed=post.share_to_feed,
             )
             post.ig_media_id = str(media_info.get('id', ''))
             

@@ -24,6 +24,8 @@ class ScheduledPost(models.Model):
     thumbnail = models.FileField(upload_to='thumbnails/', null=True, blank=True)
     caption = models.TextField(blank=True)
     caption_set = models.ForeignKey('library.CaptionSet', on_delete=models.SET_NULL, null=True, blank=True)
+    # Reel também na grade principal do perfil (parâmetro oficial share_to_feed).
+    share_to_feed = models.BooleanField(default=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     scheduled_for = models.DateTimeField()

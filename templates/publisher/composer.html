@@ -82,6 +82,11 @@
                     </div>
                     <small class="text-muted"><span id="caption-count">0</span>/2200</small>
                 </div>
+
+                <label class="form-label text-muted mt-3">Hashtags</label>
+                <textarea name="hashtags" rows="2" class="form-control text-white border-subtle"
+                          style="background: var(--bg-input);" placeholder="#reels #conteudo #marca"></textarea>
+                <small class="text-muted">Anexadas ao final da legenda de cada post.</small>
             </div>
         </div>
 
@@ -113,12 +118,21 @@
 
             <!-- Formato -->
             <div class="card p-4 mb-4">
-                <h6 class="text-white mb-3"><i class="bi bi-grid text-purple me-2"></i> Formato</h6>
-                <select name="post_type" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                <h6 class="text-white mb-3"><i class="bi bi-grid text-purple me-2"></i> Tipo de postagem</h6>
+                <select name="post_type" class="form-select text-white border-subtle mb-3" style="background: var(--bg-input);">
                     {% for value, label in post_types %}
                     <option value="{{ value }}">{{ label }}</option>
                     {% endfor %}
                 </select>
+
+                <label class="form-label text-muted">Grade principal dos Reels</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="grade" id="grade-reels" value="reels">
+                    <label class="btn btn-outline-secondary" for="grade-reels">Só aba Reels</label>
+                    <input type="radio" class="btn-check" name="grade" id="grade-grade" value="grade" checked>
+                    <label class="btn btn-outline-secondary" for="grade-grade">Reels + grade</label>
+                </div>
+                <small class="text-muted d-block mt-1">"Reels + grade" faz o Reel aparecer também no perfil principal (share_to_feed).</small>
             </div>
 
             <!-- Agendamento -->
@@ -131,12 +145,24 @@
                     <label class="btn btn-outline-secondary" for="mode-schedule">Agendar</label>
                 </div>
                 <div id="schedule-fields" style="display: none;">
-                    <label class="form-label text-muted">Início</label>
+                    <label class="form-label text-muted">Começar em</label>
                     <input type="datetime-local" name="start" class="form-control text-white border-subtle mb-3" style="background: var(--bg-input);">
                 </div>
+                <label class="form-label text-muted">Parar em <span class="text-muted">(opcional)</span></label>
+                <input type="datetime-local" name="end" class="form-control text-white border-subtle mb-3" style="background: var(--bg-input);">
+
                 <label class="form-label text-muted">Intervalo entre posts da mesma conta (min)</label>
-                <input type="number" name="interval_minutes" value="5" min="0"
-                       class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                <input type="number" name="interval_minutes" value="15" min="1"
+                       class="form-control text-white border-subtle mb-1" style="background: var(--bg-input);">
+                <small class="text-muted d-block mb-3">Recomendado para proteger contas: 15 min ou mais.</small>
+
+                <label class="form-label text-muted">Repetir cada mídia</label>
+                <div class="input-group">
+                    <input type="number" name="repeat" value="1" min="1"
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                    <span class="input-group-text bg-transparent text-muted border-subtle">vez(es)</span>
+                </div>
+                <small class="text-muted d-block mt-1">Ex: subir 1 vídeo e repetir 100 cria 100 posts na fila, sem duplicar o arquivo.</small>
             </div>
 
             <!-- Resumo + envio -->
