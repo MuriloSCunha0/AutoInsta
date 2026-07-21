@@ -2431,6 +2431,26 @@ textarea.form-control {
 [data-theme="dark"] .form-text {
   color: var(--text-muted) !important;
 }
+
+/* Tabelas: o .table do Bootstrap assume fundo BRANCO (light mode). Sem isto
+   as linhas saem brancas sobre o tema escuro. Vale para todas as telas. */
+[data-theme="dark"] .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text-primary);
+  --bs-table-border-color: var(--border-subtle);
+  --bs-table-striped-bg: rgba(139, 92, 246, 0.05);
+  --bs-table-striped-color: var(--text-primary);
+  --bs-table-hover-bg: rgba(139, 92, 246, 0.09);
+  --bs-table-hover-color: var(--text-primary);
+  --bs-table-active-bg: rgba(139, 92, 246, 0.12);
+  --bs-table-active-color: var(--text-primary);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+[data-theme="dark"] .table > thead th {
+  color: var(--text-muted);
+  border-bottom-color: var(--border-subtle);
+}
 [data-theme="dark"] .form-label.text-muted,
 [data-theme="dark"] label.text-muted {
   color: #c0c8ea !important;
@@ -2606,6 +2626,42 @@ input[type="file"].form-control:focus {
   height: 10px;
   border-radius: 3px;
   display: inline-block;
+}
+
+/* ============================================================
+   Tags de status da conta (ON / BAN / TOKEN…)
+   ============================================================ */
+.acct-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.acct-tag.on {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+}
+.acct-tag.ban {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+.acct-tag.warn {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.acct-tag.wait {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
 }
 
 /* ============================================================

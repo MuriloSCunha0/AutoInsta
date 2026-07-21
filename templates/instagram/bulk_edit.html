@@ -3,10 +3,14 @@
 {% block page_title %}Editar Perfis em Massa{% endblock %}
 
 {% block content %}
-<div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
+<div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-2">
     <i class="bi bi-people-fill me-1"></i> Edite <strong>bio, nome e foto</strong> de várias contas ao mesmo tempo.
-    Use <code>{nome_conta}</code> para inserir o @ de cada conta automaticamente. A API oficial não permite isso —
-    aqui funciona pela engine (inclusive em contas Pessoais).
+    Use <code>{nome_conta}</code> para inserir o @ de cada conta automaticamente.
+</div>
+<div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-4">
+    <i class="bi bi-exclamation-triangle me-1"></i> <strong>Exige conexão por sessão/senha.</strong>
+    A API oficial da Meta não permite alterar bio, nome ou foto — só a engine consegue.
+    Contas conectadas apenas pelo token aparecem marcadas como <strong>SEM SESSÃO</strong> e ficam desabilitadas.
 </div>
 
 <form method="post" enctype="multipart/form-data">
@@ -46,9 +50,15 @@
                 </div>
                 <div style="max-height: 300px; overflow-y: auto;">
                     {% for acc in accounts %}
-                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle" style="cursor: pointer;">
-                        <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check">
-                        <span class="text-white">@{{ acc.ig_username }}</span>
+                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle"
+                           style="cursor: {% if acc.tem_sessao_engine %}pointer{% else %}not-allowed{% endif %};">
+                        <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check"
+                               {% if not acc.tem_sessao_engine %}disabled{% endif %}>
+                        <span class="{% if acc.tem_sessao_engine %}text-white{% else %}text-muted{% endif %}">@{{ acc.ig_username }}</span>
+                        {% if not acc.tem_sessao_engine %}
+                        <span class="badge bg-warning bg-opacity-25 text-warning ms-auto" style="font-size:0.6rem;"
+                              title="A API oficial não permite editar perfil. Conecte por sessão/senha.">SEM SESSÃO</span>
+                        {% endif %}
                     </label>
                     {% empty %}
                     <p class="text-muted small">Nenhuma conta conectada.</p>

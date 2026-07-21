@@ -199,11 +199,8 @@ def connect_extension(request):
     if not user:
         return _cors(JsonResponse({'ok': False, 'error': 'Token de conexão inválido. Copie-o novamente na plataforma.'}, status=401))
 
-    # Respeita o limite do plano.
-    current = InstagramAccount.objects.filter(owner=user).count()
+    # Sem limite de contas por enquanto (ainda não há planos pagos).
     existing = InstagramAccount.objects.filter(owner=user, ig_username=username).first() if username else None
-    if existing is None and current >= user.max_ig_accounts:
-        return _cors(JsonResponse({'ok': False, 'error': f'Limite de {user.max_ig_accounts} contas atingido no seu plano.'}, status=403))
 
     account = existing or InstagramAccount(owner=user, ig_username=username)
     account.status = 'connecting'
@@ -256,15 +253,7 @@ def add_account_meta(request):
             '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> O Token do Instagram é obrigatório.</div>'
         )
 
-    # Verifica limite de contas
-    current_count = InstagramAccount.objects.filter(owner=request.user).count()
-    already = InstagramAccount.objects.filter(owner=request.user, ig_username=ig_username).exists()
-    if not already and current_count >= request.user.max_ig_accounts:
-        return HttpResponse(
-            '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> '
-            f'Limite do plano atingido (máx {request.user.max_ig_accounts} contas). Assine o PRO.</div>'
-        )
-
+    # Sem limite de contas por enquanto (ainda não há planos pagos).
     try:
         acc, _created = InstagramAccount.objects.get_or_create(
             owner=request.user,
@@ -304,6 +293,29 @@ def add_account_meta(request):
 # Versão da Graph API do Instagram (doc oficial usa graph.instagram.com/v23.0).
 IG_API_VERSION = 'v23.0'
 
+# Trechos que, na resposta da Meta, indicam conta indisponível/desabilitada
+# (e não apenas token vencido). Nota honesta: a Meta NÃO expõe um sinal
+# explícito de "banido"/shadowban — isto é a melhor inferência possível.
+INDICIOS_DE_BAN = (
+    'account has been disabled',
+    'account is disabled',
+    'account has been deleted',
+    'user not found',
+    'does not exist',
+    'deactivated',
+    'temporarily blocked',
+    'restricted',
+    'not eligible',
+)
+
+
+def _classificar_falha(erro, msg):
+    """Decide entre 'banned' (conta indisponível) e 'error' (ex.: token vencido)."""
+    texto = f"{msg} {erro.get('error_user_msg', '')}".lower()
+    if any(t in texto for t in INDICIOS_DE_BAN):
+        return 'banned'
+    return 'error'
+
 
 def _sync_meta_account(account):
     """Busca dados da conta a partir do token e grava. Baseado na doc oficial:
@@ -327,9 +339,10 @@ def _sync_meta_account(account):
         return False, str(e)
 
     if 'error' in data:
-        msg = (data.get('error') or {}).get('message', 'Token inválido ou expirado.')
-        logger.warning('Sync Meta falhou (acc=%s): %s', account.id, data.get('error'))
-        account.status = 'error'
+        erro = data.get('error') or {}
+        msg = erro.get('message', 'Token inválido ou expirado.')
+        logger.warning('Sync Meta falhou (acc=%s): %s', account.id, erro)
+        account.status = _classificar_falha(erro, msg)
         account.last_error = f'Meta: {msg}'
         account.save(update_fields=['status', 'last_error'])
         return False, msg

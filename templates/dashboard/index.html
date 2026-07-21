@@ -70,34 +70,35 @@
             </div>
             <div class="card-body p-0">
                 {% if recent_posts %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle" style="background: transparent; color: var(--text-primary);">
-                        <thead>
-                            <tr>
-                                <th class="text-muted fw-medium border-0 ps-4">Conta</th>
-                                <th class="text-muted fw-medium border-0">Data</th>
-                                <th class="text-muted fw-medium border-0">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for post in recent_posts %}
-                            <tr>
-                                <td class="border-0 ps-4">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="status-dot ok"></div>
-                                        <span style="color: var(--text-primary);">@{{ post.account.ig_username }}</span>
+                <div class="p-3">
+                    <div class="ranking-list">
+                        {% for post in recent_posts %}
+                        <div class="ranking-row">
+                            <div class="ranking-user">
+                                <div class="ranking-avatar">
+                                    {% if post.account.profile_pic_url %}
+                                    <img src="{{ post.account.profile_pic_url }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                                    {% else %}{{ post.account.ig_username|make_list|first|upper }}{% endif %}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="ranking-name">@{{ post.account.ig_username }}</div>
+                                    <div class="ranking-sub">
+                                        <i class="bi bi-clock"></i> {{ post.scheduled_for|date:"d/m/Y H:i" }}
+                                        <span class="ranking-dot">·</span>{{ post.get_post_type_display }}
                                     </div>
-                                </td>
-                                <td class="text-secondary border-0">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
-                                <td class="border-0">
-                                    <span class="badge rounded-pill {% if post.status == 'queued' %}bg-warning text-dark{% elif post.status == 'published' %}bg-success{% elif post.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">
-                                        {{ post.get_status_display }}
-                                    </span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                                </div>
+                            </div>
+                            <span class="badge rounded-pill
+                                {% if post.status == 'queued' %}bg-warning bg-opacity-25 text-warning
+                                {% elif post.status == 'published' %}bg-success bg-opacity-25 text-success
+                                {% elif post.status == 'failed' %}bg-danger bg-opacity-25 text-danger
+                                {% elif post.status == 'processing' %}bg-info bg-opacity-25 text-info
+                                {% else %}bg-secondary bg-opacity-25 text-secondary{% endif %}">
+                                {{ post.get_status_display }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
                 {% else %}
                 <div class="empty-state text-center py-5">

@@ -27,9 +27,20 @@
                 {% endif %}
             </div>
             
-            <div class="ms-auto">
-                <div class="status-dot {% if account.status == 'active' %}ok{% elif account.status == 'connecting' %}pending{% else %}error{% endif %}" 
-                     title="{{ account.get_status_display }}"></div>
+            <div class="ms-auto text-end">
+                {% if account.status == 'active' %}
+                    <span class="acct-tag on" title="Conta respondendo à API">ON</span>
+                {% elif account.status == 'banned' %}
+                    <span class="acct-tag ban" title="{{ account.last_error }}">BAN</span>
+                {% elif account.status == 'connecting' %}
+                    <span class="acct-tag wait">•••</span>
+                {% elif account.status == 'session_expired' %}
+                    <span class="acct-tag warn" title="Sessão expirada">EXPIRADA</span>
+                {% elif account.status == 'error' %}
+                    <span class="acct-tag warn" title="{{ account.last_error }}">TOKEN</span>
+                {% else %}
+                    <span class="acct-tag wait" title="{{ account.get_status_display }}">?</span>
+                {% endif %}
             </div>
         </div>
         

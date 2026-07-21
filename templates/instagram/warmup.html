@@ -22,6 +22,16 @@
                 {% endif %}
             </div>
 
+            {% if not row.account.tem_sessao_engine %}
+            <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>Não funciona nesta conta.</strong> Ela está conectada só pelo token da Meta,
+                e a API oficial <strong>não permite curtir, seguir ou visualizar</strong>.
+                Conecte-a também pela aba <em>Entrar</em> (usuário e senha) em
+                <a href="{% url 'instagram:list' %}" class="text-warning fw-bold text-decoration-underline">Contas</a>.
+            </div>
+            {% endif %}
+
             <form method="post" action="{% url 'instagram:warmup_save' row.account.id %}">
                 {% csrf_token %}
                 <div class="form-check form-switch mb-3">

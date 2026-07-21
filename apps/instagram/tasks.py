@@ -121,6 +121,16 @@ def run_account_warmup(config_id, likes, follows, views):
     except WarmupConfig.DoesNotExist:
         return
 
+    # A API oficial da Meta não permite curtir/seguir/ver: o aquecimento só
+    # funciona pela engine, que exige sessão/senha. Sem isso, registramos o
+    # motivo em vez de falhar em silêncio.
+    if not cfg.account.tem_sessao_engine:
+        cfg.last_result = ('Requer conexão por sessão/senha — a API oficial '
+                           'não permite curtidas/follows.')
+        cfg.last_run = timezone.now()
+        cfg.save(update_fields=['last_result', 'last_run'])
+        return
+
     try:
         engine = InstagramEngine(cfg.account)
         done = engine.run_warmup(likes=likes, follows=follows, views=views, hashtag=cfg.target_hashtag or 'reels')
@@ -143,6 +153,13 @@ def bulk_edit_profiles(account_ids, full_name, biography, external_url, picture_
         try:
             account = InstagramAccount.objects.get(id=acc_id)
         except InstagramAccount.DoesNotExist:
+            continue
+
+        # Editar bio/nome/foto não existe na API oficial: exige a engine.
+        if not account.tem_sessao_engine:
+            account.last_error = ('Edição de perfil requer conexão por sessão/senha — '
+                                  'a API oficial da Meta não permite alterar bio/nome/foto.')
+            account.save(update_fields=['last_error'])
             continue
 
         try:

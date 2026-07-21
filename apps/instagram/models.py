@@ -25,6 +25,7 @@ class InstagramAccount(models.Model):
         ('challenge_required', 'Código necessário 🔑'),
         ('2fa_required', '2FA necessário 🔐'),
         ('session_expired', 'Sessão expirada 🕒'),
+        ('banned', 'Banida/indisponível 🚫'),
         ('error', 'Erro ❌'),
     ]
 
@@ -94,6 +95,21 @@ class InstagramAccount(models.Model):
     @property
     def is_active(self):
         return self.status == 'active'
+
+    @property
+    def tem_sessao_engine(self):
+        """A engine (instagrapi) precisa de sessão salva ou senha utilizável.
+
+        Contas conectadas SÓ por token da Meta não têm isso — e, por isso,
+        não conseguem usar recursos que a API oficial não expõe (aquecimento,
+        edição de bio/foto, Story com link).
+        """
+        if self.session_blob:
+            return True
+        try:
+            return self.get_ig_password() not in ('', '__session_login__')
+        except Exception:
+            return False
 
 class WarmupConfig(models.Model):
     """Configuração de aquecimento (warm-up) por conta — ações sociais graduais

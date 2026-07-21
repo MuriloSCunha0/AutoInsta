@@ -194,10 +194,10 @@ def _composer_submit(request):
     if caption_set_id:
         caption_set = CaptionSet.objects.filter(id=caption_set_id, owner=user).first()
 
-    # A fila de cada conta é: cada vídeo × 'repeat', espaçados pelo intervalo.
-    queue_per_account = []
-    for vname in video_names:
-        queue_per_account.extend([vname] * repeat)
+    # A fila de cada conta repete o CONJUNTO de mídias, não cada mídia em
+    # seguida. Com 3 vídeos e repetir=3: v1,v2,v3,v1,v2,v3,v1,v2,v3 —
+    # e não v1,v1,v1,v2,v2,v2 (que postaria o mesmo vídeo duas vezes seguidas).
+    queue_per_account = list(video_names) * repeat
 
     # ── Criação dos jobs (cada conta posta 1 item por intervalo) ─
     created = 0
