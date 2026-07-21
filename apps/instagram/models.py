@@ -29,6 +29,12 @@ class InstagramAccount(models.Model):
     ]
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    # App Meta pelo qual esta conta foi conectada. Cada conta pertence ao app
+    # que gerou seu token — por isso o vínculo é por conta, não global.
+    meta_app = models.ForeignKey(
+        'accounts.MetaApp', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='accounts',
+    )
     ig_username = models.CharField(max_length=150)
     ig_password = models.TextField()
     proxy_url = models.CharField(max_length=255, blank=True, help_text="Ex: http://user:pass@ip:port")

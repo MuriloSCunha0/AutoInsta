@@ -111,6 +111,25 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label text-muted"><i class="bi bi-meta me-1"></i> App Meta desta conta</label>
+                                {% if meta_apps %}
+                                <select name="meta_app" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                                    {% for app in meta_apps %}
+                                    <option value="{{ app.id }}" {% if app.is_active %}selected{% endif %}>
+                                        {{ app.name }}{% if app.is_active %} (padrão){% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">A conta ficará vinculada a este app.</small>
+                                {% else %}
+                                <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-0">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Nenhum app Meta cadastrado.
+                                    <a href="{% url 'accounts:settings' %}" class="text-warning fw-bold text-decoration-underline">Cadastre um em Configurações</a>.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label text-muted">Token do Instagram</label>
                                 <textarea name="meta_access_token" rows="3" class="form-control" required
                                           placeholder="Cole aqui o token gerado em Instagram > Gerar tokens de acesso" autocomplete="off"></textarea>
@@ -136,7 +155,8 @@
                             </div>
                         </div>
                         <div class="modal-footer border-0 d-flex justify-content-between">
-                            <a href="{% url 'instagram:oauth_url' %}" hx-get="{% url 'instagram:oauth_url' %}" hx-target="#oauth-slot" hx-swap="innerHTML"
+                            <a href="#" hx-get="{% url 'instagram:oauth_url' %}"
+                               hx-include="[name='meta_app']" hx-target="#oauth-slot" hx-swap="innerHTML"
                                class="btn btn-link btn-sm text-info text-decoration-none">Preferir OAuth (Facebook)?</a>
                             <div>
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

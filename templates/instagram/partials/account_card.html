@@ -18,6 +18,13 @@
             <div class="account-info">
                 <div class="account-username">@{{ account.ig_username }}</div>
                 <div class="account-fullname">{{ account.full_name|default:"Aguardando sincronização..." }}</div>
+                {% if account.meta_app %}
+                <div class="mt-1">
+                    <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill" style="font-size:0.65rem;">
+                        <i class="bi bi-meta me-1"></i>{{ account.meta_app.name }}
+                    </span>
+                </div>
+                {% endif %}
             </div>
             
             <div class="ms-auto">

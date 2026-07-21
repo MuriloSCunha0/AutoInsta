@@ -72,11 +72,22 @@ def _state_signer():
 
 @login_required
 def account_list(request):
-    accounts = InstagramAccount.objects.filter(owner=request.user)
+    accounts = InstagramAccount.objects.filter(owner=request.user).select_related('meta_app')
+
+    # Permite filtrar as contas por app Meta (?app=<id>).
+    filtro_app = (request.GET.get('app') or '').strip()
+    if filtro_app:
+        accounts = accounts.filter(meta_app_id=filtro_app)
+
+    from apps.accounts.models import MetaApp
+    meta_apps = MetaApp.objects.filter(owner=request.user)
+
     form = AddInstagramAccountForm()
     connect_url = request.build_absolute_uri('/instagram/connect-extension/')
     return render(request, 'instagram/list.html', {
         'accounts': accounts,
+        'meta_apps': meta_apps,
+        'filtro_app': filtro_app,
         'form': form,
         'extension_token': request.user.ensure_extension_token(),
         'connect_url': connect_url,
@@ -226,6 +237,15 @@ def add_account_meta(request):
     ig_user_id = request.POST.get('ig_user_id', '').strip()
     profile_pic_url = (request.POST.get('profile_pic_url') or '').strip()
 
+    # App Meta escolhido para esta conta (cada conta pertence a um app).
+    meta_app = None
+    meta_app_id = (request.POST.get('meta_app') or '').strip()
+    if meta_app_id:
+        from apps.accounts.models import MetaApp
+        meta_app = MetaApp.objects.filter(id=meta_app_id, owner=request.user).first()
+    if meta_app is None:
+        meta_app = request.user.get_active_meta_app()
+
     # O @ é opcional no import por token: se não vier, usamos o ig_user_id
     # como identificador provisório (a sincronização com a Meta preenche depois).
     if not ig_username:
@@ -253,6 +273,7 @@ def add_account_meta(request):
         )
 
         acc.set_meta_token(meta_access_token)
+        acc.meta_app = meta_app
         if ig_user_id.isdigit():
             acc.ig_user_id = int(ig_user_id)
         if profile_pic_url:
@@ -434,13 +455,22 @@ def remove_account(request, account_id):
     return redirect('instagram:list')
 
 
-def _meta_credentials(user):
+def _get_user_meta_app(user, app_pk):
+    """Busca um MetaApp do usuário pelo id (ou None)."""
+    if not app_pk:
+        return None
+    from apps.accounts.models import MetaApp
+    return MetaApp.objects.filter(id=app_pk, owner=user).first()
+
+
+def _meta_credentials(user, app=None):
     """Credenciais a usar, em ordem de prioridade:
-    1) app Meta ATIVO do usuário (cadastro múltiplo)
-    2) campos legados no próprio usuário
-    3) variáveis globais do .env
+    1) app Meta informado (o escolhido para esta conta)
+    2) app ativo do usuário
+    3) campos legados no próprio usuário
+    4) variáveis globais do .env
     """
-    app = user.get_active_meta_app()
+    app = app or user.get_active_meta_app()
     if app and app.is_complete:
         return (app.meta_app_id or '').strip(), app.get_meta_secret()
 
@@ -453,8 +483,14 @@ def _meta_credentials(user):
 
 @login_required
 def oauth_url(request):
-    """Retorna a URL OAuth e renderiza o HTML para o modal."""
-    app_id, _secret = _meta_credentials(request.user)
+    """Retorna a URL OAuth. Aceita ?app=<id> para escolher o app Meta."""
+    # Aceita ?app= ou ?meta_app= (o seletor do modal usa "meta_app").
+    escolhido_pk = (request.GET.get('app') or request.GET.get('meta_app') or '').strip()
+    chosen = _get_user_meta_app(request.user, escolhido_pk)
+    if chosen is None:
+        chosen = request.user.get_active_meta_app()
+
+    app_id, _secret = _meta_credentials(request.user, chosen)
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
 
     if not app_id:
@@ -471,8 +507,9 @@ def oauth_url(request):
         'instagram_business_manage_insights',
     ]
 
-    # `state` assinado (usuário + timestamp) para validar o callback (anti-CSRF).
-    state = _state_signer().sign(str(request.user.id))
+    # `state` assinado carrega usuário + app escolhido, para o callback saber
+    # a qual app vincular a conta (anti-CSRF via assinatura + timestamp).
+    state = _state_signer().sign(f"{request.user.id}:{chosen.id if chosen else ''}")
 
     params = {
         'client_id': app_id,
@@ -513,12 +550,18 @@ def oauth_callback(request):
         messages.error(request, "State OAuth inválido. Reinicie a conexão pela plataforma.")
         return redirect('instagram:list')
 
-    if signed_user != str(request.user.id):
+    # O state carrega "<user_id>:<meta_app_id>".
+    partes = signed_user.split(':', 1)
+    signed_user_id = partes[0]
+    chosen_app_pk = partes[1] if len(partes) > 1 else ''
+
+    if signed_user_id != str(request.user.id):
         messages.error(request, "Este fluxo de conexão não pertence à sua conta.")
         return redirect('instagram:list')
 
-    # Mesmas credenciais usadas na geração da URL (app ativo > legado > .env).
-    app_id, app_secret = _meta_credentials(request.user)
+    # Usa as MESMAS credenciais do app escolhido na geração da URL.
+    chosen_app = _get_user_meta_app(request.user, chosen_app_pk)
+    app_id, app_secret = _meta_credentials(request.user, chosen_app)
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
 
     # 1. Trocar código por short-lived token
@@ -585,12 +628,15 @@ def oauth_callback(request):
         )
 
         account.set_meta_token(access_token)
+        # Vincula a conta ao app Meta pelo qual ela foi conectada.
+        account.meta_app = chosen_app or request.user.get_active_meta_app()
         if user_id.isdigit():
             account.ig_user_id = int(user_id)
         account.status = 'active'
         account.save()
 
-        messages.success(request, f"Conta @{username} conectada com sucesso via Meta API!")
+        via = f" (app: {account.meta_app.name})" if account.meta_app else ""
+        messages.success(request, f"Conta @{username} conectada com sucesso via Meta API!{via}")
 
     except Exception as e:
         messages.error(request, f"Erro interno na conexão OAuth: {str(e)}")

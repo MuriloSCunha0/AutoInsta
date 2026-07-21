@@ -14,6 +14,20 @@
 
 {% block content %}
 
+{% if meta_apps %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+    <span class="text-muted small fw-semibold me-1"><i class="bi bi-meta me-1"></i> App Meta:</span>
+    <a href="{% url 'instagram:list' %}"
+       class="btn btn-sm {% if not filtro_app %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+    {% for app in meta_apps %}
+    <a href="{% url 'instagram:list' %}?app={{ app.id }}"
+       class="btn btn-sm {% if filtro_app == app.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        {{ app.name }}
+        <span class="badge bg-dark bg-opacity-25 ms-1">{{ app.accounts.count }}</span>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
 
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="account-list">
     {% for account in accounts %}
