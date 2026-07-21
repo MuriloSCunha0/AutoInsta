@@ -240,11 +240,13 @@ class InstagramEngine:
         )
         return media.dict()
 
-    def upload_reel_meta_api(self, video_url, caption, cover_url=None):
+    def upload_reel_meta_api(self, video_url, caption, cover_url=None, share_to_feed=True):
         """
         Publica um Reel usando a API oficial da Meta.
         Exige que a conta seja Business/Creator e que tenha um meta_access_token ativo.
         O video_url e cover_url devem ser URLs públicas acessíveis pelos servidores da Meta.
+        share_to_feed=True faz o Reel aparecer também na grade principal do perfil
+        (parâmetro oficial `share_to_feed` da doc de Content Publishing).
         """
         import requests
         import time
@@ -252,7 +254,7 @@ class InstagramEngine:
 
         if not self.account.meta_access_token:
             raise ValueError("Conta não possui token Meta configurado.")
-            
+
         ig_user_id = self.account.ig_user_id
         if not ig_user_id:
             raise ValueError("Conta não possui ig_user_id. Reconecte o Meta API.")
@@ -260,11 +262,12 @@ class InstagramEngine:
         token = self.account.get_meta_token()
 
         # 1. Cria o contêiner de mídia
-        url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media"
+        url = f"https://graph.instagram.com/v23.0/{ig_user_id}/media"
         payload = {
             'media_type': 'REELS',
             'video_url': video_url,
             'caption': caption,
+            'share_to_feed': 'true' if share_to_feed else 'false',
             'access_token': token
         }
         if cover_url:
@@ -279,7 +282,7 @@ class InstagramEngine:
         creation_id = data['id']
         
         # 2. Polling para ver se o vídeo terminou de processar
-        status_url = f"https://graph.instagram.com/v21.0/{creation_id}"
+        status_url = f"https://graph.instagram.com/v23.0/{creation_id}"
         status_params = {
             'fields': 'status_code',
             'access_token': token
@@ -304,7 +307,7 @@ class InstagramEngine:
             raise Exception("Timeout aguardando processamento do vídeo na Meta.")
             
         # 3. Publica a mídia
-        publish_url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media_publish"
+        publish_url = f"https://graph.instagram.com/v23.0/{ig_user_id}/media_publish"
         publish_payload = {
             'creation_id': creation_id,
             'access_token': token

@@ -128,7 +128,7 @@ def top_posts(request):
         if not media_data:
             # Fetch from API
             ig_user_id = account.ig_user_id or 'me'
-            url = f"https://graph.instagram.com/v21.0/{ig_user_id}/media"
+            url = f"https://graph.instagram.com/v23.0/{ig_user_id}/media"
             params = {
                 'fields': 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,username,comments_count,like_count',
                 'access_token': account.get_meta_token(),
@@ -185,7 +185,7 @@ def health(request):
             msg = 'Não conectado à API Meta.'
         else:
             # Check token validy
-            url = "https://graph.instagram.com/v21.0/me"
+            url = "https://graph.instagram.com/v23.0/me"
             params = {'access_token': acc.get_meta_token()}
             try:
                 res = requests.get(url, params=params, timeout=5)

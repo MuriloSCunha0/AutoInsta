@@ -257,60 +257,89 @@ def add_account_meta(request):
         acc.status = 'active'
         acc.save()
 
-        # Sincroniza automaticamente com a Meta para preencher ig_user_id/@/
-        # seguidores/foto — sem isso a conta não consegue publicar.
-        _sync_meta_account(acc)
+        # Sincroniza com a Meta para preencher user_id/@/seguidores/foto.
+        # ISOLADO: uma falha aqui NUNCA pode impedir o cadastro nem o render
+        # do card — a conta já está salva e pode ser re-sincronizada pelo botão.
+        try:
+            _sync_meta_account(acc)
+        except Exception as e:
+            acc.status = 'error'
+            acc.last_error = f'Conta salva, mas a sincronização falhou: {e}'
+            acc.save(update_fields=['status', 'last_error'])
 
-        # Retorna o card atualizado para inserir na lista via HTMX
+        # Retorna o card (a conta sempre "sobe", mesmo se o sync falhar)
         return render(request, 'instagram/partials/account_card.html', {'account': acc})
 
     except Exception as e:
         return HttpResponse(
-            f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token Meta: {str(e)}</div>'
+            f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token: {str(e)}</div>'
         )
 
 
+# Versão da Graph API do Instagram (doc oficial usa graph.instagram.com/v23.0).
+IG_API_VERSION = 'v23.0'
+
+
 def _sync_meta_account(account):
-    """Puxa da Graph API (Instagram Login) id/@/seguidores/foto a partir do token
-    salvo e grava na conta. É o que torna a conta utilizável (a publicação via
-    Meta API exige o ig_user_id). Retorna (ok: bool, mensagem: str)."""
+    """Busca dados da conta a partir do token e grava. Baseado na doc oficial:
+    GET graph.instagram.com/{v}/me?fields=user_id,username,account_type,...
+    IMPORTANTE: usa-se `user_id` (Instagram professional account ID) para
+    publicar — NÃO o `id` (app-scoped). Fetch em 2 etapas: identidade (sempre)
+    + métricas (best-effort, para não quebrar se faltar escopo). Retorna (ok, msg)."""
     token = account.get_meta_token()
     if not token:
         return False, 'Conta sem token Meta.'
 
-    url = "https://graph.instagram.com/v21.0/me"
-    params = {
-        'fields': 'id,username,name,followers_count,media_count,profile_picture_url',
-        'access_token': token,
-    }
+    base = f"https://graph.instagram.com/{IG_API_VERSION}/me"
+
+    # Etapa 1 — identidade (campos presentes em qualquer token de IG Login).
     try:
-        resp = requests.get(url, params=params, timeout=15)
+        resp = requests.get(base, params={'fields': 'user_id,username,account_type', 'access_token': token}, timeout=20)
         data = resp.json()
     except Exception as e:
-        account.last_error = f'Falha ao sincronizar com a Meta: {e}'
+        account.last_error = f'Falha ao contatar a Meta: {e}'
         account.save(update_fields=['last_error'])
         return False, str(e)
 
-    if 'error' in data or not (data.get('id') or data.get('username')):
-        msg = data.get('error', {}).get('message', 'Token inválido ou expirado.')
+    if 'error' in data:
+        msg = (data.get('error') or {}).get('message', 'Token inválido ou expirado.')
         account.status = 'error'
         account.last_error = f'Meta: {msg}'
         account.save(update_fields=['status', 'last_error'])
         return False, msg
 
-    uid = str(data.get('id') or '')
+    uid = str(data.get('user_id') or data.get('id') or '')
     if uid.isdigit():
         account.ig_user_id = int(uid)
-    if data.get('username'):
-        account.ig_username = data['username']
-    if data.get('name'):
-        account.full_name = data['name']
-    if data.get('followers_count') is not None:
-        account.followers_count = data['followers_count']
-    if data.get('media_count') is not None:
-        account.posts_count = data['media_count']
-    if data.get('profile_picture_url'):
-        account.profile_pic_url = data['profile_picture_url']
+
+    new_username = (data.get('username') or '').strip()
+    # Só renomeia se não colidir com outra conta do mesmo dono (unique_together).
+    if new_username and not InstagramAccount.objects.filter(
+        owner=account.owner, ig_username=new_username
+    ).exclude(id=account.id).exists():
+        account.ig_username = new_username
+
+    # Etapa 2 — métricas/foto (best-effort: se faltar escopo, ignora e segue).
+    try:
+        r2 = requests.get(base, params={
+            'fields': 'name,profile_picture_url,followers_count,follows_count,media_count',
+            'access_token': token,
+        }, timeout=20)
+        d2 = r2.json()
+        if 'error' not in d2:
+            if d2.get('name'):
+                account.full_name = d2['name']
+            if d2.get('profile_picture_url'):
+                account.profile_pic_url = d2['profile_picture_url']
+            if d2.get('followers_count') is not None:
+                account.followers_count = d2['followers_count']
+            if d2.get('follows_count') is not None:
+                account.following_count = d2['follows_count']
+            if d2.get('media_count') is not None:
+                account.posts_count = d2['media_count']
+    except Exception:
+        pass
+
     account.status = 'active'
     account.last_error = ''
     account.save()
@@ -505,7 +534,7 @@ def oauth_callback(request):
         access_token = ll_data.get('access_token', short_token)
 
         # 3. Buscar Perfil Instagram
-        me_url = f"https://graph.instagram.com/v21.0/{user_id}" if user_id else "https://graph.instagram.com/v21.0/me"
+        me_url = f"https://graph.instagram.com/v23.0/{user_id}" if user_id else "https://graph.instagram.com/v23.0/me"
         me_params = {
             'fields': 'id,username,name,followers_count,media_count,profile_picture_url',
             'access_token': access_token,
@@ -517,7 +546,7 @@ def oauth_callback(request):
             profile_data = me_response.json()
 
         if not profile_data.get('username') and not user_id:
-            me_response_fb = requests.get("https://graph.instagram.com/v21.0/me", params=me_params, timeout=15)
+            me_response_fb = requests.get("https://graph.instagram.com/v23.0/me", params=me_params, timeout=15)
             if me_response_fb.status_code == 200:
                 profile_data = me_response_fb.json()
 
