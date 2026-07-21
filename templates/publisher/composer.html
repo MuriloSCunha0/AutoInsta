@@ -116,62 +116,118 @@
                 {% endif %}
             </div>
 
-            <!-- Formato -->
+            <!-- Tipo de postagem -->
             <div class="card p-4 mb-4">
                 <h6 class="text-white mb-3"><i class="bi bi-grid text-purple me-2"></i> Tipo de postagem</h6>
-                <select name="post_type" class="form-select text-white border-subtle mb-3" style="background: var(--bg-input);">
-                    {% for value, label in post_types %}
-                    <option value="{{ value }}">{{ label }}</option>
-                    {% endfor %}
-                </select>
-
-                <label class="form-label text-muted">Grade principal dos Reels</label>
-                <div class="btn-group w-100" role="group">
-                    <input type="radio" class="btn-check" name="grade" id="grade-reels" value="reels">
-                    <label class="btn btn-outline-secondary" for="grade-reels">Só aba Reels</label>
-                    <input type="radio" class="btn-check" name="grade" id="grade-grade" value="grade" checked>
-                    <label class="btn btn-outline-secondary" for="grade-grade">Reels + grade</label>
+                <div class="opt-grid mb-4">
+                    <label class="opt-card">
+                        <input type="radio" name="post_type" value="REELS" checked>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Reels</span>
+                            <span class="opt-desc">Vídeo publicado como Reel.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="post_type" value="FEED">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Post normal</span>
+                            <span class="opt-desc">Publicação no feed do perfil.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="post_type" value="STORY">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Story</span>
+                            <span class="opt-desc">Publicação temporária (24h).</span>
+                        </span>
+                    </label>
                 </div>
-                <small class="text-muted d-block mt-1">"Reels + grade" faz o Reel aparecer também no perfil principal (share_to_feed).</small>
+
+                <h6 class="text-white mb-3"><i class="bi bi-columns-gap text-purple me-2"></i> Grade principal dos Reels</h6>
+                <div class="opt-grid">
+                    <label class="opt-card">
+                        <input type="radio" name="grade" value="reels">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Só aba Reels</span>
+                            <span class="opt-desc">Não coloca o Reel na grade principal.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="grade" value="grade" checked>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Reels + grade</span>
+                            <span class="opt-desc">Aparece também no perfil principal.</span>
+                        </span>
+                    </label>
+                </div>
             </div>
 
             <!-- Agendamento -->
             <div class="card p-4 mb-4">
                 <h6 class="text-white mb-3"><i class="bi bi-clock text-purple me-2"></i> Quando publicar</h6>
-                <div class="btn-group w-100 mb-3" role="group">
-                    <input type="radio" class="btn-check" name="schedule_mode" id="mode-now" value="now" checked>
-                    <label class="btn btn-outline-secondary" for="mode-now">Agora</label>
-                    <input type="radio" class="btn-check" name="schedule_mode" id="mode-schedule" value="schedule">
-                    <label class="btn btn-outline-secondary" for="mode-schedule">Agendar</label>
+                <div class="opt-grid cols-2 mb-4">
+                    <label class="opt-card">
+                        <input type="radio" name="schedule_mode" id="mode-now" value="now" checked>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Agora</span>
+                            <span class="opt-desc">Começa em ~1 min.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="schedule_mode" id="mode-schedule" value="schedule">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Agendar</span>
+                            <span class="opt-desc">Escolher data/hora.</span>
+                        </span>
+                    </label>
                 </div>
+
                 <div id="schedule-fields" style="display: none;">
                     <label class="form-label text-muted">Começar em</label>
                     <input type="datetime-local" name="start" class="form-control text-white border-subtle mb-3" style="background: var(--bg-input);">
                 </div>
-                <label class="form-label text-muted">Parar em <span class="text-muted">(opcional)</span></label>
-                <input type="datetime-local" name="end" class="form-control text-white border-subtle mb-3" style="background: var(--bg-input);">
 
-                <label class="form-label text-muted">Intervalo entre posts da mesma conta (min)</label>
-                <input type="number" name="interval_minutes" value="15" min="1"
-                       class="form-control text-white border-subtle mb-1" style="background: var(--bg-input);">
-                <small class="text-muted d-block mb-3">Recomendado para proteger contas: 15 min ou mais.</small>
+                <label class="form-label text-muted">Parar em <span class="text-muted">(opcional)</span></label>
+                <input type="datetime-local" name="end" class="form-control text-white border-subtle mb-4" style="background: var(--bg-input);">
+
+                <label class="form-label text-muted">Intervalo entre posts da mesma conta</label>
+                <div class="field-suffix">
+                    <input type="number" name="interval_minutes" value="15" min="1">
+                    <span class="suffix">min</span>
+                </div>
+                <small class="text-muted d-block mt-1 mb-4">A partir de 1 min. Recomendado para proteger contas: 15 min ou mais.</small>
 
                 <label class="form-label text-muted">Repetir cada mídia</label>
-                <div class="input-group">
-                    <input type="number" name="repeat" value="1" min="1"
-                           class="form-control text-white border-subtle" style="background: var(--bg-input);">
-                    <span class="input-group-text bg-transparent text-muted border-subtle">vez(es)</span>
+                <div class="field-suffix">
+                    <input type="number" name="repeat" value="1" min="1">
+                    <span class="suffix">vez(es)</span>
                 </div>
                 <small class="text-muted d-block mt-1">Ex: subir 1 vídeo e repetir 100 cria 100 posts na fila, sem duplicar o arquivo.</small>
             </div>
 
             <!-- Resumo + envio -->
             <div class="card p-4">
-                <div class="d-flex justify-content-between text-muted small mb-1">
-                    <span><span id="sum-accounts">0</span> conta(s)</span>
-                    <span><span id="sum-videos">0</span> vídeo(s)</span>
+                <div class="composer-summary">
+                    <div class="sum-item">
+                        <span class="sum-value" id="sum-accounts">0</span>
+                        <span class="sum-label">Contas</span>
+                    </div>
+                    <div class="sum-item">
+                        <span class="sum-value" id="sum-videos">0</span>
+                        <span class="sum-label">Vídeos</span>
+                    </div>
                 </div>
-                <div class="h4 text-white text-center my-2">= <span id="sum-total">0</span> publicações</div>
+                <div class="composer-total">
+                    <span class="total-value" id="sum-total">0</span>
+                    <span class="total-label">publicações na fila</span>
+                </div>
                 <button type="submit" class="btn btn-primary w-100" id="composer-submit">
                     <i class="bi bi-send"></i> Enfileirar publicações
                 </button>
