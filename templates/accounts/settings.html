@@ -19,6 +19,11 @@
                     <input type="text" name="last_name" class="form-control text-white border-subtle" style="background: var(--bg-input);" value="{{ request.user.last_name }}">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label text-muted">Apelido</label>
+                    <input type="text" name="nickname" class="form-control text-white border-subtle" style="background: var(--bg-input);" value="{{ request.user.nickname }}" placeholder="Como quer ser chamado no painel">
+                    <small class="text-muted">Usado nas saudações. Se vazio, usamos o primeiro nome.</small>
+                </div>
+                <div class="mb-3">
                     <label class="form-label text-muted">E-mail</label>
                     <input type="email" name="email" class="form-control text-white border-subtle" style="background: var(--bg-input);" value="{{ request.user.email }}" readonly>
                     <small class="text-muted">O e-mail de login não pode ser alterado.</small>

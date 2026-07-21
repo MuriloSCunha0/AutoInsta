@@ -242,84 +242,114 @@ class InstagramEngine:
         )
         return media.dict()
 
-    def upload_reel_meta_api(self, video_url, caption, cover_url=None, share_to_feed=True):
+    IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
+
+    def publish_meta_api(self, media_url, caption='', post_type='REELS',
+                         cover_url=None, share_to_feed=True, is_image=False):
         """
-        Publica um Reel usando a API oficial da Meta.
-        Exige que a conta seja Business/Creator e que tenha um meta_access_token ativo.
-        O video_url e cover_url devem ser URLs públicas acessíveis pelos servidores da Meta.
-        share_to_feed=True faz o Reel aparecer também na grade principal do perfil
-        (parâmetro oficial `share_to_feed` da doc de Content Publishing).
+        Publica via API oficial da Meta. Suporta REELS, FEED (imagem/vídeo) e STORY.
+
+        Fluxo oficial (Content Publishing):
+          POST /{ig-user-id}/media  ->  polling do status  ->  POST /{ig-user-id}/media_publish
+
+        Regras da doc aplicadas:
+          - Reels:  media_type=REELS + video_url (+ share_to_feed, cover_url)
+          - Story:  media_type=STORIES + video_url|image_url (Stories NÃO aceitam legenda)
+          - Feed imagem: apenas image_url (sem media_type)
+          - Feed vídeo: entra como REELS com share_to_feed=true (é como a Meta trata hoje)
         """
         import requests
         import time
-        from django.conf import settings
 
         if not self.account.meta_access_token:
             raise ValueError("Conta não possui token Meta configurado.")
 
         ig_user_id = self.account.ig_user_id
         if not ig_user_id:
-            raise ValueError("Conta não possui ig_user_id. Reconecte o Meta API.")
+            raise ValueError("Conta sem ig_user_id. Sincronize a conta com a Meta.")
 
         token = self.account.get_meta_token()
+        base = f"https://graph.instagram.com/v23.0/{ig_user_id}"
+
+        payload = {'access_token': token}
+
+        if post_type == 'STORY':
+            payload['media_type'] = 'STORIES'
+            payload['image_url' if is_image else 'video_url'] = media_url
+            # Stories não aceitam caption pela API oficial.
+        elif is_image:
+            payload['image_url'] = media_url
+            if caption:
+                payload['caption'] = caption
+        else:
+            payload['media_type'] = 'REELS'
+            payload['video_url'] = media_url
+            # No feed, o vídeo precisa aparecer na grade.
+            payload['share_to_feed'] = 'true' if (share_to_feed or post_type == 'FEED') else 'false'
+            if caption:
+                payload['caption'] = caption
+            if cover_url:
+                payload['cover_url'] = cover_url
 
         # 1. Cria o contêiner de mídia
-        url = f"https://graph.instagram.com/v23.0/{ig_user_id}/media"
-        payload = {
-            'media_type': 'REELS',
-            'video_url': video_url,
-            'caption': caption,
-            'share_to_feed': 'true' if share_to_feed else 'false',
-            'access_token': token
-        }
-        if cover_url:
-            payload['cover_url'] = cover_url
-            
-        res = requests.post(url, data=payload, timeout=20)
+        res = requests.post(f"{base}/media", data=payload, timeout=30)
         data = res.json()
-        
         if 'id' not in data:
             raise Exception(f"Erro ao criar contêiner Meta: {data.get('error', data)}")
-            
         creation_id = data['id']
-        
-        # 2. Polling para ver se o vídeo terminou de processar
-        status_url = f"https://graph.instagram.com/v23.0/{creation_id}"
-        status_params = {
-            'fields': 'status_code',
-            'access_token': token
-        }
-        
-        max_attempts = 12
-        ready = False
-        
-        for _ in range(max_attempts):
-            time.sleep(10)
-            status_res = requests.get(status_url, params=status_params, timeout=10)
-            status_data = status_res.json()
-            
-            status_code = status_data.get('status_code')
-            if status_code == 'FINISHED':
-                ready = True
-                break
-            elif status_code == 'ERROR':
-                raise Exception(f"Erro no processamento do vídeo pela Meta: {status_data}")
-                
-        if not ready:
-            raise Exception("Timeout aguardando processamento do vídeo na Meta.")
-            
-        # 3. Publica a mídia
-        publish_url = f"https://graph.instagram.com/v23.0/{ig_user_id}/media_publish"
-        publish_payload = {
-            'creation_id': creation_id,
-            'access_token': token
-        }
-        
-        pub_res = requests.post(publish_url, data=publish_payload, timeout=20)
+
+        # 2. Polling do processamento (só vídeo; imagem fica pronta na hora)
+        if not is_image:
+            status_url = f"https://graph.instagram.com/v23.0/{creation_id}"
+            status_params = {'fields': 'status_code', 'access_token': token}
+            ready = False
+            for _ in range(24):
+                time.sleep(5)
+                status_data = requests.get(status_url, params=status_params, timeout=15).json()
+                code = status_data.get('status_code')
+                if code == 'FINISHED':
+                    ready = True
+                    break
+                if code == 'ERROR':
+                    raise Exception(f"A Meta falhou ao processar a mídia: {status_data}")
+            if not ready:
+                raise Exception("Timeout aguardando o processamento da mídia na Meta.")
+
+        # 3. Publica
+        pub_res = requests.post(f"{base}/media_publish",
+                                data={'creation_id': creation_id, 'access_token': token}, timeout=30)
         pub_data = pub_res.json()
-        
+
         if 'id' not in pub_data:
             raise Exception(f"Erro ao publicar mídia via Meta: {pub_data.get('error', pub_data)}")
-            
+
         return {'id': pub_data['id'], 'creation_id': creation_id}
+
+    def upload_reel_meta_api(self, video_url, caption, cover_url=None, share_to_feed=True):
+        """Compatibilidade: publica um Reel via API oficial."""
+        return self.publish_meta_api(
+            media_url=video_url, caption=caption, post_type='REELS',
+            cover_url=cover_url, share_to_feed=share_to_feed, is_image=False,
+        )
+
+    def upload_story(self, media_path, link_url=None):
+        """Publica um Story pela engine (instagrapi). Diferencial: permite
+        anexar LINK ao Story — a API oficial da Meta não expõe isso."""
+        self._prepare_client()
+        path = str(media_path)
+        is_image = path.lower().endswith(self.IMAGE_EXTS)
+
+        kwargs = {}
+        if link_url:
+            try:
+                from instagrapi.types import StoryLink
+                kwargs['links'] = [StoryLink(webUri=link_url)]
+            except Exception:
+                pass
+
+        if is_image:
+            media = self.client.photo_upload_to_story(path, **kwargs)
+        else:
+            media = self.client.video_upload_to_story(path, **kwargs)
+        return media.dict()
 

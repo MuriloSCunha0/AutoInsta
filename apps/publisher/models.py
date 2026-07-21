@@ -26,6 +26,9 @@ class ScheduledPost(models.Model):
     caption_set = models.ForeignKey('library.CaptionSet', on_delete=models.SET_NULL, null=True, blank=True)
     # Reel também na grade principal do perfil (parâmetro oficial share_to_feed).
     share_to_feed = models.BooleanField(default=True)
+    # Link do Story. A API oficial não permite sticker de link, então quando
+    # preenchido a publicação vai pela engine (instagrapi).
+    story_link = models.URLField(max_length=500, blank=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     scheduled_for = models.DateTimeField()

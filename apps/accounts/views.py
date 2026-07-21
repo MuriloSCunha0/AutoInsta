@@ -41,6 +41,7 @@ def profile_update(request):
             request.user.last_name = request.POST.get('last_name', '')
             request.user.email = request.POST.get('email', '')
             request.user.phone = request.POST.get('phone', '')
+            request.user.nickname = (request.POST.get('nickname') or '').strip()
             
             # Handle avatar upload if provided
             if 'avatar' in request.FILES:

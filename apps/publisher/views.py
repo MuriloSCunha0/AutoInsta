@@ -104,6 +104,7 @@ def _composer_submit(request):
 
     # Reels + grade (share_to_feed) — valor 'grade' liga; 'reels' deixa só na aba.
     share_to_feed = request.POST.get('grade', 'grade') == 'grade'
+    story_link = (request.POST.get('story_link') or '').strip()
 
     # Hashtags: anexadas ao final da legenda.
     hashtags = (request.POST.get('hashtags') or '').strip()
@@ -196,6 +197,7 @@ def _composer_submit(request):
                 caption=caption,
                 caption_set=caption_set,
                 share_to_feed=share_to_feed,
+                story_link=story_link if post_type == 'STORY' else '',
                 status='queued',
                 scheduled_for=when_dt,
             )

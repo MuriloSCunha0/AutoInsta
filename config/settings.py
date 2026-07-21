@@ -149,7 +149,13 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 # DEBUG=False sempre que o collectstatic não tiver gerado o staticfiles.json.
 # A versão sem manifesto continua comprimindo os arquivos, mas nunca derruba
 # a página caso um estático esteja ausente.
+# ATENÇÃO: ao definir STORAGES explicitamente, o Django NÃO mescla com os
+# padrões. Sem a chave "default", qualquer upload de FileField estoura
+# KeyError: 'default' (quebrava o Composer e a Biblioteca de Mídia).
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },

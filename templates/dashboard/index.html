@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="hero-section">
-    <div class="hero-kicker">Bem-vindo de volta</div>
+    <div class="hero-kicker">Bem-vindo de volta, {{ request.user.display_name }}</div>
     <h2 class="hero-title">Visão Geral da Automação</h2>
     <p class="hero-sub">Acompanhe as métricas e gerencie suas publicações do Instagram em um só lugar.</p>
 </div>

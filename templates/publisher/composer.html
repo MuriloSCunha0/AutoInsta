@@ -146,6 +146,13 @@
                     </label>
                 </div>
 
+                <div id="story-link-wrap" style="display: none;">
+                    <label class="form-label text-muted"><i class="bi bi-link-45deg me-1"></i> Link do Story <span class="text-muted">(opcional)</span></label>
+                    <input type="url" name="story_link" class="form-control text-white border-subtle mb-1"
+                           style="background: var(--bg-input);" placeholder="https://seu-link.com">
+                    <small class="text-muted d-block mb-4">Com link, o Story é publicado pela engine (a API oficial não permite sticker de link).</small>
+                </div>
+
                 <h6 class="text-white mb-3"><i class="bi bi-columns-gap text-purple me-2"></i> Grade principal dos Reels</h6>
                 <div class="opt-grid">
                     <label class="opt-card">
@@ -285,6 +292,17 @@
                 document.getElementById('mode-schedule').checked ? 'block' : 'none';
         });
     });
+
+    // Campo de link aparece só quando o tipo é Story
+    const storyWrap = document.getElementById('story-link-wrap');
+    function toggleStoryLink() {
+        const t = form.querySelector('input[name="post_type"]:checked');
+        if (storyWrap) storyWrap.style.display = (t && t.value === 'STORY') ? 'block' : 'none';
+    }
+    form.querySelectorAll('input[name="post_type"]').forEach((r) => {
+        r.addEventListener('change', toggleStoryLink);
+    });
+    toggleStoryLink();
 
     // Contador de caracteres da legenda
     const caption = document.getElementById('caption-input');

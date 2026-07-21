@@ -57,6 +57,11 @@ class InstagramAccount(models.Model):
     class Meta:
         unique_together = ['owner', 'ig_username']
 
+    def __str__(self):
+        """Exibido nos selects de formulário (antes saía 'InstagramAccount object (12)')."""
+        name = f"@{self.ig_username}" if self.ig_username else f"conta #{self.pk}"
+        return f"{name} — {self.full_name}" if self.full_name else name
+
     def set_ig_password(self, raw_password):
         self.ig_password = _get_fernet().encrypt(raw_password.encode()).decode()
 

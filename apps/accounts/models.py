@@ -21,6 +21,8 @@ def _get_fernet():
 
 class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True)
+    # Apelido opcional — usado nas saudações do painel.
+    nickname = models.CharField(max_length=60, blank=True)
     plan_type = models.CharField(
         max_length=20,
         choices=[('free', 'Free'), ('pro', 'Pro'), ('agency', 'Agência')],
@@ -76,6 +78,11 @@ class User(AbstractUser):
     @property
     def has_meta_credentials(self):
         return bool((self.meta_app_id or '').strip()) and bool(self.meta_app_secret_enc)
+
+    @property
+    def display_name(self):
+        """Nome curto para saudações: apelido > primeiro nome > usuário."""
+        return (self.nickname or '').strip() or (self.first_name or '').strip() or self.username
 
     def ensure_extension_token(self):
         """Retorna o token da extensão, gerando um na primeira vez."""
