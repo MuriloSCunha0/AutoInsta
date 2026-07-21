@@ -83,15 +83,22 @@ def _cmd_ultra(src, dst, rng):
 
     return [
         FFMPEG, '-y', '-i', src,
-        '-map_metadata', '-1',          # remove todos os metadados
+        '-map_metadata', '-1',          # remove metadados do contêiner
+        '-map_metadata:s:v', '-1',      # ...e os do stream de vídeo
+        '-map_metadata:s:a', '-1',      # ...e os do stream de áudio
         '-map_chapters', '-1',
-        '-fflags', '+bitexact',         # não grava tag de encoder
-        '-flags:v', '+bitexact',
-        '-flags:a', '+bitexact',
         '-vf', vf,
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac', '-b:a', '128k',
+        # -bitexact remove as tags "encoder"/versão que o ffmpeg carimbaria.
+        # Sem isso, TODO arquivo nosso sairia com encoder="Lavc libx264" —
+        # um marcador comum que ligaria as contas entre si.
+        '-bitexact',
+        # handler_name padrão ("VideoHandler"/"SoundHandler") também é um
+        # marcador constante: zeramos.
+        '-metadata:s:v', 'handler_name=',
+        '-metadata:s:a', 'handler_name=',
         '-movflags', '+faststart',
         dst,
     ]
