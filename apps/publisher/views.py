@@ -303,15 +303,43 @@ def _composer_submit(request):
     # e não v1,v1,v1,v2,v2,v2 (que postaria o mesmo vídeo duas vezes seguidas).
     queue_per_account = list(video_names) * repeat
 
+    # ── Limite diário por conta ───────────────────────────────
+    respeitar_limite = request.POST.get('limite_diario', 'respeitar') == 'respeitar'
+
+    from collections import defaultdict
+    usados_no_dia = defaultdict(int)
+    if respeitar_limite:
+        # Conta o que JÁ está agendado, para o teto valer de verdade.
+        for p in ScheduledPost.objects.filter(
+            owner=user, account_id__in=account_ids, status__in=('queued', 'processing')
+        ).only('account_id', 'scheduled_for'):
+            usados_no_dia[(p.account_id, timezone.localtime(p.scheduled_for).date())] += 1
+
+    def encaixar_no_limite(quando, conta):
+        """Empurra para o próximo dia enquanto o teto do dia estiver cheio."""
+        limite = conta.daily_post_limit or 0
+        if not respeitar_limite or limite <= 0:
+            return quando, False
+        adiado = False
+        while usados_no_dia[(conta.id, timezone.localtime(quando).date())] >= limite:
+            quando = quando + timedelta(days=1)
+            adiado = True
+        usados_no_dia[(conta.id, timezone.localtime(quando).date())] += 1
+        return quando, adiado
+
     # ── Criação dos jobs (cada conta posta 1 item por intervalo) ─
     created = 0
     skipped = 0
+    adiados = 0
     for account_id in account_ids:
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
         for i, vname in enumerate(queue_per_account):
             when_dt = start + i * interval
+            when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
+            if foi_adiado:
+                adiados += 1
             if end_at and when_dt > end_at:
                 skipped += 1
                 continue
@@ -336,6 +364,8 @@ def _composer_submit(request):
 
     when = 'agora' if mode == 'now' else 'no horário agendado'
     msg = f'{created} publicação(ões) enfileirada(s) para {len(account_ids)} conta(s) — começando {when}.'
+    if adiados:
+        msg += f' {adiados} remanejada(s) para os dias seguintes pelo limite diário.'
     if skipped:
         msg += f' {skipped} ignorada(s) por passar do "Parar em".'
     messages.success(request, msg)

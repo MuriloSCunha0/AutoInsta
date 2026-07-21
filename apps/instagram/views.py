@@ -389,6 +389,19 @@ def _sync_meta_account(account):
 
 @login_required
 @require_POST
+def update_account_limit(request, account_id):
+    """Ajusta o teto diário de publicações da conta (0 = sem limite)."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    try:
+        account.daily_post_limit = max(int(request.POST.get('daily_post_limit', 20)), 0)
+    except (TypeError, ValueError):
+        account.daily_post_limit = 20
+    account.save(update_fields=['daily_post_limit'])
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
 def sync_meta_account(request, account_id):
     """Sincroniza uma conta específica com a Meta (HTMX → devolve o card)."""
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)

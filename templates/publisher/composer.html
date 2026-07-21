@@ -297,6 +297,30 @@
                 </div>
                 <small class="text-muted d-block mt-1 mb-4">A partir de 1 min. Recomendado para proteger contas: 15 min ou mais.</small>
 
+                <label class="form-label text-muted">Limite diário</label>
+                <div class="opt-grid mb-4">
+                    <label class="opt-card">
+                        <input type="radio" name="limite_diario" value="respeitar" checked>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Respeitar limite configurado</span>
+                            <span class="opt-desc">O excedente é remanejado para os dias seguintes, sem perder nada.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="limite_diario" value="forcar">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Forçar fila mesmo assim</span>
+                            <span class="opt-desc">Agenda tudo no intervalo definido. A Meta ainda pode restringir contas com muito volume.</span>
+                        </span>
+                    </label>
+                </div>
+                <small class="text-muted d-block mb-4">
+                    <i class="bi bi-info-circle me-1"></i> O teto é definido em cada conta na aba
+                    <a href="{% url 'instagram:list' %}" class="text-info">Contas</a> (campo "Limite/dia").
+                </small>
+
                 <label class="form-label text-muted">Repetir cada mídia</label>
                 <div class="field-suffix">
                     <input type="number" name="repeat" value="1" min="1">

@@ -50,6 +50,10 @@ class InstagramAccount(models.Model):
     posts_count = models.IntegerField(default=0)
 
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='connecting')
+    # Teto de publicações por dia nesta conta (0 = sem limite). Ajuda a evitar
+    # bloqueios por volume — o Composer distribui o excedente para os dias
+    # seguintes quando o modo "Respeitar limite" está ligado.
+    daily_post_limit = models.IntegerField(default=20)
     session_blob = models.JSONField(null=True, blank=True)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)

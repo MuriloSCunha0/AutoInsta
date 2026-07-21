@@ -126,6 +126,24 @@
             </div>
         {% endif %}
         
+        <form hx-post="{% url 'instagram:update_account_limit' account.id %}"
+              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+              class="d-flex align-items-center gap-2 mb-3 small">
+            {% csrf_token %}
+            <span class="text-muted" title="Máximo de publicações por dia nesta conta">
+                <i class="bi bi-speedometer2"></i> Limite/dia
+            </span>
+            <input type="number" name="daily_post_limit" value="{{ account.daily_post_limit }}" min="0"
+                   class="form-control form-control-sm text-white border-subtle"
+                   style="background: var(--bg-input); width: 74px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary border-opacity-25 text-muted" title="Salvar limite">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            {% if account.daily_post_limit == 0 %}
+            <span class="text-muted" style="font-size:0.7rem;">sem limite</span>
+            {% endif %}
+        </form>
+
         <div class="account-actions mt-auto d-flex gap-2">
             {% if account.meta_access_token %}
             <form hx-post="{% url 'instagram:sync_meta_account' account.id %}"
