@@ -239,3 +239,25 @@ IG_STATE_SECRET = env("IG_STATE_SECRET", default="")
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
 
+# =============================================================================
+# Logging — em produção (DEBUG=False) o Django, sem esta config, NÃO imprime
+# tracebacks de 500 no console. Aqui mandamos django.request e os apps para o
+# stderr, para os erros aparecerem em `docker logs`.
+# =============================================================================
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "[{asctime}] {levelname} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "apps": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "engine": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
+

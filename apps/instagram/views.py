@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -22,6 +23,8 @@ from .tasks import (
     connect_by_sessionid,
     web_login_account, claim_login_generation,
 )
+
+logger = logging.getLogger('apps.instagram')
 
 
 def _extract_sessionid(raw):
@@ -271,6 +274,7 @@ def add_account_meta(request):
         return render(request, 'instagram/partials/account_card.html', {'account': acc})
 
     except Exception as e:
+        logger.exception('add_account_meta falhou (username=%s, ig_user_id=%s)', ig_username, ig_user_id)
         return HttpResponse(
             f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token: {str(e)}</div>'
         )
@@ -303,12 +307,14 @@ def _sync_meta_account(account):
 
     if 'error' in data:
         msg = (data.get('error') or {}).get('message', 'Token inválido ou expirado.')
+        logger.warning('Sync Meta falhou (acc=%s): %s', account.id, data.get('error'))
         account.status = 'error'
         account.last_error = f'Meta: {msg}'
         account.save(update_fields=['status', 'last_error'])
         return False, msg
 
     uid = str(data.get('user_id') or data.get('id') or '')
+    logger.info('Sync Meta OK (acc=%s): user_id=%s username=%s', account.id, uid, data.get('username'))
     if uid.isdigit():
         account.ig_user_id = int(uid)
 
