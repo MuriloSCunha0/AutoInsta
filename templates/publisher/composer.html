@@ -11,32 +11,42 @@
         <div class="col-lg-7">
             <!-- Upload / biblioteca de vídeos -->
             <div class="card p-4 mb-4">
-                <h6 class="text-white mb-3"><i class="bi bi-collection-play text-purple me-2"></i> Vídeos</h6>
+                <h6 class="text-white mb-3"><i class="bi bi-collection-play text-purple me-2"></i> Mídia</h6>
 
-                <label class="form-label text-muted">Enviar novos vídeos (MP4/MOV)</label>
-                <input type="file" name="videos" accept="video/*" multiple id="video-upload"
+                <label class="form-label text-muted">Enviar arquivos</label>
+                <input type="file" name="videos" accept="video/*,image/*" multiple id="video-upload"
                        class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);">
-                <small class="text-muted d-block mb-3">Pode selecionar vários. Ou escolha da biblioteca abaixo.</small>
+                <small class="text-muted d-block mb-3">
+                    Vídeo (MP4/MOV) para Reels · imagem ou vídeo para Post e Story. Pode selecionar vários.
+                </small>
 
-                {% if library_videos %}
+                {% if library_media %}
                 <label class="form-label text-muted">Da biblioteca</label>
                 <div class="row row-cols-3 row-cols-md-4 g-2">
-                    {% for asset in library_videos %}
+                    {% for asset in library_media %}
                     <div class="col">
                         <label class="media-pick d-block position-relative" style="cursor: pointer;">
-                            <input type="checkbox" name="library_videos" value="{{ asset.id }}"
+                            <input type="checkbox" name="library_media" value="{{ asset.id }}"
                                    class="form-check-input position-absolute top-0 start-0 m-1 lib-video-check" style="z-index: 2;">
                             <div style="aspect-ratio: 9/16; background: #05070f; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-subtle);">
+                                {% if asset.kind == 'video' %}
                                 <video src="{{ asset.file.url }}" preload="metadata" muted
                                        style="width: 100%; height: 100%; object-fit: cover;"></video>
+                                {% else %}
+                                <img src="{{ asset.file.url }}" alt="{{ asset.original_name }}"
+                                     style="width: 100%; height: 100%; object-fit: cover;">
+                                {% endif %}
                             </div>
+                            <span class="position-absolute bottom-0 end-0 m-1 badge bg-dark bg-opacity-75" style="font-size:0.6rem;">
+                                {% if asset.kind == 'video' %}<i class="bi bi-play-fill"></i>{% else %}<i class="bi bi-image"></i>{% endif %}
+                            </span>
                         </label>
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
                 <div class="text-muted small">
-                    <i class="bi bi-info-circle"></i> Nenhum vídeo na
+                    <i class="bi bi-info-circle"></i> Nenhuma mídia na
                     <a href="{% url 'library:media' %}" class="text-info">biblioteca</a> ainda.
                 </div>
                 {% endif %}
@@ -81,6 +91,10 @@
                         {% endif %}
                     </div>
                     <small class="text-muted"><span id="caption-count">0</span>/2200</small>
+                </div>
+
+                <div id="caption-story-note" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mt-3 mb-0" style="display:none;">
+                    <i class="bi bi-exclamation-triangle me-1"></i> Stories <strong>não aceitam legenda</strong> pela API oficial da Meta — o texto acima será ignorado nesse tipo.
                 </div>
 
                 <label class="form-label text-muted mt-3">Hashtags</label>
@@ -153,24 +167,26 @@
                     <small class="text-muted d-block mb-4">Com link, o Story é publicado pela engine (a API oficial não permite sticker de link).</small>
                 </div>
 
-                <h6 class="text-white mb-3"><i class="bi bi-columns-gap text-purple me-2"></i> Grade principal dos Reels</h6>
-                <div class="opt-grid">
-                    <label class="opt-card">
-                        <input type="radio" name="grade" value="reels">
-                        <span class="opt-dot"></span>
-                        <span>
-                            <span class="opt-title">Só aba Reels</span>
-                            <span class="opt-desc">Não coloca o Reel na grade principal.</span>
-                        </span>
-                    </label>
-                    <label class="opt-card">
-                        <input type="radio" name="grade" value="grade" checked>
-                        <span class="opt-dot"></span>
-                        <span>
-                            <span class="opt-title">Reels + grade</span>
-                            <span class="opt-desc">Aparece também no perfil principal.</span>
-                        </span>
-                    </label>
+                <div id="grade-wrap">
+                    <h6 class="text-white mb-3"><i class="bi bi-columns-gap text-purple me-2"></i> Grade principal dos Reels</h6>
+                    <div class="opt-grid">
+                        <label class="opt-card">
+                            <input type="radio" name="grade" value="reels">
+                            <span class="opt-dot"></span>
+                            <span>
+                                <span class="opt-title">Só aba Reels</span>
+                                <span class="opt-desc">Não coloca o Reel na grade principal.</span>
+                            </span>
+                        </label>
+                        <label class="opt-card">
+                            <input type="radio" name="grade" value="grade" checked>
+                            <span class="opt-dot"></span>
+                            <span>
+                                <span class="opt-title">Reels + grade</span>
+                                <span class="opt-desc">Aparece também no perfil principal.</span>
+                            </span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -293,16 +309,25 @@
         });
     });
 
-    // Campo de link aparece só quando o tipo é Story
+    // Campos que dependem do tipo de postagem
     const storyWrap = document.getElementById('story-link-wrap');
-    function toggleStoryLink() {
+    const gradeWrap = document.getElementById('grade-wrap');
+    const captionNote = document.getElementById('caption-story-note');
+
+    function applyPostType() {
         const t = form.querySelector('input[name="post_type"]:checked');
-        if (storyWrap) storyWrap.style.display = (t && t.value === 'STORY') ? 'block' : 'none';
+        const isStory = t && t.value === 'STORY';
+        const isReels = t && t.value === 'REELS';
+        if (storyWrap) storyWrap.style.display = isStory ? 'block' : 'none';
+        // "Grade principal" só faz sentido em Reels.
+        if (gradeWrap) gradeWrap.style.display = isReels ? 'block' : 'none';
+        // A API oficial não aceita legenda em Story.
+        if (captionNote) captionNote.style.display = isStory ? 'block' : 'none';
     }
     form.querySelectorAll('input[name="post_type"]').forEach((r) => {
-        r.addEventListener('change', toggleStoryLink);
+        r.addEventListener('change', applyPostType);
     });
-    toggleStoryLink();
+    applyPostType();
 
     // Contador de caracteres da legenda
     const caption = document.getElementById('caption-input');

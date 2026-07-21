@@ -298,22 +298,25 @@ class InstagramEngine:
             raise Exception(f"Erro ao criar contêiner Meta: {data.get('error', data)}")
         creation_id = data['id']
 
-        # 2. Polling do processamento (só vídeo; imagem fica pronta na hora)
-        if not is_image:
-            status_url = f"https://graph.instagram.com/v23.0/{creation_id}"
-            status_params = {'fields': 'status_code', 'access_token': token}
-            ready = False
-            for _ in range(24):
-                time.sleep(5)
-                status_data = requests.get(status_url, params=status_params, timeout=15).json()
-                code = status_data.get('status_code')
-                if code == 'FINISHED':
-                    ready = True
-                    break
-                if code == 'ERROR':
-                    raise Exception(f"A Meta falhou ao processar a mídia: {status_data}")
-            if not ready:
-                raise Exception("Timeout aguardando o processamento da mídia na Meta.")
+        # 2. Polling do processamento — SEMPRE, inclusive para imagem.
+        # Publicar sem esperar FINISHED devolve:
+        #   code 9007 / 2207027 "Media ID is not available"
+        # (a imagem também passa por processamento, só que mais rápido).
+        status_url = f"https://graph.instagram.com/v23.0/{creation_id}"
+        status_params = {'fields': 'status_code', 'access_token': token}
+        delay = 2 if is_image else 5
+        ready = False
+        for _ in range(30):
+            time.sleep(delay)
+            status_data = requests.get(status_url, params=status_params, timeout=15).json()
+            code = status_data.get('status_code')
+            if code == 'FINISHED':
+                ready = True
+                break
+            if code == 'ERROR':
+                raise Exception(f"A Meta falhou ao processar a mídia: {status_data}")
+        if not ready:
+            raise Exception("Timeout aguardando o processamento da mídia na Meta.")
 
         # 3. Publica
         pub_res = requests.post(f"{base}/media_publish",

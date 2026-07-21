@@ -84,7 +84,8 @@ def composer(request):
 
     context = {
         'accounts': InstagramAccount.objects.filter(owner=user),
-        'library_videos': MediaAsset.objects.filter(owner=user, kind='video'),
+        # Story e Post de feed aceitam IMAGEM também — não filtramos só vídeo.
+        'library_media': MediaAsset.objects.filter(owner=user),
         'library_covers': MediaAsset.objects.filter(owner=user, kind='image'),
         'caption_sets': CaptionSet.objects.filter(owner=user),
         'post_types': ScheduledPost.TYPE_CHOICES,
@@ -96,7 +97,7 @@ def _composer_submit(request):
     user = request.user
 
     account_ids = request.POST.getlist('accounts')
-    library_video_ids = request.POST.getlist('library_videos')
+    library_media_ids = request.POST.getlist('library_media')
     caption = (request.POST.get('caption') or '').strip()
     caption_set_id = request.POST.get('caption_set')
     post_type = request.POST.get('post_type', 'REELS')
@@ -141,12 +142,12 @@ def _composer_submit(request):
         interval_minutes = 5
     interval = timedelta(minutes=interval_minutes)
 
-    # ── Coleta de vídeos: uploads + biblioteca ─────────────────
+    # ── Coleta de mídias: uploads + biblioteca (vídeo OU imagem) ─
     video_names = []
     for f in request.FILES.getlist('videos'):
         video_names.append(default_storage.save(f'reels/{f.name}', f))
-    for vid in library_video_ids:
-        asset = MediaAsset.objects.filter(id=vid, owner=user, kind='video').first()
+    for mid in library_media_ids:
+        asset = MediaAsset.objects.filter(id=mid, owner=user).first()
         if asset:
             video_names.append(asset.file.name)
             asset.used_count += 1
@@ -166,8 +167,23 @@ def _composer_submit(request):
         messages.error(request, 'Selecione ao menos uma conta.')
         return redirect('publisher:composer')
     if not video_names:
-        messages.error(request, 'Envie ou selecione ao menos um vídeo.')
+        messages.error(request, 'Envie ou selecione ao menos uma mídia.')
         return redirect('publisher:composer')
+
+    # Story com link exige sessão da engine (a API oficial não tem sticker de
+    # link). Avisamos ANTES de enfileirar, em vez de falhar na publicação.
+    if post_type == 'STORY' and story_link:
+        sem_sessao = InstagramAccount.objects.filter(
+            id__in=account_ids, owner=user, session_blob__isnull=True
+        ).values_list('ig_username', flat=True)
+        if sem_sessao:
+            messages.error(
+                request,
+                'Story com link precisa da conta conectada por sessão/senha '
+                f'(a API oficial não permite link). Sem sessão: @{", @".join(sem_sessao)}. '
+                'Publique o Story sem link ou conecte essas contas pela aba Entrar.'
+            )
+            return redirect('publisher:composer')
 
     caption_set = None
     if caption_set_id:
