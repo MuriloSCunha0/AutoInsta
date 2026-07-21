@@ -15,8 +15,10 @@
             <thead>
                 <tr>
                     <th class="text-muted fw-medium border-0 ps-4">Conta</th>
+                    <th class="text-muted fw-medium border-0">Origem</th>
                     <th class="text-muted fw-medium border-0">Formato</th>
                     <th class="text-muted fw-medium border-0">Intervalo</th>
+                    <th class="text-muted fw-medium border-0">Próxima</th>
                     <th class="text-muted fw-medium border-0">Status</th>
                     <th class="text-muted fw-medium border-0 text-end pe-4">Ações</th>
                 </tr>
@@ -25,8 +27,30 @@
                 {% for loop in loops %}
                 <tr>
                     <td class="text-white border-0 ps-4">@{{ loop.account.ig_username }}</td>
+                    <td class="border-0">
+                        {% if loop.folder %}
+                            <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill">
+                                <i class="bi bi-folder-fill"></i> {{ loop.folder.name }}
+                            </span>
+                            <small class="text-muted d-block mt-1">{{ loop.folder.assets.count }} mídia(s) em rotação</small>
+                        {% else %}
+                            <span class="badge bg-secondary bg-opacity-25 text-secondary rounded-pill">
+                                <i class="bi bi-file-earmark-play"></i> Arquivo único
+                            </span>
+                        {% endif %}
+                    </td>
                     <td class="text-muted border-0">{{ loop.get_post_type_display }}</td>
-                    <td class="text-muted border-0">A cada {{ loop.interval_days }} dias</td>
+                    <td class="text-muted border-0">
+                        {% if loop.interval_minutes >= 1440 %}
+                            {{ loop.interval_minutes|divisibleby:1440|yesno:"," }}A cada {{ loop.interval_minutes }} min
+                        {% else %}
+                            A cada {{ loop.interval_minutes }} min
+                        {% endif %}
+                    </td>
+                    <td class="text-muted border-0">
+                        {% if loop.proxima_execucao %}{{ loop.proxima_execucao|date:"d/m H:i" }}
+                        {% else %}<span class="text-info">no próximo ciclo</span>{% endif %}
+                    </td>
                     <td class="border-0">
                         {% if loop.is_active %}
                             <span class="badge bg-success bg-opacity-25 text-success rounded-pill">Ativo</span>
@@ -45,7 +69,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted border-0 py-5">
+                    <td colspan="7" class="text-center text-muted border-0 py-5">
                         <i class="bi bi-arrow-repeat d-block mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
                         Você não tem nenhum conteúdo em Loop.
                     </td>
@@ -68,33 +92,84 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
-                        <i class="bi bi-arrow-repeat me-1"></i> O Loop republica a mesma mídia automaticamente, para sempre, no intervalo que você definir.
+                        <i class="bi bi-arrow-repeat me-1"></i> O Loop publica sozinho, 24/7. Com uma <strong>pasta</strong>,
+                        ele <strong>rotaciona as mídias</strong> — uma a cada ciclo, sem repetir enquanto houver outras.
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label text-muted mb-0"><i class="bi bi-instagram me-1"></i> Contas <span class="text-muted">(pode marcar várias)</span></label>
+                            {% if accounts %}<button type="button" class="btn btn-sm btn-outline-secondary" id="loop-toggle-accounts">Todas</button>{% endif %}
+                        </div>
+                        {% if accounts %}
+                        <div class="border border-subtle rounded p-2" style="max-height: 150px; overflow-y: auto; background: var(--bg-input);">
+                            {% for acc in accounts %}
+                            <label class="d-flex align-items-center gap-2 py-1" style="cursor: pointer;">
+                                <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input loop-acc-check">
+                                <span class="text-white">@{{ acc.ig_username }}</span>
+                                {% if acc.status == 'active' %}<span class="acct-tag on ms-auto">ON</span>{% endif %}
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted">Um loop independente é criado para cada conta.</small>
+                        {% else %}
+                        <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-0">
+                            Nenhuma conta conectada.
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted"><i class="bi bi-folder2-open me-1"></i> Pasta de mídias <span class="badge bg-success bg-opacity-25 text-success ms-1" style="font-size:0.6rem;">RECOMENDADO</span></label>
+                        <select name="folder" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                            <option value="">— Não usar pasta (enviar 1 arquivo) —</option>
+                            {% for f in folders %}
+                            <option value="{{ f.id }}">{{ f.name }} ({{ f.assets.count }} mídia(s))</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">As mídias da pasta entram em rotação. Adicione mais depois e o loop já usa.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted"><i class="bi bi-camera-video me-1"></i> Ou enviar um arquivo único</label>
+                        <input type="file" name="video_file" accept="video/*,image/*"
+                               class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                        <small class="text-muted">Só é usado se você não escolher uma pasta.</small>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted"><i class="bi bi-instagram me-1"></i> Conta</label>
-                            {{ form.account }}
+                            <label class="form-label text-muted"><i class="bi bi-grid me-1"></i> Formato</label>
+                            <select name="post_type" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                                {% for value, label in post_types %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted"><i class="bi bi-grid me-1"></i> Formato</label>
-                            {{ form.post_type }}
+                            <label class="form-label text-muted"><i class="bi bi-clock-history me-1"></i> Intervalo</label>
+                            <div class="field-suffix">
+                                <input type="number" name="interval_minutes" value="1440" min="1">
+                                <span class="suffix">min</span>
+                            </div>
+                            <small class="text-muted">1440 = 24h · 60 = 1h</small>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted"><i class="bi bi-camera-video me-1"></i> Arquivo (Mídia)</label>
-                        {{ form.video_file }}
-                        <small class="text-muted">MP4/MOV · vertical 9:16 recomendado.</small>
-                    </div>
+
                     <div class="mb-3">
                         <label class="form-label text-muted"><i class="bi bi-chat-quote me-1"></i> Legenda</label>
-                        {{ form.caption }}
-                        <small class="text-muted">Aceita <code>{nome_conta}</code>, <code>{dia_semana}</code>, <code>{data_hoje}</code>.</small>
+                        <textarea name="caption" rows="3" class="form-control text-white border-subtle"
+                                  style="background: var(--bg-input);"
+                                  placeholder="Use {nome_conta}, {dia_semana}, {data_hoje}"></textarea>
                     </div>
+
                     <div class="mb-2">
-                        <label class="form-label text-muted"><i class="bi bi-calendar-range me-1"></i> Intervalo</label>
-                        {{ form.interval_days }}
-                        <small class="text-muted d-block mt-1">Republicado a cada N dias automaticamente.</small>
+                        <label class="form-label text-muted"><i class="bi bi-shield-check me-1"></i> Processamento do vídeo</label>
+                        <select name="clean_mode" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                            <option value="light" selected>Limpeza leve (recomendado)</option>
+                            <option value="ultra">Ultra clean</option>
+                            <option value="none">Sem limpeza</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
@@ -105,4 +180,16 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const btn = document.getElementById('loop-toggle-accounts');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const boxes = document.querySelectorAll('.loop-acc-check');
+        const todas = [...boxes].every((b) => b.checked);
+        boxes.forEach((b) => { b.checked = !todas; });
+    });
+})();
+</script>
 {% endblock %}

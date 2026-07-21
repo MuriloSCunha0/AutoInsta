@@ -1,7 +1,60 @@
+from datetime import timedelta
+
 from celery import shared_task
 from django.utils import timezone
-from .models import ScheduledPost
+from .models import ScheduledPost, PostLoop
 from engine.client import InstagramEngine
+
+
+@shared_task
+def process_loops():
+    """Enfileira a próxima publicação de cada Loop ativo cujo intervalo venceu.
+
+    No modo PASTA, gira as mídias em ciclo (uma por vez) usando last_index —
+    assim o loop nunca repete a mesma mídia em sequência enquanto houver
+    outras na pasta.
+    """
+    agora = timezone.now()
+
+    for loop in PostLoop.objects.filter(is_active=True).select_related('account', 'folder'):
+        # Ainda não venceu o intervalo?
+        if loop.last_posted and (agora - loop.last_posted) < timedelta(minutes=loop.interval_minutes):
+            continue
+
+        nome_arquivo = None
+
+        if loop.folder:
+            midias = loop.midias_da_pasta()
+            if not midias:
+                continue  # pasta vazia: nada a fazer
+            indice = loop.last_index % len(midias)
+            asset = midias[indice]
+            nome_arquivo = asset.file.name
+            loop.last_index = (indice + 1) % len(midias)
+            asset.used_count += 1
+            asset.save(update_fields=['used_count'])
+        elif loop.video_file:
+            nome_arquivo = loop.video_file.name
+
+        if not nome_arquivo:
+            continue
+
+        post = ScheduledPost(
+            owner=loop.owner,
+            account=loop.account,
+            post_type=loop.post_type,
+            caption=loop.caption,
+            share_to_feed=loop.share_to_feed,
+            clean_mode=loop.clean_mode,
+            status='queued',
+            scheduled_for=agora,
+        )
+        post.video_file.name = nome_arquivo
+        post.save()
+
+        loop.last_posted = agora
+        loop.save(update_fields=['last_posted', 'last_index'])
+        print(f"Loop {loop.id}: enfileirou post {post.id} (@{loop.account.ig_username})")
 
 @shared_task
 def process_scheduled_posts():

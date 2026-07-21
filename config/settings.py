@@ -202,6 +202,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.instagram.tasks.run_warmups",
         "schedule": 1800.0,  # a cada 30 min
     },
+    # Loops: enfileira a próxima mídia da pasta quando o intervalo vence.
+    "process-loops": {
+        "task": "apps.publisher.tasks.process_loops",
+        "schedule": 60.0,
+    },
 }
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos

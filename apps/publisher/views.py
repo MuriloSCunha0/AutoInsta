@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.utils.dateparse import parse_datetime
 from .models import ScheduledPost, PostLoop
-from .forms import ScheduledPostForm, PostLoopForm
+from .forms import ScheduledPostForm
 from apps.instagram.models import InstagramAccount
 from apps.library.models import MediaAsset, CaptionSet
 from django.http import JsonResponse
@@ -80,19 +80,72 @@ def remove_post(request, post_id):
 
 @login_required
 def loops(request):
-    loops_list = PostLoop.objects.filter(owner=request.user)
-    form = PostLoopForm()
-    form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
-    return render(request, 'publisher/loops.html', {'loops': loops_list, 'form': form})
+    from apps.library.models import MediaFolder
+    loops_list = PostLoop.objects.filter(owner=request.user).select_related('account', 'folder')
+    return render(request, 'publisher/loops.html', {
+        'loops': loops_list,
+        'accounts': InstagramAccount.objects.filter(owner=request.user),
+        'folders': MediaFolder.objects.filter(owner=request.user),
+        'post_types': ScheduledPost.TYPE_CHOICES,
+    })
+
 
 @login_required
 def add_loop(request):
-    if request.method == 'POST':
-        form = PostLoopForm(request.POST, request.FILES)
-        if form.is_valid():
-            loop = form.save(commit=False)
-            loop.owner = request.user
-            loop.save()
+    """Cria um Loop. Aceita várias contas — um loop por conta."""
+    if request.method != 'POST':
+        return redirect('publisher:loops')
+
+    from apps.library.models import MediaFolder
+
+    user = request.user
+    account_ids = request.POST.getlist('accounts')
+    folder_id = (request.POST.get('folder') or '').strip()
+    arquivo = request.FILES.get('video_file')
+
+    if not account_ids:
+        messages.error(request, 'Selecione ao menos uma conta.')
+        return redirect('publisher:loops')
+
+    folder = MediaFolder.objects.filter(id=folder_id, owner=user).first() if folder_id else None
+    if not folder and not arquivo:
+        messages.error(request, 'Escolha uma pasta da biblioteca ou envie um arquivo.')
+        return redirect('publisher:loops')
+
+    try:
+        intervalo = max(int(request.POST.get('interval_minutes', 1440)), 1)
+    except (TypeError, ValueError):
+        intervalo = 1440
+
+    nome_arquivo = default_storage.save(f'loops/{arquivo.name}', arquivo) if arquivo else ''
+
+    clean_mode = request.POST.get('clean_mode', 'light')
+    if clean_mode not in ('none', 'light', 'ultra'):
+        clean_mode = 'light'
+
+    criados = 0
+    for acc_id in account_ids:
+        conta = InstagramAccount.objects.filter(id=acc_id, owner=user).first()
+        if not conta:
+            continue
+        loop = PostLoop(
+            owner=user,
+            account=conta,
+            post_type=request.POST.get('post_type', 'REELS'),
+            folder=folder,
+            caption=(request.POST.get('caption') or '').strip(),
+            interval_minutes=intervalo,
+            share_to_feed=request.POST.get('grade', 'grade') == 'grade',
+            clean_mode=clean_mode,
+            is_active=True,
+        )
+        if nome_arquivo:
+            loop.video_file.name = nome_arquivo
+        loop.save()
+        criados += 1
+
+    alvo = f'pasta "{folder.name}"' if folder else 'arquivo enviado'
+    messages.success(request, f'{criados} loop(s) criado(s) a partir da {alvo}.')
     return redirect('publisher:loops')
 
 @login_required

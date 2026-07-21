@@ -55,15 +55,51 @@ class ScheduledPost(models.Model):
         ordering = ['scheduled_for', 'created_at']
 
 class PostLoop(models.Model):
+    """Ciclo automático de publicação.
+
+    Dois modos:
+      - PASTA  : rotaciona as mídias de uma pasta da biblioteca (recomendado)
+      - ARQUIVO: republica sempre o mesmo arquivo (modo antigo)
+    """
     account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     post_type = models.CharField(max_length=10, choices=ScheduledPost.TYPE_CHOICES, default='REELS')
-    video_file = models.FileField(upload_to='loops/', max_length=500)
+
+    # Modo pasta: gira os vídeos da pasta, um por ciclo.
+    folder = models.ForeignKey(
+        'library.MediaFolder', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='loops',
+    )
+    last_index = models.IntegerField(default=0)  # posição na rotação
+
+    # Modo arquivo único (legado): republica sempre o mesmo vídeo.
+    video_file = models.FileField(upload_to='loops/', max_length=500, blank=True)
+
     caption = models.TextField(blank=True)
-    interval_days = models.IntegerField(default=7) # Re-post every X days
+    interval_minutes = models.IntegerField(default=1440)  # 1440 = 24h
+    share_to_feed = models.BooleanField(default=True)
+    clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='light')
+
     last_posted = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
+
+    def __str__(self):
+        alvo = self.folder.name if self.folder else 'arquivo único'
+        return f"@{self.account.ig_username} · {alvo}"
+
+    @property
+    def proxima_execucao(self):
+        from datetime import timedelta
+        if not self.last_posted:
+            return None
+        return self.last_posted + timedelta(minutes=self.interval_minutes)
+
+    def midias_da_pasta(self):
+        """Vídeos/imagens da pasta, em ordem estável."""
+        if not self.folder:
+            return []
+        return list(self.folder.assets.order_by('id'))
