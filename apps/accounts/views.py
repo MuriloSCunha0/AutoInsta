@@ -71,6 +71,88 @@ from apps.instagram.models import InstagramAccount
 from django.conf import settings as django_settings
 
 
+from .models import MetaApp
+from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
+
+
+@login_required
+@require_POST
+def add_meta_app(request):
+    """Cadastra mais um app Meta (o usuário pode ter vários)."""
+    name = (request.POST.get('name') or '').strip()
+    if not name:
+        messages.error(request, 'Dê um nome para o app (ex.: "App principal").')
+        return redirect('accounts:settings')
+
+    if MetaApp.objects.filter(owner=request.user, name=name).exists():
+        messages.error(request, f'Você já tem um app chamado "{name}".')
+        return redirect('accounts:settings')
+
+    app = MetaApp(
+        owner=request.user,
+        name=name,
+        meta_app_id=(request.POST.get('meta_app_id') or '').strip(),
+        meta_login_config_id=(request.POST.get('meta_login_config_id') or '').strip(),
+        instagram_app_id=(request.POST.get('instagram_app_id') or '').strip(),
+    )
+    app.set_meta_secret(request.POST.get('meta_app_secret'))
+    app.set_instagram_secret(request.POST.get('instagram_app_secret'))
+    app.save()
+
+    # O primeiro app cadastrado já vira o ativo.
+    if MetaApp.objects.filter(owner=request.user).count() == 1:
+        app.activate()
+
+    messages.success(request, f'App "{name}" cadastrado.')
+    return redirect('accounts:settings')
+
+
+@login_required
+@require_POST
+def update_meta_app(request, app_id):
+    """Edita um app existente (secrets em branco mantêm o valor atual)."""
+    app = get_object_or_404(MetaApp, id=app_id, owner=request.user)
+    name = (request.POST.get('name') or '').strip()
+    if name:
+        app.name = name
+    app.meta_app_id = (request.POST.get('meta_app_id') or '').strip()
+    app.meta_login_config_id = (request.POST.get('meta_login_config_id') or '').strip()
+    app.instagram_app_id = (request.POST.get('instagram_app_id') or '').strip()
+
+    if (request.POST.get('meta_app_secret') or '').strip():
+        app.set_meta_secret(request.POST.get('meta_app_secret'))
+    if (request.POST.get('instagram_app_secret') or '').strip():
+        app.set_instagram_secret(request.POST.get('instagram_app_secret'))
+
+    app.save()
+    messages.success(request, f'App "{app.name}" atualizado.')
+    return redirect('accounts:settings')
+
+
+@login_required
+def activate_meta_app(request, app_id):
+    app = get_object_or_404(MetaApp, id=app_id, owner=request.user)
+    app.activate()
+    messages.success(request, f'"{app.name}" agora é o app usado nas novas conexões.')
+    return redirect('accounts:settings')
+
+
+@login_required
+def delete_meta_app(request, app_id):
+    app = get_object_or_404(MetaApp, id=app_id, owner=request.user)
+    was_active = app.is_active
+    nome = app.name
+    app.delete()
+    # Se removeu o ativo, promove outro para não ficar sem app.
+    if was_active:
+        proximo = MetaApp.objects.filter(owner=request.user).first()
+        if proximo:
+            proximo.activate()
+    messages.success(request, f'App "{nome}" removido.')
+    return redirect('accounts:settings')
+
+
 @login_required
 def update_meta_credentials(request):
     """Salva as credenciais dos apps Meta/Instagram do próprio usuário."""
@@ -109,13 +191,13 @@ def settings_view(request):
     # URL de callback (global) que o usuário precisa registrar no app Meta dele.
     redirect_uri = getattr(django_settings, 'META_REDIRECT_URI', '')
 
+    meta_apps = MetaApp.objects.filter(owner=request.user)
+    active_app = request.user.get_active_meta_app()
+
     return render(request, 'accounts/settings.html', {
         'accounts': accounts,
-        'meta_app_id': request.user.meta_app_id,
-        'meta_secret_set': bool(request.user.meta_app_secret_enc),
-        'meta_login_config_id': request.user.meta_login_config_id,
-        'instagram_app_id': request.user.instagram_app_id,
-        'instagram_secret_set': bool(request.user.instagram_app_secret_enc),
-        'meta_ready': request.user.has_meta_credentials,
+        'meta_apps': meta_apps,
+        'active_app': active_app,
+        'meta_ready': bool(active_app and active_app.is_complete),
         'meta_redirect_uri': redirect_uri,
     })

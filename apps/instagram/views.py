@@ -434,11 +434,27 @@ def remove_account(request, account_id):
     return redirect('instagram:list')
 
 
+def _meta_credentials(user):
+    """Credenciais a usar, em ordem de prioridade:
+    1) app Meta ATIVO do usuário (cadastro múltiplo)
+    2) campos legados no próprio usuário
+    3) variáveis globais do .env
+    """
+    app = user.get_active_meta_app()
+    if app and app.is_complete:
+        return (app.meta_app_id or '').strip(), app.get_meta_secret()
+
+    legacy_id = (getattr(user, 'meta_app_id', '') or '').strip()
+    if legacy_id:
+        return legacy_id, user.get_meta_app_secret()
+
+    return getattr(settings, 'META_APP_ID', ''), getattr(settings, 'META_APP_SECRET', '')
+
+
 @login_required
 def oauth_url(request):
     """Retorna a URL OAuth e renderiza o HTML para o modal."""
-    # Prioriza as credenciais do próprio usuário; cai para as globais do .env.
-    app_id = (request.user.meta_app_id or '').strip() or getattr(settings, 'META_APP_ID', '')
+    app_id, _secret = _meta_credentials(request.user)
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
 
     if not app_id:
@@ -501,9 +517,8 @@ def oauth_callback(request):
         messages.error(request, "Este fluxo de conexão não pertence à sua conta.")
         return redirect('instagram:list')
 
-    # Mesmas credenciais usadas na geração da URL: as do usuário, com fallback global.
-    app_id = (request.user.meta_app_id or '').strip() or getattr(settings, 'META_APP_ID', '')
-    app_secret = request.user.get_meta_app_secret() or getattr(settings, 'META_APP_SECRET', '')
+    # Mesmas credenciais usadas na geração da URL (app ativo > legado > .env).
+    app_id, app_secret = _meta_credentials(request.user)
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
 
     # 1. Trocar código por short-lived token

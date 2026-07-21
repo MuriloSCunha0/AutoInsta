@@ -84,6 +84,10 @@ class User(AbstractUser):
         """Nome curto para saudações: apelido > primeiro nome > usuário."""
         return (self.nickname or '').strip() or (self.first_name or '').strip() or self.username
 
+    def get_active_meta_app(self):
+        """App Meta em uso para novas conexões (ou None)."""
+        return self.meta_apps.filter(is_active=True).first() or self.meta_apps.first()
+
     def ensure_extension_token(self):
         """Retorna o token da extensão, gerando um na primeira vez."""
         if not self.extension_token:
@@ -95,3 +99,65 @@ class User(AbstractUser):
         self.extension_token = secrets.token_urlsafe(32)
         self.save(update_fields=['extension_token'])
         return self.extension_token
+
+
+class MetaApp(models.Model):
+    """Um app do Meta for Developers cadastrado pelo usuário.
+
+    Permite manter VÁRIOS apps (ex.: um por cliente/projeto) e alternar qual
+    é usado nas novas conexões. Os secrets são guardados criptografados.
+    """
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='meta_apps')
+    name = models.CharField(max_length=80)
+
+    meta_app_id = models.CharField(max_length=64, blank=True)
+    meta_app_secret_enc = models.TextField(blank=True)
+    meta_login_config_id = models.CharField(max_length=64, blank=True)
+    instagram_app_id = models.CharField(max_length=64, blank=True)
+    instagram_app_secret_enc = models.TextField(blank=True)
+
+    is_active = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-is_active', 'name']
+        unique_together = ['owner', 'name']
+
+    def __str__(self):
+        return self.name
+
+    # ── Secrets criptografados ──────────────────────────────────
+    def set_meta_secret(self, raw):
+        raw = (raw or '').strip()
+        self.meta_app_secret_enc = _get_fernet().encrypt(raw.encode()).decode() if raw else ''
+
+    def get_meta_secret(self):
+        return _decrypt_or_empty(self.meta_app_secret_enc)
+
+    def set_instagram_secret(self, raw):
+        raw = (raw or '').strip()
+        self.instagram_app_secret_enc = _get_fernet().encrypt(raw.encode()).decode() if raw else ''
+
+    def get_instagram_secret(self):
+        return _decrypt_or_empty(self.instagram_app_secret_enc)
+
+    @property
+    def is_complete(self):
+        """Tem o mínimo para o fluxo OAuth (App ID + Secret)."""
+        return bool((self.meta_app_id or '').strip()) and bool(self.meta_app_secret_enc)
+
+    def activate(self):
+        """Torna este o app ativo (desativa os outros do mesmo dono)."""
+        MetaApp.objects.filter(owner=self.owner).update(is_active=False)
+        self.is_active = True
+        self.save(update_fields=['is_active'])
+
+
+def _decrypt_or_empty(stored):
+    stored = stored or ''
+    if not stored:
+        return ''
+    try:
+        return _get_fernet().decrypt(stored.encode()).decode()
+    except Exception:
+        return ''

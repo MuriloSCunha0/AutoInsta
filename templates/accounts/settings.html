@@ -67,52 +67,75 @@
             </div>
             <p class="text-muted mb-4">Necessária para conectar contas Business/Creator do Instagram pela API oficial. Configure as credenciais abaixo no servidor e depois conecte na aba <a href="{% url 'instagram:list' %}" class="text-info text-decoration-underline fw-bold">Contas</a> em "Conectar via Meta".</p>
 
-            <h6 class="text-white mb-2"><i class="bi bi-key text-info me-2"></i>Credenciais do seu app Meta</h6>
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <h6 class="text-white mb-0"><i class="bi bi-key text-info me-2"></i>Seus apps Meta</h6>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMetaAppModal">
+                    <i class="bi bi-plus-lg"></i> Novo app
+                </button>
+            </div>
             <p class="text-muted small mb-3">
-                Crie um app no
+                Você pode cadastrar <strong class="text-white">vários apps</strong> do
                 <a href="https://developers.facebook.com/" target="_blank" rel="noopener" class="text-info text-decoration-underline">Meta for Developers</a>
-                e informe abaixo o <strong class="text-white">App ID</strong> e o <strong class="text-white">App Secret</strong> dele.
-                O App Secret é guardado <strong class="text-white">criptografado</strong> e nunca é exibido de volta.
+                (ex.: um por cliente) e escolher qual fica ativo. Novas conexões usam o app <strong class="text-white">ativo</strong>;
+                contas já conectadas continuam com o token do app em que foram conectadas.
+                Os secrets ficam <strong class="text-white">criptografados</strong> e nunca são exibidos de volta.
             </p>
 
-            <form action="{% url 'accounts:update_meta_credentials' %}" method="POST" class="mb-4">
-                {% csrf_token %}
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label text-muted">META_APP_ID</label>
-                        <input type="text" name="meta_app_id" class="form-control text-white border-subtle"
-                               style="background: var(--bg-input);" value="{{ meta_app_id }}"
-                               placeholder="Ex: 1234567890123456" autocomplete="off">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted">META_APP_SECRET</label>
-                        <input type="password" name="meta_app_secret" class="form-control text-white border-subtle"
-                               style="background: var(--bg-input);" autocomplete="off"
-                               placeholder="{% if meta_secret_set %}•••••••••• (configurado — deixe vazio p/ manter){% else %}Cole o App Secret{% endif %}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label text-muted">META_LOGIN_CONFIG_ID <span class="text-muted">(opcional)</span></label>
-                        <input type="text" name="meta_login_config_id" class="form-control text-white border-subtle"
-                               style="background: var(--bg-input);" value="{{ meta_login_config_id }}"
-                               placeholder="deixe vazio para login normal" autocomplete="off">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted">INSTAGRAM_APP_ID</label>
-                        <input type="text" name="instagram_app_id" class="form-control text-white border-subtle"
-                               style="background: var(--bg-input);" value="{{ instagram_app_id }}"
-                               placeholder="Ex: 1509108777367479" autocomplete="off">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted">INSTAGRAM_APP_SECRET</label>
-                        <input type="password" name="instagram_app_secret" class="form-control text-white border-subtle"
-                               style="background: var(--bg-input);" autocomplete="off"
-                               placeholder="{% if instagram_secret_set %}•••••••••• (configurado — deixe vazio p/ manter){% else %}Cole o App Secret do Instagram{% endif %}">
-                    </div>
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Salvar chaves Meta</button>
+            <div class="row g-3 mb-4">
+                {% for app in meta_apps %}
+                <div class="col-md-6">
+                    <div class="card p-3 h-100 {% if app.is_active %}border-primary{% endif %}"
+                         style="{% if app.is_active %}background: rgba(139,92,246,0.10); border-color: var(--primary) !important;{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                {% if app.is_active %}
+                                <span class="badge bg-success bg-opacity-25 text-success rounded-pill mb-1"><i class="bi bi-check-circle-fill me-1"></i> Ativo</span>
+                                {% endif %}
+                                <h6 class="text-white mb-0">{{ app.name }}</h6>
+                            </div>
+                            <div class="d-flex gap-1">
+                                {% if not app.is_active %}
+                                <a href="{% url 'accounts:activate_meta_app' app.id %}" class="btn btn-sm btn-outline-secondary" title="Usar este app">
+                                    <i class="bi bi-toggle-off"></i> Usar
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'accounts:delete_meta_app' app.id %}" class="btn btn-sm btn-outline-danger"
+                                   onclick="return confirm('Remover o app &quot;{{ app.name }}&quot;?')" title="Remover">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="small text-muted">
+                            <div>App ID: <code class="text-white">{{ app.meta_app_id|default:"—" }}</code></div>
+                            <div>Instagram App ID: <code class="text-white">{{ app.instagram_app_id|default:"—" }}</code></div>
+                            {% if not app.is_complete %}
+                            <div class="text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Falta App ID ou Secret</div>
+                            {% endif %}
+                        </div>
+
+                        <details class="mt-2">
+                            <summary class="text-info small" style="cursor:pointer;">Editar credenciais</summary>
+                            <form action="{% url 'accounts:update_meta_app' app.id %}" method="POST" class="mt-2">
+                                {% csrf_token %}
+                                <input type="text" name="name" value="{{ app.name }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="Nome">
+                                <input type="text" name="meta_app_id" value="{{ app.meta_app_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="META_APP_ID" autocomplete="off">
+                                <input type="password" name="meta_app_secret" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="META_APP_SECRET (vazio = manter)" autocomplete="off">
+                                <input type="text" name="meta_login_config_id" value="{{ app.meta_login_config_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="META_LOGIN_CONFIG_ID (opcional)" autocomplete="off">
+                                <input type="text" name="instagram_app_id" value="{{ app.instagram_app_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="INSTAGRAM_APP_ID" autocomplete="off">
+                                <input type="password" name="instagram_app_secret" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="INSTAGRAM_APP_SECRET (vazio = manter)" autocomplete="off">
+                                <button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button>
+                            </form>
+                        </details>
                     </div>
                 </div>
-            </form>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Nenhum app Meta cadastrado ainda. Clique em <strong>Novo app</strong> para adicionar o primeiro.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
 
             <details class="mb-4">
                 <summary class="text-muted small" style="cursor: pointer;">URL de callback (só p/ o fluxo "Conectar via Facebook" — o import por token não precisa)</summary>
@@ -164,6 +187,63 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: novo app Meta -->
+<div class="modal fade" id="addMetaAppModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-meta text-primary me-2"></i> Novo app Meta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'accounts:add_meta_app' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted"><i class="bi bi-tag me-1"></i> Nome do app</label>
+                        <input type="text" name="name" required class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" placeholder="Ex: App principal, Cliente X…">
+                        <small class="text-muted">Só para você identificar aqui no painel.</small>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">META_APP_ID</label>
+                            <input type="text" name="meta_app_id" class="form-control text-white border-subtle"
+                                   style="background: var(--bg-input);" placeholder="Ex: 1574842940882335" autocomplete="off">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">META_APP_SECRET</label>
+                            <input type="password" name="meta_app_secret" class="form-control text-white border-subtle"
+                                   style="background: var(--bg-input);" placeholder="Cole o App Secret" autocomplete="off">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-muted">META_LOGIN_CONFIG_ID <span class="text-muted">(opcional)</span></label>
+                            <input type="text" name="meta_login_config_id" class="form-control text-white border-subtle"
+                                   style="background: var(--bg-input);" placeholder="deixe vazio para login normal" autocomplete="off">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">INSTAGRAM_APP_ID</label>
+                            <input type="text" name="instagram_app_id" class="form-control text-white border-subtle"
+                                   style="background: var(--bg-input);" placeholder="Ex: 1509108777367479" autocomplete="off">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">INSTAGRAM_APP_SECRET</label>
+                            <input type="password" name="instagram_app_secret" class="form-control text-white border-subtle"
+                                   style="background: var(--bg-input);" placeholder="Cole o App Secret do Instagram" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mt-3 mb-0">
+                        <i class="bi bi-shield-lock me-1"></i> Os secrets são guardados criptografados e nunca exibidos de volta. O primeiro app cadastrado já vira o ativo.
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> Cadastrar app</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
