@@ -1,42 +1,54 @@
 {% extends 'base_auth.html' %}
 
-{% block title %}Criar conta | AutoInsta{% endblock %}
+{% block title %}Criar conta | SandraoFlow{% endblock %}
 
 {% block content %}
+<div class="sf-brand">
+    <div class="sf-halo">
+        {% include 'partials/star.html' with css='star-xl glow' uid='reg' %}
+    </div>
+    <div class="sf-wordmark">
+        <span class="sf-name">SANDRAO</span>
+        <span class="sf-sub">FLOW</span>
+    </div>
+</div>
+
 <section class="auth-card">
     <div class="text-center mb-4">
-        <i class="bi bi-instagram text-purple" style="font-size: 3rem;"></i>
+        <span class="page-kicker">Novo acesso</span>
+        <h1 class="mb-2">Criar sua conta</h1>
+        <p class="text-muted mb-0">Preencha os dados para solicitar seu acesso ao painel</p>
     </div>
-    <span class="page-kicker">Novo acesso</span>
-    <h1>Criar conta</h1>
-    
+
     <form method="post" action="{% url 'accounts:register' %}">
         {% csrf_token %}
-        
+
         {% if form.errors %}
-        <div class="alert alert-danger" role="alert">
-            Corrija os erros abaixo.
-        </div>
+        <div class="alert alert-danger" role="alert">Corrija os erros abaixo.</div>
         {% endif %}
 
-        <label class="form-label">Usuário</label>
-        <input class="form-control mb-3" type="text" name="username" required>
-        
-        <label class="form-label">Email</label>
-        <input class="form-control mb-3" type="email" name="email" required>
-        
-        <label class="form-label">Telefone</label>
-        <input class="form-control mb-3" type="tel" name="phone">
+        <label class="form-label"><i class="bi bi-person text-purple me-1"></i> Usuário</label>
+        <input class="form-control mb-3" type="text" name="username" placeholder="Escolha um usuário" required>
 
-        <label class="form-label">Senha</label>
-        {% include 'partials/pw_field.html' with name='password1' required=1 wrap_css='mb-3' autocomplete='new-password' %}
+        <label class="form-label"><i class="bi bi-envelope text-purple me-1"></i> E-mail</label>
+        <input class="form-control mb-3" type="email" name="email" placeholder="seu@email.com" required>
 
-        <label class="form-label">Confirmar Senha</label>
-        {% include 'partials/pw_field.html' with name='password2' required=1 wrap_css='mb-3' autocomplete='new-password' %}
+        <label class="form-label"><i class="bi bi-telephone text-purple me-1"></i> Telefone</label>
+        <input class="form-control mb-3" type="tel" name="phone" placeholder="(00) 00000-0000">
 
-        <button class="btn btn-primary w-100 mt-2" type="submit">Enviar cadastro</button>
+        <label class="form-label"><i class="bi bi-lock text-purple me-1"></i> Senha</label>
+        {% include 'partials/pw_field.html' with name='password1' required=1 wrap_css='mb-3' placeholder='Crie uma senha' autocomplete='new-password' %}
+
+        <label class="form-label"><i class="bi bi-shield-check text-purple me-1"></i> Confirmar senha</label>
+        {% include 'partials/pw_field.html' with name='password2' required=1 wrap_css='mb-3' placeholder='Repita a senha' autocomplete='new-password' %}
+
+        <button class="btn btn-primary w-100 mt-2" type="submit">
+            {% include 'partials/star.html' with css='star-sm mono' uid='btnreg' %} Enviar cadastro
+        </button>
     </form>
-    
-    <p class="auth-link mt-4 text-center text-muted">Já tem acesso? <a href="{% url 'accounts:login' %}" class="text-purple">Entrar</a></p>
+
+    <p class="auth-link mt-4 text-center text-muted">
+        Já tem acesso? <a href="{% url 'accounts:login' %}" class="text-purple">Entrar</a>
+    </p>
 </section>
 {% endblock %}

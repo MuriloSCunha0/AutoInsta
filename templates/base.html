@@ -34,7 +34,7 @@
             <div class="side-brand">
                 <a href="{% url 'analytics:dashboard' %}" class="brand-logo">
                     <div class="brand-icon">
-                        <i class="bi bi-instagram"></i>
+                        {% include 'partials/star.html' with css='mono' uid='nav' %}
                     </div>
                     <div class="brand-text">
                         <span class="brand-name" style="letter-spacing: -0.5px;">SandraoFlow</span>

@@ -1,0 +1,23 @@
+{% comment %}
+Estrela de Davi — marca do SandraoFlow.
+Uso:
+  {% include 'partials/star.html' %}                        -> tamanho padrão (herda do CSS)
+  {% include 'partials/star.html' with css='star-lg' %}     -> variação de tamanho
+  {% include 'partials/star.html' with css='star-sm mono' %} -> versão monocromática (botões)
+O gradiente recebe um id único por instância para não conflitar quando a
+estrela aparece várias vezes na mesma página.
+{% endcomment %}
+<svg class="sf-star {{ css|default:'' }}" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+    <defs>
+        <linearGradient id="sfstar-{{ uid|default:'x' }}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="45%" stop-color="#f5c518"/>
+            <stop offset="100%" stop-color="#b45309"/>
+        </linearGradient>
+    </defs>
+    <g fill="none" stroke="url(#sfstar-{{ uid|default:'x' }})" stroke-width="7"
+       stroke-linejoin="round" stroke-linecap="round">
+        <polygon points="50,6 92,79 8,79"/>
+        <polygon points="50,94 8,21 92,21"/>
+    </g>
+</svg>

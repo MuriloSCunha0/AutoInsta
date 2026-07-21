@@ -2629,6 +2629,128 @@ input[type="file"].form-control:focus {
 }
 
 /* ============================================================
+   Estrela de Davi — marca do SandraoFlow
+   ============================================================ */
+.sf-star {
+  width: 1.05em;
+  height: 1.05em;
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
+/* Dentro de botões/pílulas a estrela acompanha a cor do texto */
+.sf-star.mono g { stroke: currentColor; }
+.btn .sf-star { margin-right: 0.45em; }
+
+.sf-star.star-sm { width: 0.95em; height: 0.95em; }
+.sf-star.star-lg { width: 92px; height: 92px; }
+.sf-star.star-xl { width: 128px; height: 128px; }
+
+/* Brilho dourado da marca (usado no logo das telas de acesso) */
+.sf-star.glow {
+  filter: drop-shadow(0 0 10px rgba(245, 197, 24, 0.55))
+          drop-shadow(0 0 34px rgba(245, 197, 24, 0.25));
+}
+
+/* Logo completo das telas de acesso: estrela + wordmark */
+.sf-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.sf-brand .sf-halo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 150px;
+}
+.sf-brand .sf-halo::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 197, 24, 0.35);
+  box-shadow: 0 0 34px rgba(245, 197, 24, 0.12) inset;
+}
+.sf-wordmark {
+  text-align: center;
+  line-height: 1;
+}
+.sf-wordmark .sf-name {
+  display: block;
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  background: linear-gradient(180deg, #ffffff 35%, #9aa3c7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sf-wordmark .sf-sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+  color: #f5c518;
+  text-indent: 0.42em;
+}
+.sf-wordmark .sf-sub::before,
+.sf-wordmark .sf-sub::after {
+  content: '';
+  height: 1px;
+  width: 42px;
+  background: linear-gradient(90deg, transparent, rgba(245, 197, 24, 0.75), transparent);
+}
+
+/* ============================================================
+   TEMA CLARO — correções
+   ------------------------------------------------------------
+   O app foi construído dark-first e muitas telas usam `text-white`
+   fixo, que fica ilegível no modo claro. Aqui convertemos esses
+   casos, PRESERVANDO o branco onde ele é correto (badges, botões
+   e qualquer elemento com fundo colorido).
+   ============================================================ */
+[data-theme="light"] .text-white:not(.badge):not(.btn):not([class*="bg-"]):not(.btn *):not(.badge *):not(.alert *) {
+  color: var(--text-primary) !important;
+}
+
+/* Blocos "bg-dark" viram superfícies claras no tema claro */
+[data-theme="light"] .bg-dark:not(.badge) {
+  background: var(--bg-card-hover) !important;
+}
+
+/* A sidebar continua escura nos DOIS temas (é proposital). Por isso o
+   texto dela não pode seguir os tokens do tema claro, ou some. */
+[data-theme="light"] .side-nav .brand-name,
+[data-theme="light"] .side-nav .side-links a.active {
+  color: #e8eaff;
+}
+[data-theme="light"] .side-nav .side-links a,
+[data-theme="light"] .side-nav .brand-sub,
+[data-theme="light"] .side-nav .nav-category {
+  color: #97a2d2;
+}
+[data-theme="light"] .side-nav .side-links a:hover {
+  color: #fff;
+}
+
+/* Inputs no tema claro: o --bg-input é claro, então o texto precisa ser escuro */
+[data-theme="light"] .form-control,
+[data-theme="light"] .form-select,
+[data-theme="light"] .field-suffix input {
+  color: var(--text-primary) !important;
+}
+[data-theme="light"] .opt-title { color: var(--text-primary); }
+[data-theme="light"] .opt-card:has(input:checked) .opt-title { color: var(--accent-dark); }
+
+/* ============================================================
    Tags de status da conta (ON / BAN / TOKEN…)
    ============================================================ */
 .acct-tag {
