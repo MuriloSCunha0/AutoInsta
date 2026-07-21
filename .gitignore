@@ -48,3 +48,5 @@ create_*.py
 
 # Playwright MCP (screenshots/logs temporários)
 .playwright-mcp/
+/login-novo.png
+/page-*.png
