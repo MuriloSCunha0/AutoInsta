@@ -108,9 +108,21 @@
             </div>
         {% endif %}
 
-        {% if account.status == 'error' %}
-            <div class="alert alert-danger py-2 small mb-3 border-0 bg-danger bg-opacity-10 text-danger">
-                <i class="bi bi-exclamation-triangle me-1"></i> Erro: {{ account.last_error }}
+        {% if account.status == 'error' or account.status == 'banned' %}
+            <div class="alert py-2 small mb-3 border-0 {% if account.status == 'banned' %}bg-danger bg-opacity-10 text-danger{% else %}bg-warning bg-opacity-10 text-warning{% endif %}">
+                <i class="bi bi-exclamation-triangle me-1"></i> {{ account.last_error }}
+                {% if 'not authorized application' in account.last_error %}
+                <div class="mt-2 pt-2 border-top border-secondary border-opacity-25">
+                    <strong>Como resolver:</strong> o token foi revogado ou pertence a outro app Meta.
+                    Adicione a conta como <em>Testadora</em> no app (aba Funções), gere um
+                    <strong>token novo</strong> em <em>Instagram → Gerar tokens de acesso</em> e
+                    importe de novo escolhendo o app correto.
+                </div>
+                {% elif 'expired' in account.last_error or 'Session has expired' in account.last_error %}
+                <div class="mt-2 pt-2 border-top border-secondary border-opacity-25">
+                    <strong>Como resolver:</strong> o token expirou. Gere um novo e importe a conta novamente.
+                </div>
+                {% endif %}
             </div>
         {% endif %}
         

@@ -14,21 +14,62 @@ from django.utils import timezone
 
 @login_required
 def queue_list(request):
-    posts = ScheduledPost.objects.filter(owner=request.user)
+    posts = ScheduledPost.objects.filter(owner=request.user).select_related('account')
     form = ScheduledPostForm()
-    # Limitar as contas no form apenas as do usuario
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
-    return render(request, 'publisher/queue.html', {'posts': posts, 'form': form})
+    return render(request, 'publisher/queue.html', {
+        'posts': posts,
+        'form': form,
+        'accounts': InstagramAccount.objects.filter(owner=request.user),
+    })
 
 @login_required
 def add_post(request):
-    if request.method == 'POST':
-        form = ScheduledPostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.owner = request.user
-            post.save()
-            return redirect('publisher:queue')
+    """Agenda uma publicação para UMA OU MAIS contas de uma vez."""
+    if request.method != 'POST':
+        return redirect('publisher:queue')
+
+    user = request.user
+    account_ids = request.POST.getlist('accounts')
+    post_type = request.POST.get('post_type', 'REELS')
+    caption = (request.POST.get('caption') or '').strip()
+    quando_raw = request.POST.get('scheduled_for')
+    arquivo = request.FILES.get('video_file')
+
+    if not account_ids:
+        messages.error(request, 'Selecione ao menos uma conta.')
+        return redirect('publisher:queue')
+    if not arquivo:
+        messages.error(request, 'Envie a mídia da publicação.')
+        return redirect('publisher:queue')
+
+    quando = parse_datetime(quando_raw) if quando_raw else None
+    if quando and timezone.is_naive(quando):
+        quando = timezone.make_aware(quando, timezone.get_current_timezone())
+    if not quando:
+        quando = timezone.now() + timedelta(minutes=1)
+
+    # Salva o arquivo UMA vez e referencia em todos os posts (sem duplicar).
+    nome_arquivo = default_storage.save(f'reels/{arquivo.name}', arquivo)
+
+    criados = 0
+    for acc_id in account_ids:
+        conta = InstagramAccount.objects.filter(id=acc_id, owner=user).first()
+        if not conta:
+            continue
+        post = ScheduledPost(
+            owner=user,
+            account=conta,
+            post_type=post_type,
+            caption=caption,
+            status='queued',
+            scheduled_for=quando,
+        )
+        post.video_file.name = nome_arquivo
+        post.save()
+        criados += 1
+
+    messages.success(request, f'{criados} publicação(ões) agendada(s).')
     return redirect('publisher:queue')
     
 @login_required
@@ -69,10 +110,14 @@ def delete_loop(request, loop_id):
 
 @login_required
 def stories(request):
-    posts = ScheduledPost.objects.filter(owner=request.user, post_type='STORY')
+    posts = ScheduledPost.objects.filter(owner=request.user, post_type='STORY').select_related('account')
     form = ScheduledPostForm(initial={'post_type': 'STORY'})
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
-    return render(request, 'publisher/stories.html', {'posts': posts, 'form': form})
+    return render(request, 'publisher/stories.html', {
+        'posts': posts,
+        'form': form,
+        'accounts': InstagramAccount.objects.filter(owner=request.user),
+    })
 
 @login_required
 def composer(request):

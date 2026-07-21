@@ -13,27 +13,53 @@
                         <a href="{% url 'publisher:composer' %}" class="text-info">Composer</a>.
                     </p>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted"><i class="bi bi-instagram me-1"></i> Conta Instagram</label>
-                            {{ form.account }}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label text-muted mb-0"><i class="bi bi-instagram me-1"></i> Contas <span class="text-muted">(pode marcar várias)</span></label>
+                            {% if accounts %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="modal-toggle-accounts">Todas</button>
+                            {% endif %}
                         </div>
+                        {% if accounts %}
+                        <div class="border border-subtle rounded p-2" style="max-height: 190px; overflow-y: auto; background: var(--bg-input);">
+                            {% for acc in accounts %}
+                            <label class="d-flex align-items-center gap-2 py-1" style="cursor: pointer;">
+                                <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input modal-acc-check">
+                                <span class="text-white">@{{ acc.ig_username }}</span>
+                                {% if acc.full_name %}<span class="text-muted small">— {{ acc.full_name }}</span>{% endif %}
+                                {% if acc.status == 'active' %}
+                                <span class="acct-tag on ms-auto">ON</span>
+                                {% elif acc.status == 'banned' %}
+                                <span class="acct-tag ban ms-auto">BAN</span>
+                                {% else %}
+                                <span class="acct-tag warn ms-auto">TOKEN</span>
+                                {% endif %}
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted"><span id="modal-acc-count">0</span> conta(s) selecionada(s) — a mesma mídia será publicada em todas.</small>
+                        {% else %}
+                        <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-0">
+                            Nenhuma conta conectada. <a href="{% url 'instagram:list' %}" class="text-warning fw-bold text-decoration-underline">Conectar agora</a>.
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label text-muted"><i class="bi bi-grid me-1"></i> Formato</label>
                             {{ form.post_type }}
                         </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted"><i class="bi bi-clock me-1"></i> Data e hora</label>
-                        {{ form.scheduled_for }}
-                        <small class="text-muted">O post entra na fila e é publicado nesse horário.</small>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted"><i class="bi bi-clock me-1"></i> Data e hora</label>
+                            {{ form.scheduled_for }}
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label text-muted"><i class="bi bi-camera-video me-1"></i> Mídia</label>
                         {{ form.video_file }}
-                        <small class="text-muted">MP4/MOV para Reels · vertical 9:16 recomendado.</small>
+                        <small class="text-muted">MP4/MOV para Reels · imagem para Post/Story · vertical 9:16 recomendado.</small>
                     </div>
 
                     <div class="mb-2">
@@ -50,3 +76,26 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const modal = document.getElementById('addPostModal');
+    if (!modal) return;
+    const boxes = modal.querySelectorAll('.modal-acc-check');
+    const contador = modal.querySelector('#modal-acc-count');
+    const btnTodas = modal.querySelector('#modal-toggle-accounts');
+
+    function recontar() {
+        if (contador) contador.textContent = modal.querySelectorAll('.modal-acc-check:checked').length;
+    }
+    boxes.forEach((b) => b.addEventListener('change', recontar));
+    if (btnTodas) {
+        btnTodas.addEventListener('click', () => {
+            const todas = [...boxes].every((b) => b.checked);
+            boxes.forEach((b) => { b.checked = !todas; });
+            recontar();
+        });
+    }
+    recontar();
+})();
+</script>
