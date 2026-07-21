@@ -74,37 +74,49 @@
                 {% csrf_token %}
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label text-muted">App ID</label>
+                        <label class="form-label text-muted">META_APP_ID</label>
                         <input type="text" name="meta_app_id" class="form-control text-white border-subtle"
                                style="background: var(--bg-input);" value="{{ meta_app_id }}"
                                placeholder="Ex: 1234567890123456" autocomplete="off">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted">App Secret</label>
+                        <label class="form-label text-muted">META_APP_SECRET</label>
                         <input type="password" name="meta_app_secret" class="form-control text-white border-subtle"
                                style="background: var(--bg-input);" autocomplete="off"
-                               placeholder="{% if meta_secret_set %}•••••••••• (já configurado — deixe em branco para manter){% else %}Cole o App Secret{% endif %}">
-                        <small class="text-muted">
-                            {% if meta_secret_set %}
-                                <i class="bi bi-check-circle-fill text-success me-1"></i> Secret configurado. Preencha só se quiser trocar.
-                            {% else %}
-                                <i class="bi bi-x-circle-fill text-danger me-1"></i> Nenhum secret salvo ainda.
-                            {% endif %}
-                        </small>
+                               placeholder="{% if meta_secret_set %}•••••••••• (configurado — deixe vazio p/ manter){% else %}Cole o App Secret{% endif %}">
                     </div>
                     <div class="col-12">
-                        <label class="form-label text-muted">URL de callback (OAuth Redirect URI)</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control text-white border-subtle" style="background: var(--bg-input);"
-                                   value="{{ meta_redirect_uri }}" readonly>
-                        </div>
-                        <small class="text-muted">Registre exatamente esta URL no seu app Meta, em "Valid OAuth Redirect URIs".</small>
+                        <label class="form-label text-muted">META_LOGIN_CONFIG_ID <span class="text-muted">(opcional)</span></label>
+                        <input type="text" name="meta_login_config_id" class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" value="{{ meta_login_config_id }}"
+                               placeholder="deixe vazio para login normal" autocomplete="off">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">INSTAGRAM_APP_ID</label>
+                        <input type="text" name="instagram_app_id" class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" value="{{ instagram_app_id }}"
+                               placeholder="Ex: 1509108777367479" autocomplete="off">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">INSTAGRAM_APP_SECRET</label>
+                        <input type="password" name="instagram_app_secret" class="form-control text-white border-subtle"
+                               style="background: var(--bg-input);" autocomplete="off"
+                               placeholder="{% if instagram_secret_set %}•••••••••• (configurado — deixe vazio p/ manter){% else %}Cole o App Secret do Instagram{% endif %}">
                     </div>
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Salvar Credenciais</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Salvar chaves Meta</button>
                     </div>
                 </div>
             </form>
+
+            <details class="mb-4">
+                <summary class="text-muted small" style="cursor: pointer;">URL de callback (só p/ o fluxo "Conectar via Facebook" — o import por token não precisa)</summary>
+                <div class="mt-2">
+                    <input type="text" class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                           value="{{ meta_redirect_uri }}" readonly>
+                    <small class="text-muted">Se for usar OAuth por redirecionamento, registre exatamente esta URL no app Meta em "Valid OAuth Redirect URIs". Para importar contas colando o token, você <strong>não precisa</strong> dela.</small>
+                </div>
+            </details>
 
             <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
                 <i class="bi bi-shield-lock me-1"></i> A conexão das contas é 100% oficial via <strong>Login com Instagram</strong> (sem senha, sem automação de navegador). Depois de salvar as credenciais, vá em <a href="{% url 'instagram:list' %}" class="text-info text-decoration-underline fw-bold">Contas</a> e clique em "Conectar via Meta".

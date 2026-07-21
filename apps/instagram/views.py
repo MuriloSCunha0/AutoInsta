@@ -221,10 +221,16 @@ def add_account_meta(request):
     ig_username = request.POST.get('ig_username', '').strip().lower()
     meta_access_token = request.POST.get('meta_access_token', '').strip()
     ig_user_id = request.POST.get('ig_user_id', '').strip()
+    profile_pic_url = (request.POST.get('profile_pic_url') or '').strip()
 
-    if not ig_username or not meta_access_token:
+    # O @ é opcional no import por token: se não vier, usamos o ig_user_id
+    # como identificador provisório (a sincronização com a Meta preenche depois).
+    if not ig_username:
+        ig_username = ig_user_id or f'conta_{meta_access_token[-6:]}' if meta_access_token else ''
+
+    if not meta_access_token:
         return HttpResponse(
-            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Usuário e Token Meta são obrigatórios.</div>'
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> O Token do Instagram é obrigatório.</div>'
         )
 
     # Verifica limite de contas
@@ -246,6 +252,8 @@ def add_account_meta(request):
         acc.set_meta_token(meta_access_token)
         if ig_user_id.isdigit():
             acc.ig_user_id = int(ig_user_id)
+        if profile_pic_url:
+            acc.profile_pic_url = profile_pic_url
         acc.status = 'active'
         acc.save()
 

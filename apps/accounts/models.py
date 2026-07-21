@@ -32,9 +32,12 @@ class User(AbstractUser):
     # do sessionid capturado do instagram.com (ver apps.instagram.views.connect_extension).
     extension_token = models.CharField(max_length=64, blank=True, db_index=True)
     # Credenciais do app Meta do PRÓPRIO usuário (cada um traz o seu app).
-    # O App ID não é sigiloso; o App Secret é guardado criptografado (Fernet).
+    # App IDs não são sigilosos; os secrets são guardados criptografados (Fernet).
     meta_app_id = models.CharField(max_length=64, blank=True)
     meta_app_secret_enc = models.TextField(blank=True)
+    meta_login_config_id = models.CharField(max_length=64, blank=True)
+    instagram_app_id = models.CharField(max_length=64, blank=True)
+    instagram_app_secret_enc = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def set_meta_app_secret(self, raw_secret):
@@ -47,6 +50,22 @@ class User(AbstractUser):
     def get_meta_app_secret(self):
         """App Secret em texto puro (ou '' se não configurado)."""
         stored = self.meta_app_secret_enc or ''
+        if not stored:
+            return ''
+        try:
+            return _get_fernet().decrypt(stored.encode()).decode()
+        except Exception:
+            return ''
+
+    def set_instagram_app_secret(self, raw_secret):
+        """Criptografa e guarda o App Secret do app do Instagram."""
+        raw_secret = (raw_secret or '').strip()
+        self.instagram_app_secret_enc = (
+            _get_fernet().encrypt(raw_secret.encode()).decode() if raw_secret else ''
+        )
+
+    def get_instagram_app_secret(self):
+        stored = self.instagram_app_secret_enc or ''
         if not stored:
             return ''
         try:

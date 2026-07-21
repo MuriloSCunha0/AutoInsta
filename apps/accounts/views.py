@@ -72,21 +72,31 @@ from django.conf import settings as django_settings
 
 @login_required
 def update_meta_credentials(request):
-    """Salva o App ID / App Secret do app Meta do próprio usuário."""
+    """Salva as credenciais dos apps Meta/Instagram do próprio usuário."""
     if request.method == 'POST':
-        app_id = (request.POST.get('meta_app_id') or '').strip()
-        app_secret = (request.POST.get('meta_app_secret') or '').strip()
+        u = request.user
+        u.meta_app_id = (request.POST.get('meta_app_id') or '').strip()
+        u.meta_login_config_id = (request.POST.get('meta_login_config_id') or '').strip()
+        u.instagram_app_id = (request.POST.get('instagram_app_id') or '').strip()
 
-        request.user.meta_app_id = app_id
-        # Campo de senha em branco = mantém o secret atual (não sobrescreve).
-        if app_secret:
-            request.user.set_meta_app_secret(app_secret)
-        elif not app_id:
-            # Limpou tudo: zera também o secret.
-            request.user.set_meta_app_secret('')
+        # Secrets em branco = mantêm o valor atual (não sobrescrevem).
+        meta_secret = (request.POST.get('meta_app_secret') or '').strip()
+        if meta_secret:
+            u.set_meta_app_secret(meta_secret)
+        elif not u.meta_app_id:
+            u.set_meta_app_secret('')
 
-        request.user.save(update_fields=['meta_app_id', 'meta_app_secret_enc'])
-        messages.success(request, 'Credenciais do app Meta salvas com sucesso.')
+        ig_secret = (request.POST.get('instagram_app_secret') or '').strip()
+        if ig_secret:
+            u.set_instagram_app_secret(ig_secret)
+        elif not u.instagram_app_id:
+            u.set_instagram_app_secret('')
+
+        u.save(update_fields=[
+            'meta_app_id', 'meta_app_secret_enc', 'meta_login_config_id',
+            'instagram_app_id', 'instagram_app_secret_enc',
+        ])
+        messages.success(request, 'Credenciais salvas com sucesso.')
 
     return redirect('accounts:settings')
 
@@ -102,6 +112,9 @@ def settings_view(request):
         'accounts': accounts,
         'meta_app_id': request.user.meta_app_id,
         'meta_secret_set': bool(request.user.meta_app_secret_enc),
+        'meta_login_config_id': request.user.meta_login_config_id,
+        'instagram_app_id': request.user.instagram_app_id,
+        'instagram_secret_set': bool(request.user.instagram_app_secret_enc),
         'meta_ready': request.user.has_meta_credentials,
         'meta_redirect_uri': redirect_uri,
     })
