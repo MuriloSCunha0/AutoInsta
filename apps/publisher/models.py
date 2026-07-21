@@ -31,6 +31,15 @@ class ScheduledPost(models.Model):
     # Link do Story. A API oficial não permite sticker de link, então quando
     # preenchido a publicação vai pela engine (instagrapi).
     story_link = models.URLField(max_length=500, blank=True)
+
+    # Limpeza/diversificação do arquivo antes de publicar, para o Instagram
+    # não correlacionar contas que enviam a mesma mídia.
+    CLEAN_CHOICES = [
+        ('none', 'Sem limpeza'),
+        ('light', 'Limpeza leve'),
+        ('ultra', 'Ultra clean'),
+    ]
+    clean_mode = models.CharField(max_length=10, choices=CLEAN_CHOICES, default='light')
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     scheduled_for = models.DateTimeField()

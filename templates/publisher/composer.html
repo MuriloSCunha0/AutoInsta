@@ -190,6 +190,39 @@
                 </div>
             </div>
 
+            <!-- Limpeza de metadados -->
+            <div class="card p-4 mb-4">
+                <h6 class="text-white mb-1"><i class="bi bi-shield-check text-purple me-2"></i> Processamento do vídeo</h6>
+                <p class="text-muted small mb-3">Quanta limpeza aplicar antes de enviar. Cada conta recebe um arquivo diferente, dificultando que o Instagram correlacione suas contas.</p>
+                <div class="opt-grid">
+                    <label class="opt-card">
+                        <input type="radio" name="clean_mode" value="none">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Sem limpeza <span class="badge bg-secondary bg-opacity-25 text-secondary ms-1" style="font-size:0.6rem;">RÁPIDO</span></span>
+                            <span class="opt-desc">Envia o vídeo original, sem alterar nada. Mesmo arquivo em todas as contas.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="clean_mode" value="light" checked>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Limpeza leve <span class="badge bg-success bg-opacity-25 text-success ms-1" style="font-size:0.6rem;">RECOM.</span></span>
+                            <span class="opt-desc">Hash diferente por conta, sem recodificar. Mantém qualidade e metadados originais. Quase instantâneo.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="clean_mode" value="ultra">
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Ultra clean <span class="badge bg-primary bg-opacity-25 text-primary ms-1" style="font-size:0.6rem;">ULTRA</span></span>
+                            <span class="opt-desc">Remove todos os metadados (câmera, GPS, software, EXIF) e aplica micro-variações de brilho/saturação/corte — fingerprint diferente por conta. Recodifica: mais lento.</span>
+                        </span>
+                    </label>
+                </div>
+                <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i> Não se aplica a imagens.</small>
+            </div>
+
             <!-- Agendamento -->
             <div class="card p-4 mb-4">
                 <h6 class="text-white mb-3"><i class="bi bi-clock text-purple me-2"></i> Quando publicar</h6>

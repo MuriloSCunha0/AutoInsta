@@ -107,6 +107,11 @@ def _composer_submit(request):
     share_to_feed = request.POST.get('grade', 'grade') == 'grade'
     story_link = (request.POST.get('story_link') or '').strip()
 
+    # Modo de limpeza/diversificação do arquivo (none/light/ultra).
+    clean_mode = request.POST.get('clean_mode', 'light')
+    if clean_mode not in ('none', 'light', 'ultra'):
+        clean_mode = 'light'
+
     # Hashtags: anexadas ao final da legenda.
     hashtags = (request.POST.get('hashtags') or '').strip()
     if hashtags:
@@ -214,6 +219,7 @@ def _composer_submit(request):
                 caption_set=caption_set,
                 share_to_feed=share_to_feed,
                 story_link=story_link if post_type == 'STORY' else '',
+                clean_mode=clean_mode,
                 status='queued',
                 scheduled_for=when_dt,
             )

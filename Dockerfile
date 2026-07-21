@@ -8,9 +8,11 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Instalar dependências do sistema
+# ffmpeg é usado na limpeza/diversificação de metadados dos vídeos antes de publicar.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar dependências Python

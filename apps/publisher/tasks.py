@@ -61,13 +61,42 @@ def publish_reel(post_id):
         IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
         is_image = (post.video_file.name or '').lower().endswith(IMAGE_EXTS)
 
+        # ── Limpeza / diversificação do arquivo ────────────────────────────
+        # Cada conta publica um arquivo com hash (e, no ultra, fingerprint)
+        # diferente, para o Instagram não correlacionar as contas.
+        import os
+        from django.conf import settings as dj_settings
+
+        publish_path = post.video_file.path
+        publish_relname = post.video_file.name
+        arquivo_temporario = None
+
+        clean_mode = getattr(post, 'clean_mode', 'none') or 'none'
+        if clean_mode != 'none' and not is_image:
+            from engine.media_cleaner import limpar_video
+            processado = limpar_video(
+                publish_path,
+                mode=clean_mode,
+                # Seed por conta+mídia: mesma conta gera sempre o mesmo
+                # tratamento, contas diferentes geram arquivos diferentes.
+                seed=f"{post.account_id}-{post.video_file.name}",
+                dest_dir=os.path.join(dj_settings.MEDIA_ROOT, 'processed'),
+            )
+            if processado and processado != publish_path:
+                publish_path = processado
+                arquivo_temporario = processado
+                publish_relname = os.path.relpath(
+                    processado, dj_settings.MEDIA_ROOT
+                ).replace('\\', '/')
+                print(f"Post {post.id}: mídia processada (modo={clean_mode})")
+
         # Story COM LINK só é possível pela engine (a API oficial não expõe
         # sticker de link). Se houver link, usamos o caminho da engine.
         story_link = (getattr(post, 'story_link', '') or '').strip()
 
         if post.post_type == 'STORY' and story_link:
             print(f"Publicando Story com link {post.id} via engine...")
-            media_info = engine.upload_story(post.video_file.path, link_url=story_link)
+            media_info = engine.upload_story(publish_path, link_url=story_link)
             post.ig_media_id = str(media_info.get('pk') or media_info.get('id') or '')
 
         elif post.account.meta_access_token:
@@ -75,7 +104,7 @@ def publish_reel(post_id):
             # SITE_URL precisa ser pública: a Meta baixa a mídia dessa URL.
             site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000').rstrip('/')
 
-            media_url = f"{site_url}{post.video_file.url}"
+            media_url = f"{site_url}{dj_settings.MEDIA_URL}{publish_relname}"
             cover_url = f"{site_url}{post.thumbnail.url}" if post.thumbnail else None
 
             print(f"Publicando {post.id} ({post.post_type}) via Meta Graph API Oficial...")
@@ -92,19 +121,26 @@ def publish_reel(post_id):
         else:
             print(f"Publicando {post.id} via Automação (Session)...")
             if post.post_type == 'STORY':
-                media_info = engine.upload_story(post.video_file.path, link_url=story_link or None)
+                media_info = engine.upload_story(publish_path, link_url=story_link or None)
                 post.ig_media_id = str(media_info.get('pk') or media_info.get('id') or '')
             else:
                 media_info = engine.upload_reel(
-                    video_path=post.video_file.path,
+                    video_path=publish_path,
                     caption=final_caption,
                     thumbnail_path=post.thumbnail.path if post.thumbnail else None,
                 )
                 post.ig_media_id = str(media_info.get('id', ''))
-        
+
         post.status = 'published'
         post.published_at = timezone.now()
         post.save()
+
+        # Remove a cópia processada: já foi publicada, não precisa ocupar disco.
+        if arquivo_temporario:
+            try:
+                os.remove(arquivo_temporario)
+            except Exception:
+                pass
         
     except Exception as e:
         if post.retry_count < post.max_retries:
