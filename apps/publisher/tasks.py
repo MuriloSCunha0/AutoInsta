@@ -46,6 +46,7 @@ def process_loops():
             caption=loop.caption,
             share_to_feed=loop.share_to_feed,
             clean_mode=loop.clean_mode,
+            audio=loop.audio,
             status='queued',
             scheduled_for=agora,
         )
@@ -123,6 +124,24 @@ def publish_reel(post_id):
         publish_path = post.video_file.path
         publish_relname = post.video_file.name
         arquivo_temporario = None
+        temp_audio = None
+
+        # ── Trilha da aba Áudios (substitui o som do vídeo) ────────────────
+        # Feito ANTES da limpeza, para o fingerprint valer sobre o arquivo final.
+        if post.audio_id and not is_image:
+            from engine.media_cleaner import aplicar_audio
+            com_audio = aplicar_audio(
+                publish_path,
+                post.audio.file.path,
+                dest_dir=os.path.join(dj_settings.MEDIA_ROOT, 'processed'),
+            )
+            if com_audio and com_audio != publish_path:
+                publish_path = com_audio
+                temp_audio = com_audio
+                publish_relname = os.path.relpath(com_audio, dj_settings.MEDIA_ROOT).replace('\\', '/')
+                post.audio.used_count += 1
+                post.audio.save(update_fields=['used_count'])
+                print(f"Post {post.id}: trilha '{post.audio.name}' aplicada")
 
         clean_mode = getattr(post, 'clean_mode', 'none') or 'none'
         if clean_mode != 'none' and not is_image:
@@ -188,12 +207,13 @@ def publish_reel(post_id):
         post.published_at = timezone.now()
         post.save()
 
-        # Remove a cópia processada: já foi publicada, não precisa ocupar disco.
-        if arquivo_temporario:
-            try:
-                os.remove(arquivo_temporario)
-            except Exception:
-                pass
+        # Remove as cópias temporárias: já publicadas, não precisam ocupar disco.
+        for temporario in (arquivo_temporario, temp_audio):
+            if temporario:
+                try:
+                    os.remove(temporario)
+                except Exception:
+                    pass
         
     except Exception as e:
         if post.retry_count < post.max_retries:

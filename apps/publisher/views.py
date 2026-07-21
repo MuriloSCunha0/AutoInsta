@@ -8,7 +8,7 @@ from django.utils.dateparse import parse_datetime
 from .models import ScheduledPost, PostLoop
 from .forms import ScheduledPostForm
 from apps.instagram.models import InstagramAccount
-from apps.library.models import MediaAsset, CaptionSet
+from apps.library.models import MediaAsset, CaptionSet, Audio
 from django.http import JsonResponse
 from django.utils import timezone
 
@@ -186,6 +186,7 @@ def composer(request):
         'library_media': MediaAsset.objects.filter(owner=user),
         'library_covers': MediaAsset.objects.filter(owner=user, kind='image'),
         'caption_sets': CaptionSet.objects.filter(owner=user),
+        'audios': Audio.objects.filter(owner=user),
         'post_types': ScheduledPost.TYPE_CHOICES,
     }
     return render(request, 'publisher/composer.html', context)
@@ -209,6 +210,11 @@ def _composer_submit(request):
     clean_mode = request.POST.get('clean_mode', 'light')
     if clean_mode not in ('none', 'light', 'ultra'):
         clean_mode = 'light'
+
+    # Trilha da aba Áudios (só quando "Colocar música" está marcado).
+    audio = None
+    if request.POST.get('audio_mode') == 'music':
+        audio = Audio.objects.filter(id=request.POST.get('audio'), owner=user).first()
 
     # Hashtags: anexadas ao final da legenda.
     hashtags = (request.POST.get('hashtags') or '').strip()
@@ -318,6 +324,7 @@ def _composer_submit(request):
                 share_to_feed=share_to_feed,
                 story_link=story_link if post_type == 'STORY' else '',
                 clean_mode=clean_mode,
+                audio=audio,
                 status='queued',
                 scheduled_for=when_dt,
             )

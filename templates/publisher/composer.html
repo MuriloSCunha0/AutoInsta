@@ -223,6 +223,43 @@
                 <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i> Não se aplica a imagens.</small>
             </div>
 
+            <!-- Áudio dos vídeos -->
+            <div class="card p-4 mb-4">
+                <h6 class="text-white mb-3"><i class="bi bi-music-note-beamed text-purple me-2"></i> Áudio dos vídeos</h6>
+                <div class="opt-grid">
+                    <label class="opt-card">
+                        <input type="radio" name="audio_mode" value="original" checked>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Manter áudio original</span>
+                            <span class="opt-desc">Use para vídeos que já têm música.</span>
+                        </span>
+                    </label>
+                    <label class="opt-card">
+                        <input type="radio" name="audio_mode" value="music" {% if not audios %}disabled{% endif %}>
+                        <span class="opt-dot"></span>
+                        <span>
+                            <span class="opt-title">Colocar música</span>
+                            <span class="opt-desc">
+                                {% if audios %}Substitui a trilha pelo áudio escolhido abaixo.
+                                {% else %}Nenhum áudio na biblioteca — envie um em <a href="{% url 'library:audios' %}" class="text-info">Áudios</a>.{% endif %}
+                            </span>
+                        </span>
+                    </label>
+                </div>
+                {% if audios %}
+                <div id="audio-pick" class="mt-3" style="display:none;">
+                    <label class="form-label text-muted">Trilha</label>
+                    <select name="audio" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                        {% for a in audios %}
+                        <option value="{{ a.id }}">{{ a.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">O vídeo é cortado no menor entre ele e a música.</small>
+                </div>
+                {% endif %}
+            </div>
+
             <!-- Agendamento -->
             <div class="card p-4 mb-4">
                 <h6 class="text-white mb-3"><i class="bi bi-clock text-purple me-2"></i> Quando publicar</h6>
@@ -364,6 +401,17 @@
         r.addEventListener('change', applyPostType);
     });
     applyPostType();
+
+    // Seletor de trilha aparece só quando "Colocar música" está marcado
+    const audioPick = document.getElementById('audio-pick');
+    function applyAudioMode() {
+        const m = form.querySelector('input[name="audio_mode"]:checked');
+        if (audioPick) audioPick.style.display = (m && m.value === 'music') ? 'block' : 'none';
+    }
+    form.querySelectorAll('input[name="audio_mode"]').forEach((r) => {
+        r.addEventListener('change', applyAudioMode);
+    });
+    applyAudioMode();
 
     // Contador de caracteres da legenda
     const caption = document.getElementById('caption-input');

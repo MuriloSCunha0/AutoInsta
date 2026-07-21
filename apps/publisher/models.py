@@ -40,6 +40,12 @@ class ScheduledPost(models.Model):
         ('ultra', 'Ultra clean'),
     ]
     clean_mode = models.CharField(max_length=10, choices=CLEAN_CHOICES, default='light')
+
+    # Trilha da aba Áudios: quando definida, substitui o áudio do vídeo.
+    audio = models.ForeignKey(
+        'library.Audio', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='posts',
+    )
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     scheduled_for = models.DateTimeField()
@@ -79,6 +85,10 @@ class PostLoop(models.Model):
     interval_minutes = models.IntegerField(default=1440)  # 1440 = 24h
     share_to_feed = models.BooleanField(default=True)
     clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='light')
+    audio = models.ForeignKey(
+        'library.Audio', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='loops',
+    )
 
     last_posted = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)

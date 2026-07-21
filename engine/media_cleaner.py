@@ -125,6 +125,49 @@ def _cmds_ultra(src, dst, rng):
     return passe1, passe2, intermediario
 
 
+def aplicar_audio(video_path, audio_path, dest_dir=None):
+    """Troca a trilha do vídeo pelo áudio informado (aba Áudios).
+
+    O vídeo é copiado sem recodificar (-c:v copy); só o áudio é recodificado.
+    `-shortest` corta no menor dos dois, evitando vídeo mudo no final.
+    Best-effort: em qualquer falha devolve o vídeo original.
+    """
+    if not audio_path or not os.path.exists(audio_path):
+        return video_path
+    if not os.path.exists(video_path):
+        return video_path
+    if not ffmpeg_disponivel():
+        logger.warning('aplicar_audio: ffmpeg indisponível')
+        return video_path
+
+    dst = _saida(video_path, dest_dir)
+    try:
+        _rodar([
+            FFMPEG, '-y',
+            '-i', video_path,
+            '-i', audio_path,
+            '-map', '0:v:0',      # vídeo do primeiro arquivo
+            '-map', '1:a:0',      # áudio do segundo
+            '-c:v', 'copy',
+            '-c:a', 'aac', '-b:a', '128k',
+            '-shortest',
+            '-movflags', '+faststart',
+            dst,
+        ])
+        if os.path.exists(dst) and os.path.getsize(dst) > 0:
+            logger.info('aplicar_audio: trilha trocada -> %s', os.path.basename(dst))
+            return dst
+        raise RuntimeError('saída vazia')
+    except Exception as e:
+        logger.warning('aplicar_audio falhou: %s — mantendo o áudio original', e)
+        try:
+            if os.path.exists(dst):
+                os.remove(dst)
+        except Exception:
+            pass
+        return video_path
+
+
 def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
     """Gera uma cópia processada do vídeo.
 
