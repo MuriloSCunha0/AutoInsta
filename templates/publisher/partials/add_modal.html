@@ -8,35 +8,43 @@
             <form method="post" action="{% url 'publisher:add' %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body">
+                    <p class="text-muted small mb-4">
+                        Para publicar em <strong class="text-white">várias contas de uma vez</strong>, use o
+                        <a href="{% url 'publisher:composer' %}" class="text-info">Composer</a>.
+                    </p>
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Conta Instagram</label>
+                            <label class="form-label text-muted"><i class="bi bi-instagram me-1"></i> Conta Instagram</label>
                             {{ form.account }}
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">Formato</label>
+                            <label class="form-label text-muted"><i class="bi bi-grid me-1"></i> Formato</label>
                             {{ form.post_type }}
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label class="form-label text-muted">Data/Hora (Agendamento)</label>
+                        <label class="form-label text-muted"><i class="bi bi-clock me-1"></i> Data e hora</label>
                         {{ form.scheduled_for }}
+                        <small class="text-muted">O post entra na fila e é publicado nesse horário.</small>
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label class="form-label text-muted">Mídia (Vídeo/Imagem)</label>
+                        <label class="form-label text-muted"><i class="bi bi-camera-video me-1"></i> Mídia</label>
                         {{ form.video_file }}
+                        <small class="text-muted">MP4/MOV para Reels · vertical 9:16 recomendado.</small>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Legenda</label>
+
+                    <div class="mb-2">
+                        <label class="form-label text-muted"><i class="bi bi-chat-quote me-1"></i> Legenda</label>
                         {{ form.caption }}
+                        <small class="text-muted">Aceita variáveis: <code>{nome_conta}</code>, <code>{dia_semana}</code>, <code>{data_hoje}</code>.</small>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Agendar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-calendar-check me-1"></i> Agendar</button>
                 </div>
             </form>
         </div>

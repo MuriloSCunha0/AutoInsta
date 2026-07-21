@@ -229,17 +229,26 @@ def api_events(request):
         qs = qs.filter(scheduled_for__range=[start, end])
         
     for post in qs:
-        color = '#a855f7' # purple for queued
-        if post.status == 'published': color = '#22c55e' # green
-        elif post.status == 'failed': color = '#ef4444' # red
-        elif post.status == 'processing': color = '#f59e0b' # amber
-        
+        color = '#a855f7'  # roxo = na fila
+        if post.status == 'published':
+            color = '#22c55e'
+        elif post.status == 'failed':
+            color = '#ef4444'
+        elif post.status == 'processing':
+            color = '#f59e0b'
+
         events.append({
             'id': post.id,
-            'title': f"[{post.get_post_type_display()}] {post.account.ig_username}",
+            'title': f"@{post.account.ig_username} · {post.get_post_type_display()}",
             'start': post.scheduled_for.isoformat(),
             'color': color,
-            'url': f"/publisher/remove/{post.id}/" # Click to delete or edit
+            # NÃO usar a URL de remoção aqui: clicar no evento apagava o post
+            # sem confirmação. Levamos para a fila, onde há ações explícitas.
+            'url': '/publisher/',
+            'extendedProps': {
+                'status': post.get_status_display(),
+                'caption': (post.caption or '')[:120],
+            },
         })
-        
+
     return JsonResponse(events, safe=False)

@@ -2,6 +2,11 @@ from django import forms
 from .models import ScheduledPost, PostLoop
 
 class ScheduledPostForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Evita o "---------" padrão do Django no select de conta.
+        self.fields['account'].empty_label = 'Selecione uma conta…'
+
     class Meta:
         model = ScheduledPost
         fields = ['account', 'post_type', 'video_file', 'caption', 'scheduled_for']
@@ -14,6 +19,10 @@ class ScheduledPostForm(forms.ModelForm):
         }
 
 class PostLoopForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['account'].empty_label = 'Selecione uma conta…'
+
     class Meta:
         model = PostLoop
         fields = ['account', 'post_type', 'video_file', 'caption', 'interval_days']

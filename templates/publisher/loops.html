@@ -67,31 +67,39 @@
             <form method="post" action="{% url 'publisher:add_loop' %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Conta</label>
-                        {{ form.account }}
+                    <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
+                        <i class="bi bi-arrow-repeat me-1"></i> O Loop republica a mesma mídia automaticamente, para sempre, no intervalo que você definir.
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted"><i class="bi bi-instagram me-1"></i> Conta</label>
+                            {{ form.account }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted"><i class="bi bi-grid me-1"></i> Formato</label>
+                            {{ form.post_type }}
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">Formato</label>
-                        {{ form.post_type }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Arquivo (Mídia)</label>
+                        <label class="form-label text-muted"><i class="bi bi-camera-video me-1"></i> Arquivo (Mídia)</label>
                         {{ form.video_file }}
+                        <small class="text-muted">MP4/MOV · vertical 9:16 recomendado.</small>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">Legenda</label>
+                        <label class="form-label text-muted"><i class="bi bi-chat-quote me-1"></i> Legenda</label>
                         {{ form.caption }}
+                        <small class="text-muted">Aceita <code>{nome_conta}</code>, <code>{dia_semana}</code>, <code>{data_hoje}</code>.</small>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">Intervalo (Dias)</label>
+                    <div class="mb-2">
+                        <label class="form-label text-muted"><i class="bi bi-calendar-range me-1"></i> Intervalo</label>
                         {{ form.interval_days }}
-                        <small class="text-muted d-block mt-1">Este post será republicado a cada N dias automaticamente.</small>
+                        <small class="text-muted d-block mt-1">Republicado a cada N dias automaticamente.</small>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Ativar Loop</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i> Ativar Loop</button>
                 </div>
             </form>
         </div>

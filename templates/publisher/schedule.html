@@ -1,49 +1,73 @@
 {% extends 'base.html' %}
 {% block title %}Agendamentos - SandraoFlow{% endblock %}
-{% block page_title %}Gestor de Agendamentos (Calendário){% endblock %}
-{% block content %}
-<div class="card glass-modal border-0 p-4">
-    <div id="calendar"></div>
-</div>
+{% block page_title %}Calendário de Agendamentos{% endblock %}
 
-<!-- FullCalendar JS & CSS -->
+{% block top_actions %}
+<a href="{% url 'publisher:composer' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Nova postagem
+</a>
+{% endblock %}
+
+{% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="card p-4">
+    <div id="calendar"></div>
+
+    <div class="cal-legend">
+        <span class="text-muted small fw-semibold me-1">Status:</span>
+        <span class="leg"><span class="dot" style="background:#a855f7"></span> Na fila</span>
+        <span class="leg"><span class="dot" style="background:#f59e0b"></span> Processando</span>
+        <span class="leg"><span class="dot" style="background:#22c55e"></span> Publicado</span>
+        <span class="leg"><span class="dot" style="background:#ef4444"></span> Falhou</span>
+        <span class="leg ms-auto"><i class="bi bi-info-circle"></i> Clique num evento para abrir a fila</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/pt-br.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var calendarEl = document.getElementById('calendar');
-        var calendar = new FullCalendar.Calendar(calendarEl, {
-            locale: 'pt-br',
-            initialView: 'dayGridMonth',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            },
-            events: '/publisher/api/events/',
-            themeSystem: 'standard',
-            eventColor: '#a855f7',
-            height: 700
-        });
-        calendar.render();
-    });
-</script>
+document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('calendar');
+    if (!el) return;
 
-<style>
-    /* Premium dark mode fixes for FullCalendar */
-    .fc-theme-standard td, .fc-theme-standard th {
-        border-color: rgba(255,255,255,0.1);
-    }
-    .fc-theme-standard .fc-scrollgrid {
-        border-color: rgba(255,255,255,0.1);
-    }
-    .fc .fc-daygrid-day.fc-day-today {
-        background-color: rgba(168, 85, 247, 0.1);
-    }
-    .fc-col-header-cell-cushion, .fc-daygrid-day-number {
-        color: var(--text-primary);
-        text-decoration: none;
-    }
-</style>
+    var calendar = new FullCalendar.Calendar(el, {
+        locale: 'pt-br',
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        buttonText: {
+            today: 'Hoje',
+            month: 'Mês',
+            week: 'Semana',
+            day: 'Dia'
+        },
+        events: '/publisher/api/events/',
+        eventColor: '#a855f7',
+        height: 720,
+        dayMaxEvents: 3,
+        moreLinkText: function (n) { return '+' + n + ' mais'; },
+        nowIndicator: true,
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        // Tooltip nativo com status e legenda
+        eventDidMount: function (info) {
+            var p = info.event.extendedProps || {};
+            var bits = [info.event.title];
+            if (p.status) bits.push('Status: ' + p.status);
+            if (p.caption) bits.push(p.caption);
+            info.el.setAttribute('title', bits.join('\n'));
+        },
+        noEventsText: 'Nenhum agendamento no período'
+    });
+
+    calendar.render();
+});
+</script>
 {% endblock %}

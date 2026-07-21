@@ -2450,6 +2450,165 @@ textarea.form-control {
 }
 
 /* ============================================================
+   Input de arquivo — o nativo ("Escolher Arquivo | Nenhum arquivo
+   escolhido") é feio e quebra o tema. Vira um dropzone tracejado
+   com botão em gradiente. Vale para TODOS os formulários.
+   ============================================================ */
+input[type="file"].form-control {
+  padding: 0;
+  background: var(--bg-input) !important;
+  border: 1px dashed var(--border-medium) !important;
+  border-radius: 10px !important;
+  color: var(--text-muted) !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  font-size: 0.86rem;
+  min-height: 46px;
+}
+input[type="file"].form-control:hover {
+  border-color: var(--primary) !important;
+  background: var(--bg-card-hover) !important;
+}
+input[type="file"].form-control::file-selector-button {
+  background: var(--grad-primary);
+  color: #fff;
+  border: 0;
+  padding: 12px 18px;
+  margin: 0 14px 0 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: filter var(--tr-base);
+  height: 100%;
+}
+input[type="file"].form-control::file-selector-button:hover {
+  filter: brightness(1.15);
+}
+input[type="file"].form-control:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12) !important;
+}
+
+/* ============================================================
+   FullCalendar — tema escuro/neon (o padrão vinha sem estilo)
+   ============================================================ */
+.fc {
+  --fc-border-color: var(--border-subtle);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(139, 92, 246, 0.06);
+  --fc-today-bg-color: rgba(139, 92, 246, 0.14);
+  color: var(--text-primary);
+}
+.fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+.fc .fc-button {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  padding: 7px 14px !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  transition: all var(--tr-base);
+  text-transform: capitalize;
+}
+.fc .fc-button:hover {
+  background: var(--bg-card-hover) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-medium) !important;
+}
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: var(--grad-primary) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.35) !important;
+}
+.fc .fc-button:disabled { opacity: 0.4 !important; }
+.fc .fc-button-group { gap: 6px; display: inline-flex; }
+.fc .fc-toolbar.fc-header-toolbar { margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+
+.fc .fc-col-header-cell {
+  background: rgba(139, 92, 246, 0.07);
+  padding: 10px 0;
+}
+.fc .fc-col-header-cell-cushion {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+.fc .fc-daygrid-day-number {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+.fc .fc-daygrid-day:hover { background: rgba(139, 92, 246, 0.05); }
+.fc .fc-day-today .fc-daygrid-day-number {
+  color: #fff;
+  background: var(--grad-primary);
+  border-radius: 8px;
+  margin: 5px;
+  padding: 4px 9px;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.5);
+}
+.fc .fc-day-other .fc-daygrid-day-number { opacity: 0.35; }
+
+/* Eventos como pílulas com brilho */
+.fc-daygrid-event, .fc-timegrid-event {
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 3px 8px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: transform var(--tr-base);
+}
+.fc-daygrid-event:hover, .fc-timegrid-event:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.15);
+}
+.fc-event-title, .fc-event-time { color: #fff !important; }
+.fc .fc-daygrid-more-link { color: var(--accent); font-weight: 600; font-size: 0.75rem; }
+.fc .fc-scrollgrid { border-radius: 12px; overflow: hidden; }
+
+/* Legenda de status do calendário */
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.cal-legend .leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.cal-legend .leg .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* ============================================================
    Cards de opção (radio) — usado no Composer
    Substitui os btn-group cinzas do Bootstrap por cards com
    título + descrição e destaque neon no selecionado.
