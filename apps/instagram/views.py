@@ -257,6 +257,10 @@ def add_account_meta(request):
         acc.status = 'active'
         acc.save()
 
+        # Sincroniza automaticamente com a Meta para preencher ig_user_id/@/
+        # seguidores/foto — sem isso a conta não consegue publicar.
+        _sync_meta_account(acc)
+
         # Retorna o card atualizado para inserir na lista via HTMX
         return render(request, 'instagram/partials/account_card.html', {'account': acc})
 
@@ -264,6 +268,75 @@ def add_account_meta(request):
         return HttpResponse(
             f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token Meta: {str(e)}</div>'
         )
+
+
+def _sync_meta_account(account):
+    """Puxa da Graph API (Instagram Login) id/@/seguidores/foto a partir do token
+    salvo e grava na conta. É o que torna a conta utilizável (a publicação via
+    Meta API exige o ig_user_id). Retorna (ok: bool, mensagem: str)."""
+    token = account.get_meta_token()
+    if not token:
+        return False, 'Conta sem token Meta.'
+
+    url = "https://graph.instagram.com/v21.0/me"
+    params = {
+        'fields': 'id,username,name,followers_count,media_count,profile_picture_url',
+        'access_token': token,
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=15)
+        data = resp.json()
+    except Exception as e:
+        account.last_error = f'Falha ao sincronizar com a Meta: {e}'
+        account.save(update_fields=['last_error'])
+        return False, str(e)
+
+    if 'error' in data or not (data.get('id') or data.get('username')):
+        msg = data.get('error', {}).get('message', 'Token inválido ou expirado.')
+        account.status = 'error'
+        account.last_error = f'Meta: {msg}'
+        account.save(update_fields=['status', 'last_error'])
+        return False, msg
+
+    uid = str(data.get('id') or '')
+    if uid.isdigit():
+        account.ig_user_id = int(uid)
+    if data.get('username'):
+        account.ig_username = data['username']
+    if data.get('name'):
+        account.full_name = data['name']
+    if data.get('followers_count') is not None:
+        account.followers_count = data['followers_count']
+    if data.get('media_count') is not None:
+        account.posts_count = data['media_count']
+    if data.get('profile_picture_url'):
+        account.profile_pic_url = data['profile_picture_url']
+    account.status = 'active'
+    account.last_error = ''
+    account.save()
+    return True, 'ok'
+
+
+@login_required
+@require_POST
+def sync_meta_account(request, account_id):
+    """Sincroniza uma conta específica com a Meta (HTMX → devolve o card)."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    _sync_meta_account(account)
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+def sync_all_meta(request):
+    """Sincroniza todas as contas com token Meta do usuário."""
+    accounts = InstagramAccount.objects.filter(owner=request.user).exclude(meta_access_token='')
+    ok = 0
+    for acc in accounts:
+        success, _msg = _sync_meta_account(acc)
+        if success:
+            ok += 1
+    messages.success(request, f'{ok} de {accounts.count()} conta(s) sincronizada(s) com a Meta.')
+    return redirect('instagram:list')
 
 
 @login_required

@@ -96,8 +96,19 @@
             </div>
         {% endif %}
         
-        <div class="account-actions mt-auto">
-            <button class="btn btn-sm btn-outline-secondary flex-grow-1 border-opacity-25 text-white">Configurações</button>
+        <div class="account-actions mt-auto d-flex gap-2">
+            {% if account.meta_access_token %}
+            <form hx-post="{% url 'instagram:sync_meta_account' account.id %}"
+                  hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+                  class="flex-grow-1 m-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary w-100 border-opacity-25 text-white">
+                    <i class="bi bi-arrow-repeat"></i> Sincronizar
+                </button>
+            </form>
+            {% else %}
+            <span class="btn btn-sm btn-outline-secondary flex-grow-1 border-opacity-25 text-muted disabled">Sem token Meta</span>
+            {% endif %}
             <a href="{% url 'instagram:remove' account.id %}" class="btn btn-sm btn-outline-danger border-opacity-25" onclick="return confirm('Tem certeza que deseja remover esta conta?')">
                 <i class="bi bi-trash"></i>
             </a>

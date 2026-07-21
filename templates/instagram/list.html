@@ -4,6 +4,9 @@
 {% block page_title %}Contas Instagram{% endblock %}
 
 {% block top_actions %}
+<a href="{% url 'instagram:sync_all_meta' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-repeat"></i> Sincronizar Meta
+</a>
 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
     <i class="bi bi-plus-lg"></i> Adicionar conta
 </button>
