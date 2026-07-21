@@ -224,6 +224,14 @@ FERNET_KEY = env("FERNET_KEY", default="")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # =============================================================================
+# URL pública do site
+# =============================================================================
+# CRÍTICA para a publicação: a Meta baixa o vídeo/capa a partir desta URL.
+# Se apontar para localhost, os servidores da Meta não conseguem acessar e a
+# criação do contêiner de mídia falha sempre.
+SITE_URL = env("SITE_URL", default="http://localhost:8000")
+
+# =============================================================================
 # Meta / Facebook API OAuth
 # =============================================================================
 META_APP_ID = env("META_APP_ID", default="")
