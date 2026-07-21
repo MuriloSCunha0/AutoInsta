@@ -63,16 +63,30 @@ def _cmd_light(src, dst, rng):
     ]
 
 
-def _cmd_ultra(src, dst, rng):
-    """Remove todos os metadados e aplica micro-variações visuais.
+# handler_name plausíveis de aparelhos reais. Usar os padrões do ffmpeg
+# ("VideoHandler"/"SoundHandler") entregaria que o arquivo foi processado.
+HANDLERS = [
+    ('Core Media Video', 'Core Media Audio'),                                    # iPhone / QuickTime
+    ('ISO Media file produced by Google Inc.', 'ISO Media file produced by Google Inc.'),  # Android
+]
 
-    As variações são pequenas o bastante para não serem percebidas, mas
-    mudam o fingerprint perceptual entre as contas.
+
+def _cmds_ultra(src, dst, rng):
+    """Dois passes (validado empiricamente no ffmpeg do servidor):
+
+    1) encode com micro-variações visuais + limpeza de metadados
+    2) remux com -c copy limpando os metadados de STREAM
+
+    O passe 2 é necessário porque o libx264 grava encoder="Lavc libx264" no
+    stream, e nem -bitexact nem -metadata encoder= removem isso. Só o remux
+    posterior zera. Sem ele, todo arquivo nosso teria o mesmo carimbo — o que
+    ligaria as contas justamente como queremos evitar.
     """
     brilho = round(rng.uniform(-0.015, 0.015), 4)      # ~1.5%
     saturacao = round(rng.uniform(0.97, 1.03), 4)      # ~3%
     contraste = round(rng.uniform(0.98, 1.02), 4)
     corte = rng.choice([2, 4, 6])                       # px removidos das bordas
+    h_video, h_audio = rng.choice(HANDLERS)
 
     # Corta alguns pixels e volta ao tamanho original (mantém a proporção).
     vf = (
@@ -81,27 +95,34 @@ def _cmd_ultra(src, dst, rng):
         f"eq=brightness={brilho}:saturation={saturacao}:contrast={contraste}"
     )
 
-    return [
+    intermediario = dst + '.tmp.mp4'
+
+    passe1 = [
         FFMPEG, '-y', '-i', src,
-        '-map_metadata', '-1',          # remove metadados do contêiner
-        '-map_metadata:s:v', '-1',      # ...e os do stream de vídeo
-        '-map_metadata:s:a', '-1',      # ...e os do stream de áudio
+        '-map_metadata', '-1',
         '-map_chapters', '-1',
         '-vf', vf,
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac', '-b:a', '128k',
-        # -bitexact remove as tags "encoder"/versão que o ffmpeg carimbaria.
-        # Sem isso, TODO arquivo nosso sairia com encoder="Lavc libx264" —
-        # um marcador comum que ligaria as contas entre si.
-        '-bitexact',
-        # handler_name padrão ("VideoHandler"/"SoundHandler") também é um
-        # marcador constante: zeramos.
-        '-metadata:s:v', 'handler_name=',
-        '-metadata:s:a', 'handler_name=',
+        '-fflags', '+bitexact', '-flags:v', '+bitexact', '-flags:a', '+bitexact',
+        intermediario,
+    ]
+
+    passe2 = [
+        FFMPEG, '-y', '-i', intermediario,
+        '-c', 'copy',
+        '-map_metadata', '-1',
+        '-map_metadata:s:v', '-1',
+        '-map_metadata:s:a', '-1',
+        '-fflags', '+bitexact',
+        '-metadata:s:v', f'handler_name={h_video}',
+        '-metadata:s:a', f'handler_name={h_audio}',
         '-movflags', '+faststart',
         dst,
     ]
+
+    return passe1, passe2, intermediario
 
 
 def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
@@ -126,9 +147,15 @@ def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
     rng = random.Random(str(seed) if seed is not None else uuid.uuid4().hex)
     dst = _saida(src_path, dest_dir)
 
+    intermediario = None
     try:
-        cmd = _cmd_light(src_path, dst, rng) if mode == 'light' else _cmd_ultra(src_path, dst, rng)
-        _rodar(cmd)
+        if mode == 'light':
+            _rodar(_cmd_light(src_path, dst, rng))
+        else:
+            passe1, passe2, intermediario = _cmds_ultra(src_path, dst, rng)
+            _rodar(passe1)
+            _rodar(passe2)
+
         if os.path.exists(dst) and os.path.getsize(dst) > 0:
             logger.info('limpar_video: modo=%s -> %s', mode, os.path.basename(dst))
             return dst
@@ -141,3 +168,10 @@ def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
         except Exception:
             pass
         return src_path
+    finally:
+        # O arquivo do passe 1 não serve para nada depois do remux.
+        if intermediario and os.path.exists(intermediario):
+            try:
+                os.remove(intermediario)
+            except Exception:
+                pass
