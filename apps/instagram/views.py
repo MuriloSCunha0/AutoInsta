@@ -256,7 +256,7 @@ def add_account_meta(request):
         if ig_user_id.isdigit():
             acc.ig_user_id = int(ig_user_id)
         if profile_pic_url:
-            acc.profile_pic_url = profile_pic_url
+            acc.profile_pic_url = profile_pic_url[:1000]
         acc.status = 'active'
         acc.save()
 
@@ -334,9 +334,10 @@ def _sync_meta_account(account):
         d2 = r2.json()
         if 'error' not in d2:
             if d2.get('name'):
-                account.full_name = d2['name']
+                account.full_name = d2['name'][:255]
             if d2.get('profile_picture_url'):
-                account.profile_pic_url = d2['profile_picture_url']
+                # Trunca por segurança: URLs de CDN do IG são longas.
+                account.profile_pic_url = d2['profile_picture_url'][:1000]
             if d2.get('followers_count') is not None:
                 account.followers_count = d2['followers_count']
             if d2.get('follows_count') is not None:

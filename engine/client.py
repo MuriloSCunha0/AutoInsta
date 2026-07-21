@@ -112,11 +112,13 @@ class InstagramEngine:
             
     def _fetch_profile_info(self):
         user_info = self.client.user_info_by_username(self.account.ig_username)
-        self.account.profile_pic_url = user_info.profile_pic_url
+        # Trunca campos de texto: URLs de CDN do IG passam de 200 chars e
+        # estouravam a coluna ("value too long for type character varying").
+        self.account.profile_pic_url = str(user_info.profile_pic_url or '')[:1000]
         self.account.followers_count = user_info.follower_count
         self.account.following_count = user_info.following_count
         self.account.posts_count = user_info.media_count
-        self.account.full_name = user_info.full_name
+        self.account.full_name = (user_info.full_name or '')[:255]
         self.account.bio = user_info.biography
         self.account.save()
 

@@ -33,8 +33,10 @@ class InstagramAccount(models.Model):
     ig_password = models.TextField()
     proxy_url = models.CharField(max_length=255, blank=True, help_text="Ex: http://user:pass@ip:port")
     ig_user_id = models.BigIntegerField(null=True, blank=True)
-    profile_pic_url = models.URLField(blank=True)
-    full_name = models.CharField(max_length=200, blank=True)
+    # URLs de foto do CDN do Instagram passam de 300-800 chars; o default do
+    # URLField (200) estourava com "value too long for type character varying(200)".
+    profile_pic_url = models.URLField(max_length=1000, blank=True)
+    full_name = models.CharField(max_length=255, blank=True)
     bio = models.TextField(blank=True)
     followers_count = models.IntegerField(default=0)
     following_count = models.IntegerField(default=0)
