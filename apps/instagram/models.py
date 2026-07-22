@@ -54,6 +54,10 @@ class InstagramAccount(models.Model):
     # bloqueios por volume — o Composer distribui o excedente para os dias
     # seguintes quando o modo "Respeitar limite" está ligado.
     daily_post_limit = models.IntegerField(default=20)
+    # Quando a Meta sinaliza rate limit, a conta fica em espera até este horário.
+    # Enquanto isso, a fila NÃO tenta publicar nela (evita martelar a API — o
+    # que é o padrão que dispara bans).
+    rate_limited_until = models.DateTimeField(null=True, blank=True)
     session_blob = models.JSONField(null=True, blank=True)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)
@@ -99,6 +103,12 @@ class InstagramAccount(models.Model):
     @property
     def is_active(self):
         return self.status == 'active'
+
+    @property
+    def em_cooldown(self):
+        """Conta em espera por rate limit da Meta neste momento."""
+        from django.utils import timezone
+        return bool(self.rate_limited_until and self.rate_limited_until > timezone.now())
 
     @property
     def tem_sessao_engine(self):

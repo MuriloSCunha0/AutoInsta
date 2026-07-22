@@ -108,6 +108,13 @@
             </div>
         {% endif %}
 
+        {% if account.em_cooldown %}
+            <div class="alert alert-warning py-2 small mb-3 border-0 bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-hourglass-split me-1"></i> Limite de publicações da Meta atingido.
+                Em espera até <strong>{{ account.rate_limited_until|date:"d/m H:i" }}</strong> — a fila retoma sozinha.
+            </div>
+        {% endif %}
+
         {% if account.status == 'error' or account.status == 'banned' %}
             <div class="alert py-2 small mb-3 border-0 {% if account.status == 'banned' %}bg-danger bg-opacity-10 text-danger{% else %}bg-warning bg-opacity-10 text-warning{% endif %}">
                 <i class="bi bi-exclamation-triangle me-1"></i> {{ account.last_error }}

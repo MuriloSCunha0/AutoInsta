@@ -60,19 +60,58 @@ def process_loops():
 @shared_task
 def process_scheduled_posts():
     """
-    Tarefa periódica (Celery Beat) que busca posts agendados
-    para agora ou para o passado que ainda estão na fila e os envia para processamento.
+    Tarefa periódica (Celery Beat) que despacha os posts vencidos — de forma
+    CONTROLADA, para não martelar a API da Meta (o que dispara bloqueios):
+
+      - no máximo 1 post por CONTA por rodada (espaça as publicações);
+      - pula contas em cooldown de rate limit;
+      - respeita o limite diário da conta (reagenda o excedente).
     """
     now = timezone.now()
-    posts_to_publish = ScheduledPost.objects.filter(
-        status='queued',
-        scheduled_for__lte=now
-    )
-    
-    for post in posts_to_publish:
+    janela_24h = now - timedelta(hours=24)
+
+    due = (ScheduledPost.objects.filter(status='queued', scheduled_for__lte=now)
+           .select_related('account').order_by('scheduled_for'))
+
+    despachadas = set()
+    for post in due:
+        conta = post.account
+        if conta.id in despachadas:
+            continue  # já mandamos um post desta conta nesta rodada
+
+        # Conta em cooldown por rate limit: não toca.
+        if conta.rate_limited_until and conta.rate_limited_until > now:
+            continue
+
+        # Respeita o teto diário (0 = sem limite).
+        limite = conta.daily_post_limit or 0
+        if limite > 0:
+            publicados_24h = ScheduledPost.objects.filter(
+                account=conta, status='published', published_at__gte=janela_24h
+            ).count()
+            if publicados_24h >= limite:
+                post.scheduled_for = now + timedelta(hours=2)
+                post.save(update_fields=['scheduled_for'])
+                continue
+
         post.status = 'processing'
-        post.save()
+        post.save(update_fields=['status'])
         publish_reel.delay(post.id)
+        despachadas.add(conta.id)
+
+
+def _e_rate_limit(msg):
+    """A mensagem de erro indica limite de publicações da Meta?"""
+    m = (msg or '').lower()
+    return (
+        'too many actions' in m
+        or '2207042' in m
+        or "'code': 9" in m
+        or 'número máximo' in m
+        or 'numero maximo' in m
+        or 'application request limit' in m
+        or 'rate limit' in m
+    )
 
 @shared_task
 def publish_reel(post_id):
@@ -207,6 +246,11 @@ def publish_reel(post_id):
         post.published_at = timezone.now()
         post.save()
 
+        # Publicou: a conta claramente não está mais em cooldown.
+        if post.account.rate_limited_until:
+            post.account.rate_limited_until = None
+            post.account.save(update_fields=['rate_limited_until'])
+
         # Remove as cópias temporárias: já publicadas, não precisam ocupar disco.
         for temporario in (arquivo_temporario, temp_audio):
             if temporario:
@@ -216,13 +260,32 @@ def publish_reel(post_id):
                     pass
         
     except Exception as e:
-        if post.retry_count < post.max_retries:
-            post.retry_count += 1
-            post.status = 'queued'  # Voltar para fila
-            post.error_message = str(e)
+        msg = str(e)
+
+        if _e_rate_limit(msg):
+            # Rate limit da Meta: NÃO conta como retry (a conta simplesmente
+            # atingiu o teto de 24h). Coloca a conta em cooldown e reagenda o
+            # post — assim paramos de martelar a API imediatamente.
+            cooldown = timezone.now() + timedelta(hours=3)
+            post.account.rate_limited_until = cooldown
+            post.account.save(update_fields=['rate_limited_until'])
+            post.status = 'queued'
+            post.scheduled_for = cooldown
+            post.error_message = 'Limite de publicações da Meta atingido — reagendado após cooldown.'
             post.save()
+            print(f"Post {post_id}: rate limit; @{post.account.ig_username} em cooldown até {cooldown}")
+
+        elif post.retry_count < post.max_retries:
+            # Erro transitório: espera antes de tentar de novo (não no mesmo minuto).
+            post.retry_count += 1
+            post.status = 'queued'
+            post.scheduled_for = timezone.now() + timedelta(minutes=10)
+            post.error_message = msg
+            post.save()
+            print(f"Error publishing post {post_id} (retry {post.retry_count}): {msg[:200]}")
+
         else:
             post.status = 'failed'
-            post.error_message = str(e)
+            post.error_message = msg
             post.save()
-        print(f"Error publishing post {post_id}: {str(e)}")
+            print(f"Post {post_id} FALHOU em definitivo: {msg[:200]}")
