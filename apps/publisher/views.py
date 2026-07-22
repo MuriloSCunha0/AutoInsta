@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.utils.dateparse import parse_datetime
@@ -77,6 +78,42 @@ def remove_post(request, post_id):
     post = get_object_or_404(ScheduledPost, id=post_id, owner=request.user)
     post.delete()
     return redirect('publisher:queue')
+
+
+@login_required
+@require_POST
+def bulk_posts(request):
+    """Ação em massa sobre posts selecionados: reprocessar ou excluir."""
+    acao = request.POST.get('acao')
+    ids = request.POST.getlist('post_ids')
+    qs = ScheduledPost.objects.filter(id__in=ids, owner=request.user)
+    n = qs.count()
+
+    if acao == 'excluir':
+        qs.delete()
+        messages.success(request, f'{n} publicação(ões) excluída(s).')
+    elif acao == 'reprocessar':
+        # Volta para a fila para agora, zerando o contador de tentativas.
+        qs.update(status='queued', scheduled_for=timezone.now(),
+                  retry_count=0, error_message='')
+        messages.success(request, f'{n} publicação(ões) recolocada(s) na fila.')
+    else:
+        messages.error(request, 'Ação inválida.')
+
+    destino = request.POST.get('next') or 'publisher:queue'
+    return redirect(destino)
+
+
+@login_required
+def toggle_pause(request):
+    """Pausa/retoma TODAS as filas do usuário (posts e loops)."""
+    request.user.publishing_paused = not request.user.publishing_paused
+    request.user.save(update_fields=['publishing_paused'])
+    if request.user.publishing_paused:
+        messages.warning(request, 'Filas PAUSADAS. Nada será publicado até você retomar.')
+    else:
+        messages.success(request, 'Filas retomadas. As publicações voltam a sair.')
+    return redirect(request.POST.get('next') or request.META.get('HTTP_REFERER') or 'publisher:queue')
 
 @login_required
 def loops(request):

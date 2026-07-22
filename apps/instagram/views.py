@@ -381,6 +381,22 @@ def _sync_meta_account(account):
     except Exception:
         pass
 
+    # Cota real de publicação (janela de 24h da Meta).
+    try:
+        if account.ig_user_id:
+            q = requests.get(
+                f"https://graph.instagram.com/{IG_API_VERSION}/{account.ig_user_id}/content_publishing_limit",
+                params={'fields': 'config,quota_usage', 'access_token': token}, timeout=15,
+            ).json()
+            dados = (q.get('data') or [{}])[0]
+            if 'quota_usage' in dados:
+                account.quota_usage = dados.get('quota_usage', 0)
+                account.quota_total = (dados.get('config') or {}).get('quota_total', 0)
+                from django.utils import timezone as _tz
+                account.quota_checked_at = _tz.now()
+    except Exception:
+        pass
+
     account.status = 'active'
     account.last_error = ''
     account.save()

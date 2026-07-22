@@ -7,9 +7,38 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 
+def get_client_ip(request):
+    """IP real do cliente, respeitando o proxy (Caddy) via X-Forwarded-For."""
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '')
+
+
 class CustomLoginView(LoginView):
     template_name = 'accounts/login.html'
     redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        """Credenciais válidas: aplica a trava de IP antes de concluir o login."""
+        user = form.get_user()
+        ip = get_client_ip(self.request)
+
+        if user.ip_locked and user.bound_ip and ip != user.bound_ip:
+            messages.error(
+                self.request,
+                'Esta conta está travada para outro IP. Acesso permitido apenas '
+                'do local autorizado. Fale com o administrador.'
+            )
+            return self.form_invalid(form)
+
+        # Registra o último IP; se a trava está ligada mas sem IP fixado ainda,
+        # fixa neste primeiro acesso.
+        user.last_login_ip = ip
+        if user.ip_locked and not user.bound_ip:
+            user.bound_ip = ip
+        user.save(update_fields=['last_login_ip', 'bound_ip'])
+        return super().form_valid(form)
 
 def register(request):
     if request.user.is_authenticated:

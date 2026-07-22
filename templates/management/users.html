@@ -4,8 +4,15 @@
 
 {% block management_content %}
 <div class="card bg-surface border-subtle">
-    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center">
+    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">Todos os Usuários</h5>
+        <form method="post" action="{% url 'management:users_purge' %}"
+              onsubmit="return confirm('Remover TODOS os cadastros não aprovados?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i> Limpar não aprovados
+            </button>
+        </form>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -16,6 +23,7 @@
                         <th>Email</th>
                         <th>Data de Cadastro</th>
                         <th>Status</th>
+                        <th>Trava de IP</th>
                         <th class="text-end">Ações</th>
                     </tr>
                 </thead>
@@ -44,24 +52,58 @@
                                 <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">Pendente/Inativo</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if u.ip_locked %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" title="{{ u.bound_ip }}">
+                                    <i class="bi bi-lock-fill"></i> {{ u.bound_ip|default:"aguardando login" }}
+                                </span>
+                                <form method="POST" action="{% url 'management:user_ip_reset' u.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-link text-muted p-0 ms-1" title="Refixar no próximo login"><i class="bi bi-arrow-repeat"></i></button>
+                                </form>
+                            {% else %}
+                                <span class="text-muted small">Livre</span>
+                                {% if u.last_login_ip %}<div class="text-muted" style="font-size:0.7rem;">último: {{ u.last_login_ip }}</div>{% endif %}
+                            {% endif %}
+                        </td>
                         <td class="text-end">
-                            <form method="POST" action="{% url 'management:user_toggle' u.id %}" style="display:inline;">
-                                {% csrf_token %}
+                            <div class="d-flex gap-1 justify-content-end">
                                 {% if u.is_active %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" {% if request.user == u %}disabled{% endif %}>
-                                        <i class="bi bi-x-circle"></i> Bloquear
+                                <form method="POST" action="{% url 'management:user_ip_lock' u.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm {% if u.ip_locked %}btn-info{% else %}btn-outline-info{% endif %}"
+                                            title="{% if u.ip_locked %}Liberar IP{% else %}Travar no IP{% endif %}">
+                                        <i class="bi bi-hdd-network"></i>
                                     </button>
-                                {% else %}
-                                    <button type="submit" class="btn btn-sm btn-outline-success">
-                                        <i class="bi bi-check-circle"></i> Aprovar
-                                    </button>
+                                </form>
                                 {% endif %}
-                            </form>
+                                <form method="POST" action="{% url 'management:user_toggle' u.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    {% if u.is_active %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" {% if request.user == u %}disabled{% endif %}>
+                                            <i class="bi bi-x-circle"></i> Bloquear
+                                        </button>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-check-circle"></i> Aprovar
+                                        </button>
+                                    {% endif %}
+                                </form>
+                                {% if not u.is_superuser and request.user != u %}
+                                <form method="POST" action="{% url 'management:user_delete' u.id %}" class="d-inline"
+                                      onsubmit="return confirm('Excluir o usuário {{ u.username }} e tudo dele?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir usuário">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">
+                        <td colspan="6" class="text-center py-4 text-muted">
                             Nenhum usuário cadastrado.
                         </td>
                     </tr>

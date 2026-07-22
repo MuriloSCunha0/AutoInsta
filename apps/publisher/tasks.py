@@ -16,7 +16,10 @@ def process_loops():
     """
     agora = timezone.now()
 
-    for loop in PostLoop.objects.filter(is_active=True).select_related('account', 'folder'):
+    for loop in PostLoop.objects.filter(is_active=True).select_related('account', 'folder', 'owner'):
+        # Fila do usuário pausada? não enfileira novos.
+        if loop.owner.publishing_paused:
+            continue
         # Ainda não venceu o intervalo?
         if loop.last_posted and (agora - loop.last_posted) < timedelta(minutes=loop.interval_minutes):
             continue
@@ -76,6 +79,11 @@ def process_scheduled_posts():
     despachadas = set()
     for post in due:
         conta = post.account
+
+        # Fila pausada pelo usuário: não publica nada dele.
+        if post.owner.publishing_paused:
+            continue
+
         if conta.id in despachadas:
             continue  # já mandamos um post desta conta nesta rodada
 

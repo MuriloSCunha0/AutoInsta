@@ -23,6 +23,12 @@ class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True)
     # Apelido opcional — usado nas saudações do painel.
     nickname = models.CharField(max_length=60, blank=True)
+    # Pausa geral das filas deste usuário (nada é publicado enquanto True).
+    publishing_paused = models.BooleanField(default=False)
+    # Trava de IP: quando ativada pelo admin, o usuário só entra pelo IP fixado.
+    ip_locked = models.BooleanField(default=False)
+    bound_ip = models.CharField(max_length=45, blank=True)
+    last_login_ip = models.CharField(max_length=45, blank=True)
     plan_type = models.CharField(
         max_length=20,
         choices=[('free', 'Free'), ('pro', 'Pro'), ('agency', 'Agência')],

@@ -58,6 +58,11 @@ class InstagramAccount(models.Model):
     # Enquanto isso, a fila NÃO tenta publicar nela (evita martelar a API — o
     # que é o padrão que dispara bans).
     rate_limited_until = models.DateTimeField(null=True, blank=True)
+    # Cota real de publicação da Meta (endpoint content_publishing_limit),
+    # janela móvel de 24h. Preenchida na sincronização.
+    quota_usage = models.IntegerField(default=0)
+    quota_total = models.IntegerField(default=0)
+    quota_checked_at = models.DateTimeField(null=True, blank=True)
     session_blob = models.JSONField(null=True, blank=True)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)

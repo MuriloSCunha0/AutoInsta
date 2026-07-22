@@ -108,6 +108,20 @@
             </div>
         {% endif %}
 
+        {% if account.quota_total %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+                <span><i class="bi bi-speedometer2"></i> Publicações (24h)</span>
+                <span>{{ account.quota_usage }}/{{ account.quota_total }}</span>
+            </div>
+            <div class="progress" style="height:6px; background: var(--bg-input);">
+                {% widthratio account.quota_usage account.quota_total 100 as pct %}
+                <div class="progress-bar {% if pct >= 90 %}bg-danger{% elif pct >= 70 %}bg-warning{% else %}bg-success{% endif %}"
+                     style="width: {{ pct }}%;"></div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if account.em_cooldown %}
             <div class="alert alert-warning py-2 small mb-3 border-0 bg-warning bg-opacity-10 text-warning">
                 <i class="bi bi-hourglass-split me-1"></i> Limite de publicações da Meta atingido.

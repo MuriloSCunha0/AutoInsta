@@ -1,80 +1,136 @@
 {% extends 'base.html' %}
 
-{% block title %}Publicador | AutoInsta{% endblock %}
-{% block page_title %}Publicador{% endblock %}
+{% block title %}Fila | AutoInsta{% endblock %}
+{% block page_title %}Fila de Publicação{% endblock %}
 
 {% block top_actions %}
+<form method="post" action="{% url 'publisher:toggle_pause' %}" class="d-inline">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{% url 'publisher:queue' %}">
+    {% if request.user.publishing_paused %}
+    <button type="submit" class="btn btn-success"><i class="bi bi-play-fill"></i> Retomar filas</button>
+    {% else %}
+    <button type="submit" class="btn btn-outline-warning"><i class="bi bi-pause-fill"></i> Pausar filas</button>
+    {% endif %}
+</form>
 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPostModal">
     <i class="bi bi-send-plus"></i> Agendar post
 </button>
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="card p-0 overflow-hidden border-subtle">
-            <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-subtle">
-                <h5 class="text-white mb-0"><i class="bi bi-clock-history text-purple me-2"></i> Fila de Publicação</h5>
-            </div>
-            
-            {% if posts %}
-            <div class="table-responsive">
-                <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
-                    <thead>
-                        <tr>
-                            <th class="text-muted fw-medium border-0 ps-4">Status</th>
-                            <th class="text-muted fw-medium border-0">Data Agendada</th>
-                            <th class="text-muted fw-medium border-0">Conta</th>
-                            <th class="text-muted fw-medium border-0">Mídia</th>
-                            <th class="text-muted fw-medium border-0">Legenda</th>
-                            <th class="text-muted fw-medium border-0 text-end pe-4">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for post in posts %}
-                        <tr class="rank-row">
-                            <td class="border-0 ps-4">
-                                <span class="badge rounded-pill {% if post.status == 'queued' %}bg-warning{% elif post.status == 'published' %}bg-success{% elif post.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-25 text-white border border-light border-opacity-10">
-                                    {{ post.get_status_display }}
-                                </span>
-                            </td>
-                            <td class="text-white border-0">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
-                            <td class="border-0">
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="status-dot ok"></div>
-                                    <span class="text-white">@{{ post.account.ig_username }}</span>
-                                </div>
-                            </td>
-                            <td class="border-0">
-                                <i class="bi bi-file-earmark-play text-purple fs-4"></i>
-                            </td>
-                            <td class="border-0 text-truncate text-secondary" style="max-width: 250px;" title="{{ post.caption }}">
-                                {{ post.caption|default:"Sem legenda" }}
-                            </td>
-                            <td class="text-end border-0 pe-4">
-                                <a href="{% url 'publisher:remove' post.id %}" class="btn btn-sm btn-outline-danger border-opacity-25 text-danger" onclick="return confirm('Tem certeza que deseja cancelar este post?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="empty-state text-center py-5">
-                <i class="bi bi-calendar2-check text-muted mb-3" style="font-size: 3rem;"></i>
-                <h4 class="text-white">Fila vazia</h4>
-                <p class="text-muted">Você não tem nenhum post agendado no momento.</p>
-                <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addPostModal">
-                    <i class="bi bi-send-plus"></i> Agendar agora
+{% if request.user.publishing_paused %}
+<div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning mb-4">
+    <i class="bi bi-pause-circle-fill me-1"></i> <strong>Filas pausadas.</strong> Nenhuma publicação (posts ou loops) sairá até você retomar.
+</div>
+{% endif %}
+
+<form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{% url 'publisher:queue' %}">
+
+    <div class="card p-0 overflow-hidden border-subtle">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 bg-transparent border-subtle">
+            <h5 class="text-white mb-0"><i class="bi bi-clock-history text-purple me-2"></i> Fila de Publicação</h5>
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small"><span id="sel-count">0</span> selecionado(s)</span>
+                <button type="submit" name="acao" value="reprocessar" class="btn btn-sm btn-outline-info bulk-btn" disabled>
+                    <i class="bi bi-arrow-clockwise"></i> Reprocessar
+                </button>
+                <button type="submit" name="acao" value="excluir" class="btn btn-sm btn-outline-danger bulk-btn" disabled
+                        onclick="return confirm('Excluir as publicações selecionadas?')">
+                    <i class="bi bi-trash"></i> Excluir
                 </button>
             </div>
-            {% endif %}
         </div>
-    </div>
-</div>
 
-<!-- Add Post Modal -->
+        {% if posts %}
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
+                <thead>
+                    <tr>
+                        <th class="border-0 ps-4" style="width:42px;">
+                            <input type="checkbox" class="form-check-input" id="check-all" title="Selecionar todos">
+                        </th>
+                        <th class="text-muted fw-medium border-0">Status</th>
+                        <th class="text-muted fw-medium border-0">Data Agendada</th>
+                        <th class="text-muted fw-medium border-0">Conta</th>
+                        <th class="text-muted fw-medium border-0">Tipo</th>
+                        <th class="text-muted fw-medium border-0">Legenda</th>
+                        <th class="text-muted fw-medium border-0 text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for post in posts %}
+                    <tr>
+                        <td class="border-0 ps-4">
+                            <input type="checkbox" name="post_ids" value="{{ post.id }}" class="form-check-input row-check">
+                        </td>
+                        <td class="border-0">
+                            <span class="badge rounded-pill
+                                {% if post.status == 'queued' %}bg-warning bg-opacity-25 text-warning
+                                {% elif post.status == 'published' %}bg-success bg-opacity-25 text-success
+                                {% elif post.status == 'failed' %}bg-danger bg-opacity-25 text-danger
+                                {% elif post.status == 'processing' %}bg-info bg-opacity-25 text-info
+                                {% else %}bg-secondary bg-opacity-25 text-secondary{% endif %}">
+                                {{ post.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="text-white border-0">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
+                        <td class="border-0"><span class="text-white">@{{ post.account.ig_username }}</span></td>
+                        <td class="text-muted border-0">{{ post.get_post_type_display }}</td>
+                        <td class="border-0 text-truncate text-secondary" style="max-width: 220px;" title="{{ post.caption }}">
+                            {{ post.caption|default:"Sem legenda" }}
+                        </td>
+                        <td class="text-end border-0 pe-4">
+                            <a href="{% url 'publisher:remove' post.id %}" class="btn btn-sm btn-outline-danger border-opacity-25 text-danger"
+                               onclick="return confirm('Cancelar este post?')"><i class="bi bi-trash"></i></a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state text-center py-5">
+            <i class="bi bi-calendar2-check text-muted mb-3" style="font-size: 3rem;"></i>
+            <h4 class="text-white">Fila vazia</h4>
+            <p class="text-muted">Você não tem nenhum post agendado no momento.</p>
+            <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addPostModal">
+                <i class="bi bi-send-plus"></i> Agendar agora
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</form>
+
 {% include 'publisher/partials/add_modal.html' %}
+
+<script>
+(function () {
+    const form = document.getElementById('bulk-form');
+    if (!form) return;
+    const all = document.getElementById('check-all');
+    const rows = () => form.querySelectorAll('.row-check');
+    const count = document.getElementById('sel-count');
+    const btns = form.querySelectorAll('.bulk-btn');
+
+    function refresh() {
+        const marcados = form.querySelectorAll('.row-check:checked').length;
+        if (count) count.textContent = marcados;
+        btns.forEach((b) => { b.disabled = marcados === 0; });
+        if (all) {
+            const total = rows().length;
+            all.checked = marcados > 0 && marcados === total;
+            all.indeterminate = marcados > 0 && marcados < total;
+        }
+    }
+    if (all) all.addEventListener('change', () => {
+        rows().forEach((c) => { c.checked = all.checked; });
+        refresh();
+    });
+    form.addEventListener('change', (e) => { if (e.target.classList.contains('row-check')) refresh(); });
+    refresh();
+})();
+</script>
 {% endblock %}
