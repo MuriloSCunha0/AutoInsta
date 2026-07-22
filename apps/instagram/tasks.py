@@ -67,6 +67,34 @@ def web_login_account(account_id, login_gen=None):
         pass
 
 @shared_task
+def refresh_quotas():
+    """Atualiza a cota real de publicação (content_publishing_limit) de todas as
+    contas com token Meta e ig_user_id. Leve: 1 GET por conta, best-effort."""
+    import requests
+    from django.utils import timezone
+    from apps.instagram.views import IG_API_VERSION
+
+    contas = InstagramAccount.objects.exclude(meta_access_token='').exclude(ig_user_id__isnull=True)
+    for acc in contas:
+        token = acc.get_meta_token()
+        if not token:
+            continue
+        try:
+            data = requests.get(
+                f"https://graph.instagram.com/{IG_API_VERSION}/{acc.ig_user_id}/content_publishing_limit",
+                params={'fields': 'config,quota_usage', 'access_token': token}, timeout=15,
+            ).json()
+            dados = (data.get('data') or [{}])[0]
+            if 'quota_usage' in dados:
+                acc.quota_usage = dados.get('quota_usage', 0)
+                acc.quota_total = (dados.get('config') or {}).get('quota_total', 0)
+                acc.quota_checked_at = timezone.now()
+                acc.save(update_fields=['quota_usage', 'quota_total', 'quota_checked_at'])
+        except Exception:
+            pass
+
+
+@shared_task
 def connect_by_sessionid(account_id, sessionid):
     try:
         account = InstagramAccount.objects.get(id=account_id)

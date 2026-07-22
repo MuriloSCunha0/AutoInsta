@@ -207,6 +207,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.publisher.tasks.process_loops",
         "schedule": 60.0,
     },
+    # Atualiza a cota real de publicação (Meta) de cada conta.
+    "refresh-quotas": {
+        "task": "apps.instagram.tasks.refresh_quotas",
+        "schedule": 1800.0,  # a cada 30 min
+    },
 }
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos

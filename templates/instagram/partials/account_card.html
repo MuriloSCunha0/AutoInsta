@@ -111,7 +111,7 @@
         {% if account.quota_total %}
         <div class="mb-3">
             <div class="d-flex justify-content-between small text-muted mb-1">
-                <span><i class="bi bi-speedometer2"></i> Publicações (24h)</span>
+                <span><i class="bi bi-speedometer2"></i> Publicações (24h){% if account.quota_checked_at %} · {{ account.quota_checked_at|timesince }} atrás{% endif %}</span>
                 <span>{{ account.quota_usage }}/{{ account.quota_total }}</span>
             </div>
             <div class="progress" style="height:6px; background: var(--bg-input);">
