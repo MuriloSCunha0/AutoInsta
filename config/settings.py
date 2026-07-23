@@ -154,7 +154,9 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 # KeyError: 'default' (quebrava o Composer e a Biblioteca de Mídia).
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        # Saneia o nome de TODO arquivo gravado (ver apps/core_utils.py):
+        # a Meta não consegue baixar mídia com acento/espaço no nome.
+        "BACKEND": "apps.core_utils.MidiaStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",

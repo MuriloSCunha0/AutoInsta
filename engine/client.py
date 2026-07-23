@@ -271,6 +271,30 @@ class InstagramEngine:
         token = self.account.get_meta_token()
         base = f"https://graph.instagram.com/v23.0/{ig_user_id}"
 
+        # ── Blindagem da URL (ver apps/core_utils.py) ─────────────────────
+        # A Meta BAIXA a mídia desta URL. Encodar aqui — e não em quem chama —
+        # garante que todo caminho de publicação fique protegido. url_segura é
+        # idempotente, então não há risco de codificar duas vezes.
+        from apps.core_utils import url_segura
+        media_url = url_segura(media_url)
+        if cover_url:
+            cover_url = url_segura(cover_url)
+
+        # Pré-checagem: se o NOSSO servidor não entrega o arquivo, a Meta
+        # também não vai. Falhar aqui dá o motivo exato, em vez de esperar
+        # ~50s por um "ERROR" mudo dela.
+        try:
+            teste = requests.get(media_url, timeout=20, stream=True,
+                                 headers={'Range': 'bytes=0-1023'})
+            teste.close()
+            if teste.status_code >= 400:
+                raise Exception(
+                    f"A mídia não está acessível publicamente (HTTP {teste.status_code}). "
+                    f"A Meta precisa baixá-la de: {media_url}"
+                )
+        except requests.RequestException as erro:
+            raise Exception(f"Não consegui servir a mídia para a Meta ({erro}). URL: {media_url}")
+
         payload = {'access_token': token}
 
         if post_type == 'STORY':
