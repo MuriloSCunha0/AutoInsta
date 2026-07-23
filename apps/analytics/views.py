@@ -27,31 +27,33 @@ def dashboard(request):
     ).count()
 
     recent_posts = ScheduledPost.objects.filter(owner=request.user).order_by('-created_at')[:5]
-    
-    # Calculate Global Ranking
-    # 1 follower = 1 point, 1 published post = 50 points
-    users_with_metrics = User.objects.filter(is_active=True).annotate(
-        total_followers=Coalesce(Sum('instagramaccount__followers_count'), 0),
-        successful_posts=Count('scheduledpost', filter=Q(scheduledpost__status='published'))
-    ).annotate(
-        ranking_score=F('total_followers') + (F('successful_posts') * 50)
-    ).order_by('-ranking_score')[:5]
+
+    # Ranking DO DIA: quem mais publicou hoje (posts publicados com published_at
+    # na data de hoje). Empate desempata por seguidores.
+    users_with_metrics = (
+        User.objects.filter(is_active=True)
+        .annotate(
+            posts_hoje=Count(
+                'scheduledpost',
+                filter=Q(scheduledpost__status='published',
+                         scheduledpost__published_at__date=today),
+            ),
+            total_followers=Coalesce(Sum('instagramaccount__followers_count'), 0),
+        )
+        .filter(posts_hoje__gt=0)
+        .order_by('-posts_hoje', '-total_followers')[:10]
+    )
 
     ranking_list = []
     for idx, u in enumerate(users_with_metrics):
         display_name = u.username
-        if len(display_name) > 3:
-            display_name = display_name[:3] + '***'
-        else:
-            display_name = display_name + '***'
-            
+        display_name = (display_name[:3] + '***') if len(display_name) > 3 else (display_name + '***')
         ranking_list.append({
             'position': idx + 1,
             'username': display_name,
-            'score': u.ranking_score,
+            'posts': u.posts_hoje,
             'followers': u.total_followers,
-            'posts': u.successful_posts,
-            'is_me': u.id == request.user.id
+            'is_me': u.id == request.user.id,
         })
     
     context = {

@@ -65,50 +65,6 @@ def delete_variation(request, variation_id):
     variation.delete()
     return redirect('library:edit_caption', caption_id=cs_id)
 
-
-@login_required
-@require_POST
-def generate_caption_ai(request):
-    """Gera uma legenda com IA (OpenAI). Diferencial sobre templates estáticos."""
-    import requests
-
-    api_key = getattr(settings, 'OPENAI_API_KEY', '')
-    if not api_key:
-        return JsonResponse({'ok': False, 'error': 'OPENAI_API_KEY não configurada no servidor.'}, status=400)
-
-    prompt = (request.POST.get('prompt') or '').strip()
-    tone = (request.POST.get('tone') or 'envolvente').strip()
-    if not prompt:
-        return JsonResponse({'ok': False, 'error': 'Descreva o tema da legenda.'}, status=400)
-
-    system = (
-        "Você é um especialista em copywriting para Instagram. Gere UMA legenda curta, "
-        "envolvente, em português do Brasil, com emojis moderados e 5 a 8 hashtags relevantes "
-        "ao final. Pode usar a variável {nome_conta} se fizer sentido. Não use aspas ao redor do texto."
-    )
-    try:
-        resp = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-            json={
-                'model': getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini'),
-                'messages': [
-                    {'role': 'system', 'content': system},
-                    {'role': 'user', 'content': f'Tema: {prompt}\nTom desejado: {tone}'},
-                ],
-                'temperature': 0.9,
-                'max_tokens': 400,
-            },
-            timeout=30,
-        )
-        data = resp.json()
-        if 'choices' not in data:
-            return JsonResponse({'ok': False, 'error': data.get('error', {}).get('message', 'Falha na API OpenAI.')}, status=502)
-        text = data['choices'][0]['message']['content'].strip()
-        return JsonResponse({'ok': True, 'text': text})
-    except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
-
 @login_required
 def audios_list(request):
     audios = Audio.objects.filter(owner=request.user)
@@ -198,6 +154,23 @@ def upload_media(request):
     if folder_id:
         return redirect(f"{ _media_url() }?folder={folder_id}")
     return redirect(redirect_url)
+
+
+@login_required
+@require_POST
+def bulk_media(request):
+    """Exclui várias mídias selecionadas de uma vez."""
+    ids = request.POST.getlist('media_ids')
+    qs = MediaAsset.objects.filter(id__in=ids, owner=request.user)
+    n = qs.count()
+    for a in qs:
+        a.file.delete(save=False)
+    qs.delete()
+    messages.success(request, f'{n} mídia(s) excluída(s).')
+    folder_id = (request.POST.get('folder') or '').strip()
+    if folder_id:
+        return redirect(f"{_media_url()}?folder={folder_id}")
+    return redirect('library:media')
 
 
 @login_required

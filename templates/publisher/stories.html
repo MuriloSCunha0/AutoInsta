@@ -30,6 +30,10 @@
                 <input type="checkbox" id="check-all" class="form-check-input me-1"> Selecionar todos
             </label>
             <span class="text-muted small"><span id="sel-count">0</span> sel.</span>
+            <button type="submit" name="acao" value="forcar" class="btn btn-sm btn-warning bulk-btn" disabled
+                    onclick="return confirm('Forçar a publicação agora das selecionadas?')">
+                <i class="bi bi-lightning-charge-fill"></i> Forçar
+            </button>
             <button type="submit" name="acao" value="reprocessar" class="btn btn-sm btn-outline-info bulk-btn" disabled>
                 <i class="bi bi-arrow-clockwise"></i> Reprocessar
             </button>

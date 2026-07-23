@@ -57,45 +57,82 @@
 </div>
 
 <!-- Assets grid -->
-<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
-    {% for asset in assets %}
-    <div class="col">
-        <div class="card h-100 overflow-hidden">
-            <div style="aspect-ratio: 9/16; background: #05070f; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                {% if asset.kind == 'video' %}
-                    <video src="{{ asset.file.url }}" preload="metadata" muted
-                           style="width: 100%; height: 100%; object-fit: cover;"
-                           onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0;"></video>
-                {% else %}
-                    <img src="{{ asset.file.url }}" alt="{{ asset.original_name }}"
-                         style="width: 100%; height: 100%; object-fit: cover;">
-                {% endif %}
-            </div>
-            <div class="p-2 d-flex justify-content-between align-items-center">
-                <div class="text-truncate small text-muted" style="max-width: 70%;" title="{{ asset.original_name }}">
-                    <i class="bi {% if asset.kind == 'video' %}bi-play-btn{% else %}bi-image{% endif %}"></i>
-                    {{ asset.original_name|default:"mídia" }}
+{% if assets %}
+<form method="post" action="{% url 'library:bulk_media' %}" id="media-form">
+    {% csrf_token %}
+    {% if current_folder %}<input type="hidden" name="folder" value="{{ current_folder.id }}">{% endif %}
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <label class="text-muted small mb-0" style="cursor:pointer;">
+            <input type="checkbox" id="media-all" class="form-check-input me-1"> Selecionar todas
+        </label>
+        <span class="text-muted small"><span id="media-count">0</span> selecionada(s)</span>
+        <button type="submit" class="btn btn-sm btn-outline-danger media-bulk-btn" disabled
+                onclick="return confirm('Excluir as mídias selecionadas?')">
+            <i class="bi bi-trash"></i> Excluir selecionadas
+        </button>
+    </div>
+
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+        {% for asset in assets %}
+        <div class="col">
+            <div class="card h-100 overflow-hidden position-relative">
+                <input type="checkbox" name="media_ids" value="{{ asset.id }}"
+                       class="form-check-input media-check position-absolute" style="top:8px; left:8px; z-index:3;">
+                <div style="aspect-ratio: 9/16; background: #05070f; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    {% if asset.kind == 'video' %}
+                        <video src="{{ asset.file.url }}" preload="metadata" muted
+                               style="width: 100%; height: 100%; object-fit: cover;"
+                               onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0;"></video>
+                    {% else %}
+                        <img src="{{ asset.file.url }}" alt="{{ asset.original_name }}"
+                             style="width: 100%; height: 100%; object-fit: cover;">
+                    {% endif %}
                 </div>
-                <a href="{% url 'library:delete_media' asset.id %}" class="text-danger opacity-75 text-decoration-none"
-                   onclick="return confirm('Excluir esta mídia?')"><i class="bi bi-trash"></i></a>
+                <div class="p-2 d-flex justify-content-between align-items-center">
+                    <div class="text-truncate small text-muted" style="max-width: 70%;" title="{{ asset.original_name }}">
+                        <i class="bi {% if asset.kind == 'video' %}bi-play-btn{% else %}bi-image{% endif %}"></i>
+                        {{ asset.original_name|default:"mídia" }}
+                    </div>
+                    <a href="{% url 'library:delete_media' asset.id %}" class="text-danger opacity-75 text-decoration-none"
+                       onclick="return confirm('Excluir esta mídia?')"><i class="bi bi-trash"></i></a>
+                </div>
             </div>
         </div>
+        {% endfor %}
     </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="empty-state text-center py-5">
-            <i class="bi bi-collection-play text-muted mb-3" style="font-size: 3rem;"></i>
-            <h4 class="text-white">
-                {% if current_folder %}Pasta "{{ current_folder.name }}" vazia{% else %}Nenhuma mídia ainda{% endif %}
-            </h4>
-            <p class="text-muted">Envie vídeos (Reels) e capas para usar no Composer e nos Loops.</p>
-            <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#uploadMediaModal">
-                Enviar mídia
-            </button>
-        </div>
-    </div>
-    {% endfor %}
+</form>
+
+<script>
+(function () {
+    const form = document.getElementById('media-form');
+    if (!form) return;
+    const all = document.getElementById('media-all');
+    const rows = () => form.querySelectorAll('.media-check');
+    const count = document.getElementById('media-count');
+    const btns = form.querySelectorAll('.media-bulk-btn');
+    function refresh() {
+        const m = form.querySelectorAll('.media-check:checked').length;
+        if (count) count.textContent = m;
+        btns.forEach((b) => { b.disabled = m === 0; });
+        if (all) { const t = rows().length; all.checked = m > 0 && m === t; all.indeterminate = m > 0 && m < t; }
+    }
+    if (all) all.addEventListener('change', () => { rows().forEach((c) => { c.checked = all.checked; }); refresh(); });
+    form.addEventListener('change', (e) => { if (e.target.classList.contains('media-check')) refresh(); });
+    refresh();
+})();
+</script>
+{% else %}
+<div class="empty-state text-center py-5">
+    <i class="bi bi-collection-play text-muted mb-3" style="font-size: 3rem;"></i>
+    <h4 class="text-white">
+        {% if current_folder %}Pasta "{{ current_folder.name }}" vazia{% else %}Nenhuma mídia ainda{% endif %}
+    </h4>
+    <p class="text-muted">Envie vídeos (Reels) e capas para usar no Composer e nos Loops.</p>
+    <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#uploadMediaModal">
+        Enviar mídia
+    </button>
 </div>
+{% endif %}
 
 <!-- Modal: Upload -->
 <div class="modal fade" id="uploadMediaModal" tabindex="-1" aria-hidden="true">

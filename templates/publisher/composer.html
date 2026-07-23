@@ -21,8 +21,13 @@
                 </small>
 
                 {% if library_media %}
-                <label class="form-label text-muted">Da biblioteca</label>
-                <div class="row row-cols-3 row-cols-md-4 g-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-label text-muted mb-0">Da biblioteca</label>
+                    <label class="text-muted small mb-0" style="cursor:pointer;">
+                        <input type="checkbox" id="lib-all" class="form-check-input me-1"> Selecionar todas
+                    </label>
+                </div>
+                <div class="row row-cols-3 row-cols-md-4 g-2 mt-1">
                     {% for asset in library_media %}
                     <div class="col">
                         <label class="media-pick d-block position-relative" style="cursor: pointer;">
@@ -70,12 +75,7 @@
 
             <!-- Legenda -->
             <div class="card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="text-white mb-0"><i class="bi bi-chat-quote text-purple me-2"></i> Legenda</h6>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="ai-generate-btn">
-                        <i class="bi bi-stars"></i> Gerar com IA
-                    </button>
-                </div>
+                <h6 class="text-white mb-3"><i class="bi bi-chat-quote text-purple me-2"></i> Legenda</h6>
                 <textarea name="caption" rows="4" maxlength="2200" id="caption-input"
                           class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);"
                           placeholder="Escreva a legenda. Use variáveis: {nome_conta}, {dia_semana}, {data_hoje}"></textarea>
@@ -387,6 +387,15 @@
     form.addEventListener('change', recount);
     if (upload) upload.addEventListener('change', recount);
 
+    // Selecionar todas as mídias da biblioteca
+    const libAll = document.getElementById('lib-all');
+    if (libAll) {
+        libAll.addEventListener('change', () => {
+            form.querySelectorAll('.lib-video-check').forEach((c) => { c.checked = libAll.checked; });
+            recount();
+        });
+    }
+
     // Selecionar todas as contas
     const toggleAll = document.getElementById('toggle-all-accounts');
     if (toggleAll) {
@@ -442,38 +451,6 @@
     const captionCount = document.getElementById('caption-count');
     if (caption && captionCount) {
         caption.addEventListener('input', () => { captionCount.textContent = caption.value.length; });
-    }
-
-    // Gerar legenda com IA
-    const aiBtn = document.getElementById('ai-generate-btn');
-    if (aiBtn && caption) {
-        const csrf = form.querySelector('[name=csrfmiddlewaretoken]');
-        aiBtn.addEventListener('click', async () => {
-            const theme = prompt('Sobre o que é a legenda? (tema/produto/nicho)');
-            if (!theme) return;
-            const original = aiBtn.innerHTML;
-            aiBtn.disabled = true;
-            aiBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando…';
-            try {
-                const res = await fetch("{% url 'library:generate_caption_ai' %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrf ? csrf.value : '' },
-                    body: new URLSearchParams({ prompt: theme }),
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    caption.value = data.text;
-                    caption.dispatchEvent(new Event('input'));
-                } else {
-                    showToast(data.error || 'Falha ao gerar legenda.', 'error');
-                }
-            } catch (e) {
-                showToast('Erro de rede ao gerar legenda.', 'error');
-            } finally {
-                aiBtn.disabled = false;
-                aiBtn.innerHTML = original;
-            }
-        });
     }
 
     recount();

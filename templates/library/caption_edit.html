@@ -36,13 +36,8 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="add_variation">
                 <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-label text-muted mb-0">Texto da legenda</label>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="ai-generate-btn">
-                            <i class="bi bi-stars"></i> Gerar com IA
-                        </button>
-                    </div>
-                    <textarea name="text" id="ai-target" rows="4" required class="form-control text-white border-subtle mt-2"
+                    <label class="form-label text-muted">Texto da legenda</label>
+                    <textarea name="text" rows="4" required class="form-control text-white border-subtle mt-2"
                               style="background: var(--bg-input);"
                               placeholder="Use variáveis: {nome_conta}, {dia_semana}, {data_hoje}"></textarea>
                 </div>
@@ -84,41 +79,4 @@
         </div>
     </div>
 </div>
-
-<script>
-(function () {
-    const btn = document.getElementById('ai-generate-btn');
-    const target = document.getElementById('ai-target');
-    if (!btn || !target) return;
-    const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
-
-    btn.addEventListener('click', async () => {
-        const theme = prompt('Sobre o que é a legenda? (tema/produto/nicho)');
-        if (!theme) return;
-        const original = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando…';
-        try {
-            const body = new URLSearchParams({ prompt: theme });
-            const res = await fetch("{% url 'library:generate_caption_ai' %}", {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrf ? csrf.value : '' },
-                body,
-            });
-            const data = await res.json();
-            if (data.ok) {
-                target.value = data.text;
-                target.dispatchEvent(new Event('input'));
-            } else {
-                showToast(data.error || 'Falha ao gerar legenda.', 'error');
-            }
-        } catch (e) {
-            showToast('Erro de rede ao gerar legenda.', 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = original;
-        }
-    });
-})();
-</script>
 {% endblock %}

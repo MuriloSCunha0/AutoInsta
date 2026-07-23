@@ -97,6 +97,24 @@ def bulk_posts(request):
         qs.update(status='queued', scheduled_for=timezone.now(),
                   retry_count=0, error_message='')
         messages.success(request, f'{n} publicação(ões) recolocada(s) na fila.')
+    elif acao == 'forcar':
+        # Forçar: publica AGORA, ignorando throttle, cooldown e limite diário
+        # (como no Murphy). A Meta ainda pode recusar por volume real.
+        from .tasks import publish_reel
+        contas_limpas = set()
+        for post in qs.select_related('account'):
+            post.status = 'processing'
+            post.scheduled_for = timezone.now()
+            post.retry_count = 0
+            post.error_message = ''
+            post.save(update_fields=['status', 'scheduled_for', 'retry_count', 'error_message'])
+            # Limpa o cooldown da conta para a força valer.
+            if post.account_id not in contas_limpas and post.account.rate_limited_until:
+                post.account.rate_limited_until = None
+                post.account.save(update_fields=['rate_limited_until'])
+                contas_limpas.add(post.account_id)
+            publish_reel.delay(post.id)
+        messages.warning(request, f'{n} publicação(ões) FORÇADA(S) agora — a Meta ainda pode limitar por volume real.')
     else:
         messages.error(request, 'Ação inválida.')
 
