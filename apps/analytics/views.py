@@ -26,6 +26,13 @@ def dashboard(request):
     views_today = somas['views_hoje'] or 0
 
     today = timezone.localdate()
+
+    # Contas que realmente postaram HOJE (o card mostrava só o total conectado).
+    contas_ativas_hoje = (ScheduledPost.objects
+                          .filter(owner=request.user, status='published',
+                                  published_at__date=today)
+                          .values('account').distinct().count())
+
     published_today = ScheduledPost.objects.filter(
         owner=request.user, status='published', published_at__date=today
     ).count()
@@ -42,39 +49,52 @@ def dashboard(request):
                     .select_related('account')
                     .order_by('scheduled_for')[:5])
 
-    # Ranking DO DIA: quem mais publicou hoje (posts publicados com published_at
-    # na data de hoje). Empate desempata por seguidores.
-    users_with_metrics = (
-        User.objects.filter(is_active=True)
-        .annotate(
-            posts_hoje=Count(
-                'scheduledpost',
-                filter=Q(scheduledpost__status='published',
-                         scheduledpost__published_at__date=today),
-            ),
-            total_followers=Coalesce(Sum('instagramaccount__followers_count'), 0),
-            total_views=Coalesce(Sum('instagramaccount__views_total'), 0),
-            views_hoje=Coalesce(Sum('instagramaccount__views_today'), 0),
-        )
-        .filter(posts_hoje__gt=0)
-        .order_by('-posts_hoje', '-total_followers')[:5]
-    )
+    # ── Ranking DO DIA ────────────────────────────────────────────────
+    # Tudo aqui é do DIA: posts de hoje, contas que postaram hoje e as
+    # visualizações de hoje.
+    #
+    # Em DUAS queries separadas de propósito. Anotar posts (scheduledpost) e
+    # métricas de conta (instagramaccount) no MESMO queryset faz o Django
+    # cruzar as duas tabelas e multiplicar os números — cada post era contado
+    # uma vez por conta. Medido em produção: 2.532 posts no lugar de 211
+    # (12 contas = 12x) e 1,4 bilhão de views no lugar de 807 mil.
+    do_dia = (ScheduledPost.objects
+              .filter(status='published', published_at__date=today)
+              .values('owner')
+              .annotate(posts=Count('id'), contas=Count('account', distinct=True)))
+    metricas_dia = {r['owner']: r for r in do_dia}
 
+    views_por_dono = {
+        r['owner']: r['vh'] or 0
+        for r in InstagramAccount.objects.values('owner').annotate(vh=Sum('views_today'))
+    }
+
+    # Top 5 por posts do dia; empata por views do dia.
+    top = sorted(
+        metricas_dia.items(),
+        key=lambda kv: (kv[1]['posts'], views_por_dono.get(kv[0], 0)),
+        reverse=True,
+    )[:5]
+
+    donos = {u.id: u for u in User.objects.filter(id__in=[uid for uid, _ in top])}
     ranking_list = []
-    for idx, u in enumerate(users_with_metrics):
+    for idx, (uid, dados) in enumerate(top):
+        u = donos.get(uid)
+        if not u:
+            continue
         ranking_list.append({
             'position': idx + 1,
             'name': u.display_name,  # nome do usuário, sem censura (a pedido)
             'avatar': u.avatar.url if u.avatar else '',
-            'posts': u.posts_hoje,
-            'followers': u.total_followers,
-            'views': u.total_views,
-            'views_hoje': u.views_hoje,
+            'posts': dados['posts'],
+            'contas': dados['contas'],
+            'views_hoje': views_por_dono.get(uid, 0),
             'is_me': u.id == request.user.id,
         })
     
     context = {
         'accounts_count': accounts.count(),
+        'contas_ativas_hoje': contas_ativas_hoje,
         'queued_count': posts_queued,
         'followers_total': followers_total,
         'views_total': views_total,

@@ -3338,12 +3338,16 @@ input[type="file"].form-control:focus {
 }
 .rank-label {
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
   margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.rank-sep { margin: 0 5px; opacity: 0.5; }
 .rank-posts {
   flex-shrink: 0;
   font-weight: 700;

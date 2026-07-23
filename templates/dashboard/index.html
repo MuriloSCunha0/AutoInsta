@@ -18,9 +18,9 @@
             <div class="metric-icon">
                 <i class="bi bi-instagram"></i>
             </div>
-            <div class="metric-value">{{ accounts_count|default:"0" }}</div>
-            <div class="metric-label">Contas Conectadas</div>
-            <div class="metric-change up"><i class="bi bi-check2-circle"></i> Sincronizadas</div>
+            <div class="metric-value">{{ contas_ativas_hoje|default:"0" }}</div>
+            <div class="metric-label">Contas Ativas Hoje</div>
+            <div class="metric-change"><i class="bi bi-instagram"></i> de {{ accounts_count }} conectada(s)</div>
         </div>
     </div>
     
@@ -158,7 +158,11 @@
                                 {{ item.name }}
                                 {% if item.is_me %}<span class="ranking-you">VOCÊ</span>{% endif %}
                             </div>
-                            <div class="rank-label">RANK-{{ item.position|stringformat:"02d" }}</div>
+                            <div class="rank-label">
+                                RANK-{{ item.position|stringformat:"02d" }}
+                                <span class="rank-sep">·</span>{{ item.contas }} conta{{ item.contas|pluralize }}
+                                <span class="rank-sep">·</span>{{ item.views_hoje|intcomma }} views
+                            </div>
                         </div>
                         <div class="rank-posts">{{ item.posts|intcomma }} posts</div>
                     </div>
