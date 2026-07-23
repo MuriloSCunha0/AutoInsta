@@ -1926,10 +1926,6 @@ textarea.form-control {
 }
 
 @media (max-width: 768px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
   .side-nav {
     transform: translateX(-100%);
   }
@@ -1939,8 +1935,16 @@ textarea.form-control {
     box-shadow: 20px 0 60px rgba(0, 0, 0, 0.6);
   }
 
+  /* ESSENCIAL: o sidebar é `position: fixed` e o conteúdo abre espaço para
+     ele com `margin-left: var(--sidebar-w)` (260px). No celular o sidebar
+     sai de cena, então a margem PRECISA ir a zero — senão a tela inteira
+     fica empurrada 260px para a direita e cortada.
+     (Antes havia aqui `grid-template-columns`/`grid-column`, resquício de
+     um layout em grid; o shell é flex, então não faziam efeito nenhum.) */
   .main-content {
-    grid-column: 1;
+    margin-left: 0;
+    width: 100%;
+    min-width: 0;
   }
 
   .mobile-toggle {
