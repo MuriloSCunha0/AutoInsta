@@ -143,15 +143,20 @@ def upload_media(request):
         if folder_id:
             folder = MediaFolder.objects.filter(id=folder_id, owner=request.user).first()
 
+        from apps.core_utils import nome_seguro
+
         files = request.FILES.getlist('files')
         count = 0
         for f in files:
+            nome_original = f.name
+            # Grava com nome ASCII: a Meta não consegue baixar URL com acento.
+            f.name = nome_seguro(nome_original)
             MediaAsset.objects.create(
                 owner=request.user,
                 folder=folder,
                 file=f,
-                kind=MediaAsset.detect_kind(f.name),
-                original_name=f.name[:255],
+                kind=MediaAsset.detect_kind(nome_original),
+                original_name=nome_original[:255],
                 size_bytes=getattr(f, 'size', 0) or 0,
             )
             count += 1

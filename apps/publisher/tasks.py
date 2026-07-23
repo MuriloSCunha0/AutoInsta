@@ -240,7 +240,11 @@ def publish_reel(post_id):
             # SITE_URL precisa ser pública: a Meta baixa a mídia dessa URL.
             site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000').rstrip('/')
 
-            media_url = f"{site_url}{dj_settings.MEDIA_URL}{publish_relname}"
+            # A URL precisa ir percent-encoded: nome com acento/espaço faz o
+            # downloader da Meta devolver status_code=ERROR (sem explicar).
+            from apps.core_utils import url_midia
+            media_url = url_midia(site_url, dj_settings.MEDIA_URL, publish_relname)
+            # .url já sai percent-encoded pelo Django — não encodar de novo.
             cover_url = f"{site_url}{post.thumbnail.url}" if post.thumbnail else None
 
             print(f"Publicando {post.id} ({post.post_type}) via Meta Graph API Oficial...")

@@ -79,7 +79,8 @@ def add_post(request):
         quando = timezone.now() + timedelta(minutes=1)
 
     # Salva o arquivo UMA vez e referencia em todos os posts (sem duplicar).
-    nome_arquivo = default_storage.save(f'reels/{arquivo.name}', arquivo)
+    from apps.core_utils import nome_seguro
+    nome_arquivo = default_storage.save(f'reels/{nome_seguro(arquivo.name)}', arquivo)
 
     criados = 0
     for acc_id in account_ids:
@@ -239,7 +240,8 @@ def add_loop(request):
     except (TypeError, ValueError):
         intervalo = 1440
 
-    nome_arquivo = default_storage.save(f'loops/{arquivo.name}', arquivo) if arquivo else ''
+    from apps.core_utils import nome_seguro
+    nome_arquivo = default_storage.save(f'loops/{nome_seguro(arquivo.name)}', arquivo) if arquivo else ''
 
     clean_mode = request.POST.get('clean_mode', 'light')
     if clean_mode not in ('none', 'light', 'ultra'):
@@ -388,9 +390,12 @@ def _composer_submit(request):
     interval = timedelta(minutes=interval_minutes)
 
     # ── Coleta de mídias: uploads + biblioteca (vídeo OU imagem) ─
+    from apps.core_utils import nome_seguro
+
     video_names = []
     for f in request.FILES.getlist('videos'):
-        video_names.append(default_storage.save(f'reels/{f.name}', f))
+        # Nome ASCII: a Meta baixa a mídia pela URL e falha com acento no nome.
+        video_names.append(default_storage.save(f'reels/{nome_seguro(f.name)}', f))
     for mid in library_media_ids:
         asset = MediaAsset.objects.filter(id=mid, owner=user).first()
         if asset:
@@ -401,7 +406,8 @@ def _composer_submit(request):
     # ── Capa (opcional) ────────────────────────────────────────
     cover_name = None
     if 'cover' in request.FILES:
-        cover_name = default_storage.save(f'thumbnails/{request.FILES["cover"].name}', request.FILES['cover'])
+        cover_name = default_storage.save(
+            f'thumbnails/{nome_seguro(request.FILES["cover"].name)}', request.FILES['cover'])
     elif cover_library_id:
         ca = MediaAsset.objects.filter(id=cover_library_id, owner=user, kind='image').first()
         if ca:

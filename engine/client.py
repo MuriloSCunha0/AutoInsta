@@ -303,7 +303,9 @@ class InstagramEngine:
         #   code 9007 / 2207027 "Media ID is not available"
         # (a imagem também passa por processamento, só que mais rápido).
         status_url = f"https://graph.instagram.com/v23.0/{creation_id}"
-        status_params = {'fields': 'status_code', 'access_token': token}
+        # Pedimos 'status' junto: é o único campo que traz o MOTIVO da falha.
+        # Só com 'status_code' o erro volta como um "ERROR" mudo.
+        status_params = {'fields': 'status_code,status', 'access_token': token}
         delay = 2 if is_image else 5
         ready = False
         for _ in range(30):
@@ -313,8 +315,12 @@ class InstagramEngine:
             if code == 'FINISHED':
                 ready = True
                 break
-            if code == 'ERROR':
-                raise Exception(f"A Meta falhou ao processar a mídia: {status_data}")
+            if code in ('ERROR', 'EXPIRED'):
+                motivo = status_data.get('status') or code
+                raise Exception(
+                    f"A Meta rejeitou a mídia ({motivo}). "
+                    f"URL enviada: {media_url}"
+                )
         if not ready:
             raise Exception("Timeout aguardando o processamento da mídia na Meta.")
 
