@@ -264,6 +264,14 @@ OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
 
 # =============================================================================
+# Limite de campos por requisição
+# =============================================================================
+# O padrão do Django (1000) estourava com "selecionar todos" em filas grandes
+# (TooManyFieldsSent -> HTTP 400). A fila agora é paginada e o "selecionar
+# todos" manda uma flag em vez de um campo por post, mas mantemos folga aqui.
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
+
+# =============================================================================
 # Logging — em produção (DEBUG=False) o Django, sem esta config, NÃO imprime
 # tracebacks de 500 no console. Aqui mandamos django.request e os apps para o
 # stderr, para os erros aparecerem em `docker logs`.

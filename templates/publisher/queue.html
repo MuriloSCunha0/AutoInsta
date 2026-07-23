@@ -25,13 +25,27 @@
 </div>
 {% endif %}
 
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{% url 'publisher:queue' %}" class="btn btn-sm {% if not status_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+    {% for chave, rotulo, qtd in filtros %}
+    <a href="?status={{ chave }}" class="btn btn-sm {% if status_atual == chave %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        {{ rotulo }} <span class="badge bg-dark bg-opacity-25 ms-1">{{ qtd }}</span>
+    </a>
+    {% endfor %}
+</div>
+
 <form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
     {% csrf_token %}
-    <input type="hidden" name="next" value="{% url 'publisher:queue' %}">
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="status" value="{{ status_atual }}">
+    <input type="hidden" name="todos" id="todos-flag" value="0">
 
     <div class="card p-0 overflow-hidden border-subtle">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 bg-transparent border-subtle">
-            <h5 class="text-white mb-0"><i class="bi bi-clock-history text-purple me-2"></i> Fila de Publicação</h5>
+            <h5 class="text-white mb-0">
+                <i class="bi bi-clock-history text-purple me-2"></i> Fila de Publicação
+                <span class="text-muted small ms-1">({{ total_filtrado }})</span>
+            </h5>
             <div class="d-flex align-items-center gap-2">
                 <span class="text-muted small"><span id="sel-count">0</span> selecionado(s)</span>
                 <button type="submit" name="acao" value="forcar" class="btn btn-sm btn-warning bulk-btn" disabled
@@ -46,6 +60,20 @@
                     <i class="bi bi-trash"></i> Excluir
                 </button>
             </div>
+        </div>
+
+        <div id="todos-banner" class="alert alert-info border-0 bg-info bg-opacity-10 text-info small m-3 mb-0" style="display:none;">
+            <span id="todos-off">
+                As <strong id="pagina-n">0</strong> desta página estão selecionadas.
+                <a href="#" id="marcar-todos" class="text-info fw-bold text-decoration-underline">
+                    Selecionar todas as {{ total_filtrado }} da fila{% if status_atual %} (filtro atual){% endif %}
+                </a>
+            </span>
+            <span id="todos-on" style="display:none;">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                <strong>Todas as {{ total_filtrado }}</strong> publicações estão selecionadas.
+                <a href="#" id="limpar-todos" class="text-info fw-bold text-decoration-underline">Limpar seleção</a>
+            </span>
         </div>
 
         {% if posts %}
@@ -108,6 +136,20 @@
     </div>
 </form>
 
+{% if page_obj.has_other_pages %}
+<nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}">Anterior</a></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}">Próxima</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
 {% include 'publisher/partials/add_modal.html' %}
 
 <script>
@@ -118,22 +160,58 @@
     const rows = () => form.querySelectorAll('.row-check');
     const count = document.getElementById('sel-count');
     const btns = form.querySelectorAll('.bulk-btn');
+    const flag = document.getElementById('todos-flag');
+    const banner = document.getElementById('todos-banner');
+    const todosOff = document.getElementById('todos-off');
+    const todosOn = document.getElementById('todos-on');
+    const paginaN = document.getElementById('pagina-n');
+    const totalFila = {{ total_filtrado }};
+
+    function setTodos(ligado) {
+        flag.value = ligado ? '1' : '0';
+        if (todosOff) todosOff.style.display = ligado ? 'none' : '';
+        if (todosOn) todosOn.style.display = ligado ? '' : 'none';
+        if (count) count.textContent = ligado ? totalFila : form.querySelectorAll('.row-check:checked').length;
+    }
 
     function refresh() {
         const marcados = form.querySelectorAll('.row-check:checked').length;
+        const total = rows().length;
+        if (flag.value === '1') { btns.forEach((b) => { b.disabled = false; }); return; }
         if (count) count.textContent = marcados;
         btns.forEach((b) => { b.disabled = marcados === 0; });
         if (all) {
-            const total = rows().length;
             all.checked = marcados > 0 && marcados === total;
             all.indeterminate = marcados > 0 && marcados < total;
         }
+        // Oferece "selecionar todas da fila" quando a página inteira foi marcada
+        // e existem mais itens além desta página.
+        const mostrar = marcados === total && total > 0 && totalFila > total;
+        if (banner) banner.style.display = mostrar ? '' : 'none';
+        if (paginaN) paginaN.textContent = marcados;
     }
+
     if (all) all.addEventListener('change', () => {
+        setTodos(false);
         rows().forEach((c) => { c.checked = all.checked; });
         refresh();
     });
-    form.addEventListener('change', (e) => { if (e.target.classList.contains('row-check')) refresh(); });
+    form.addEventListener('change', (e) => {
+        if (e.target.classList.contains('row-check')) { setTodos(false); refresh(); }
+    });
+
+    const marcarTodos = document.getElementById('marcar-todos');
+    if (marcarTodos) marcarTodos.addEventListener('click', (e) => { e.preventDefault(); setTodos(true); });
+    const limparTodos = document.getElementById('limpar-todos');
+    if (limparTodos) limparTodos.addEventListener('click', (e) => {
+        e.preventDefault();
+        setTodos(false);
+        if (all) all.checked = false;
+        rows().forEach((c) => { c.checked = false; });
+        refresh();
+        if (banner) banner.style.display = 'none';
+    });
+
     refresh();
 })();
 </script>

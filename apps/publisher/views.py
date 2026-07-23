@@ -15,11 +15,34 @@ from django.utils import timezone
 
 @login_required
 def queue_list(request):
-    posts = ScheduledPost.objects.filter(owner=request.user).select_related('account')
+    from django.core.paginator import Paginator
+    from django.db.models import Count
+
+    status = (request.GET.get('status') or '').strip()
+    base = ScheduledPost.objects.filter(owner=request.user).select_related('account')
+    if status:
+        base = base.filter(status=status)
+
+    paginator = Paginator(base.order_by('-scheduled_for'), 100)
+    page = paginator.get_page(request.GET.get('page'))
+
+    contagens = {
+        r['status']: r['n']
+        for r in ScheduledPost.objects.filter(owner=request.user)
+        .values('status').annotate(n=Count('id'))
+    }
+    # Lista pronta para os filtros: (chave, rótulo, quantidade)
+    filtros = [(chave, rotulo, contagens.get(chave, 0))
+               for chave, rotulo in ScheduledPost.STATUS_CHOICES]
+
     form = ScheduledPostForm()
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
     return render(request, 'publisher/queue.html', {
-        'posts': posts,
+        'posts': page,
+        'page_obj': page,
+        'status_atual': status,
+        'filtros': filtros,
+        'total_filtrado': paginator.count,
         'form': form,
         'accounts': InstagramAccount.objects.filter(owner=request.user),
     })
@@ -85,8 +108,17 @@ def remove_post(request, post_id):
 def bulk_posts(request):
     """Ação em massa sobre posts selecionados: reprocessar ou excluir."""
     acao = request.POST.get('acao')
-    ids = request.POST.getlist('post_ids')
-    qs = ScheduledPost.objects.filter(id__in=ids, owner=request.user)
+
+    # "Selecionar TODOS" manda uma flag (+ o filtro atual) em vez de milhares de
+    # campos — era isso que estourava o limite do Django e devolvia HTTP 400.
+    if request.POST.get('todos') == '1':
+        qs = ScheduledPost.objects.filter(owner=request.user)
+        status_filtro = (request.POST.get('status') or '').strip()
+        if status_filtro:
+            qs = qs.filter(status=status_filtro)
+    else:
+        qs = ScheduledPost.objects.filter(id__in=request.POST.getlist('post_ids'),
+                                          owner=request.user)
     n = qs.count()
 
     if acao == 'excluir':
@@ -100,6 +132,13 @@ def bulk_posts(request):
     elif acao == 'forcar':
         # Forçar: publica AGORA, ignorando throttle, cooldown e limite diário
         # (como no Murphy). A Meta ainda pode recusar por volume real.
+        # Teto por acionamento: disparar milhares de uma vez inunda a API da
+        # Meta — que é exatamente o que causa bloqueio.
+        LIMITE_FORCAR = 100
+        total_pedido = n
+        qs = qs.order_by('scheduled_for')[:LIMITE_FORCAR]
+        n = len(qs)
+
         from .tasks import publish_reel
         contas_limpas = set()
         for post in qs.select_related('account'):
@@ -114,7 +153,12 @@ def bulk_posts(request):
                 post.account.save(update_fields=['rate_limited_until'])
                 contas_limpas.add(post.account_id)
             publish_reel.delay(post.id)
-        messages.warning(request, f'{n} publicação(ões) FORÇADA(S) agora — a Meta ainda pode limitar por volume real.')
+        msg = f'{n} publicação(ões) FORÇADA(S) agora — a Meta ainda pode limitar por volume real.'
+        if total_pedido > n:
+            msg += (f' Das {total_pedido} selecionadas, forçamos as {n} mais antigas '
+                    f'(teto por vez, para não inundar a API e arriscar bloqueio). '
+                    'Repita a ação para continuar.')
+        messages.warning(request, msg)
     else:
         messages.error(request, 'Ação inválida.')
 
