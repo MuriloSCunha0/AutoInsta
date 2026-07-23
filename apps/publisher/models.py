@@ -39,6 +39,10 @@ class ScheduledPost(models.Model):
         ('failed', 'Falhou ❌'),
     ]
 
+    # A fila mostra só o que ainda dá trabalho; o que já publicou é histórico
+    # e vive na tela de Publicados. São dados diferentes.
+    STATUS_ATIVOS = ['draft', 'queued', 'processing', 'failed']
+
     TYPE_CHOICES = [
         ('REELS', 'Reels'),
         ('FEED', 'Feed'),

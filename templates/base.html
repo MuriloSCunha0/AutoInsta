@@ -56,6 +56,9 @@
                 <a href="{% url 'publisher:queue' %}" class="{% if request.resolver_match.url_name == 'queue' %}active{% endif %}">
                     <i class="bi bi-list-check"></i> <span class="nav-text">Fila de Posts</span>
                 </a>
+                <a href="{% url 'publisher:historico' %}" class="{% if request.resolver_match.url_name == 'historico' %}active{% endif %}">
+                    <i class="bi bi-check2-circle"></i> <span class="nav-text">Publicados</span>
+                </a>
                 <a href="{% url 'publisher:loops' %}" class="{% if request.resolver_match.url_name == 'loops' %}active{% endif %}">
                     <i class="bi bi-arrow-repeat"></i> <span class="nav-text">Loop</span>
                 </a>

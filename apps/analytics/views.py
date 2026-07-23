@@ -26,7 +26,13 @@ def dashboard(request):
         published_at__date=today - timedelta(days=1)
     ).count()
 
-    recent_posts = ScheduledPost.objects.filter(owner=request.user).order_by('-created_at')[:5]
+    # O que ainda vai sair — publicado já saiu da fila e vive no histórico.
+    # Antes esta lista era "os 5 últimos criados", que com o volume diário
+    # virava só publicados e não mostrava nada do que estava por vir.
+    recent_posts = (ScheduledPost.objects
+                    .filter(owner=request.user, status__in=ScheduledPost.STATUS_ATIVOS)
+                    .select_related('account')
+                    .order_by('scheduled_for')[:5])
 
     # Ranking DO DIA: quem mais publicou hoje (posts publicados com published_at
     # na data de hoje). Empate desempata por seguidores.

@@ -20,9 +20,16 @@ def queue_list(request):
 
     status = (request.GET.get('status') or '').strip()
     fila_id = (request.GET.get('queue') or '').strip()
-    base = ScheduledPost.objects.filter(owner=request.user).select_related('account', 'queue')
-    if status:
+
+    # A fila é o que está POR FAZER. Publicado saiu da fila: virou histórico,
+    # que tem tela própria (publisher:historico).
+    base = (ScheduledPost.objects.filter(owner=request.user,
+                                         status__in=ScheduledPost.STATUS_ATIVOS)
+            .select_related('account', 'queue'))
+    if status in ScheduledPost.STATUS_ATIVOS:
         base = base.filter(status=status)
+    else:
+        status = ''
     if fila_id:
         base = base.filter(queue_id=fila_id)
 
@@ -34,9 +41,10 @@ def queue_list(request):
         for r in ScheduledPost.objects.filter(owner=request.user)
         .values('status').annotate(n=Count('id'))
     }
-    # Lista pronta para os filtros: (chave, rótulo, quantidade)
+    # Filtros: (chave, rótulo, quantidade) — só os status que ficam na fila.
     filtros = [(chave, rotulo, contagens.get(chave, 0))
-               for chave, rotulo in ScheduledPost.STATUS_CHOICES]
+               for chave, rotulo in ScheduledPost.STATUS_CHOICES
+               if chave in ScheduledPost.STATUS_ATIVOS]
 
     form = ScheduledPostForm()
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
@@ -48,7 +56,31 @@ def queue_list(request):
         'filas': PostQueue.objects.filter(owner=request.user).select_related('account'),
         'fila_atual': fila_id,
         'total_filtrado': paginator.count,
+        'total_publicados': contagens.get('published', 0),
         'form': form,
+        'accounts': InstagramAccount.objects.filter(owner=request.user),
+    })
+
+
+@login_required
+def historico(request):
+    """Publicados: histórico, separado da fila (são dados diferentes)."""
+    from django.core.paginator import Paginator
+
+    conta_id = (request.GET.get('account') or '').strip()
+    posts = (ScheduledPost.objects.filter(owner=request.user, status='published')
+             .select_related('account', 'queue'))
+    if conta_id:
+        posts = posts.filter(account_id=conta_id)
+
+    paginator = Paginator(posts.order_by('-published_at'), 100)
+    page = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'publisher/historico.html', {
+        'posts': page,
+        'page_obj': page,
+        'total_filtrado': paginator.count,
+        'conta_atual': conta_id,
         'accounts': InstagramAccount.objects.filter(owner=request.user),
     })
 
@@ -119,6 +151,16 @@ def bulk_posts(request):
     # campos — era isso que estourava o limite do Django e devolvia HTTP 400.
     if request.POST.get('todos') == '1':
         qs = ScheduledPost.objects.filter(owner=request.user)
+
+        # ESCOPO: "todos" tem de significar "todos os que a tela mostrava".
+        # Sem isto, um "excluir todas" na fila levaria junto o histórico
+        # inteiro de publicados — que a tela nem exibia.
+        escopo = (request.POST.get('escopo') or 'fila').strip()
+        if escopo == 'historico':
+            qs = qs.filter(status='published')
+        else:
+            qs = qs.filter(status__in=ScheduledPost.STATUS_ATIVOS)
+
         status_filtro = (request.POST.get('status') or '').strip()
         if status_filtro:
             qs = qs.filter(status=status_filtro)
@@ -289,7 +331,9 @@ def delete_loop(request, loop_id):
 def stories(request):
     from django.core.paginator import Paginator
 
-    base = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY')
+    # Stories também é fila: o que já publicou sai daqui e vai para o histórico.
+    base = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY',
+                                         status__in=ScheduledPost.STATUS_ATIVOS)
             .select_related('account').order_by('-scheduled_for'))
     paginator = Paginator(base, 60)
     page = paginator.get_page(request.GET.get('page'))

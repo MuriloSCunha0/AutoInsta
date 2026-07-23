@@ -61,6 +61,10 @@
         {{ rotulo }} <span class="badge bg-dark bg-opacity-25 ms-1">{{ qtd }}</span>
     </a>
     {% endfor %}
+    <a href="{% url 'publisher:historico' %}" class="btn btn-sm btn-outline-success ms-auto">
+        <i class="bi bi-check2-circle"></i> Publicados
+        <span class="badge bg-dark bg-opacity-25 ms-1">{{ total_publicados }}</span>
+    </a>
 </div>
 
 <form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
@@ -69,6 +73,8 @@
     <input type="hidden" name="status" value="{{ status_atual }}">
     <input type="hidden" name="queue" value="{{ fila_atual }}">
     <input type="hidden" name="todos" id="todos-flag" value="0">
+    {# "Selecionar todas" aqui nunca pode alcançar o histórico de publicados. #}
+    <input type="hidden" name="escopo" value="fila">
 
     <div class="card p-0 overflow-hidden border-subtle">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 bg-transparent border-subtle">
