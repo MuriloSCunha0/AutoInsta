@@ -2020,16 +2020,34 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .table-responsive { -webkit-overflow-scrolling: touch; }
   table { min-width: 0; }
 
-  /* Top-bar enxuta: a busca vira só o ícone, o título encolhe. */
-  .top-bar { padding: 0 14px; gap: 8px; }
+  /* Top-bar enxuta: a busca vira só o ícone, o título encolhe.
+     A barra pode crescer em altura e QUEBRAR LINHA: telas com botões
+     próprios (ex.: "Adicionar conta") passavam de 510px numa tela de 390 e
+     os botões ficavam cortados — inalcançáveis, porque o overflow-x:hidden
+     escondia o estouro em vez de resolver. */
+  .top-bar {
+    height: auto;
+    min-height: var(--topbar-h);
+    padding: 8px 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
   .top-bar .page-title {
     font-size: 1.05rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1 1 auto;
     min-width: 0;
   }
-  .top-bar .top-actions { gap: 6px; }
+  .top-bar .top-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  /* Botões de ação da página não encolhem a ponto de sumir o rótulo. */
+  .top-bar .top-actions .btn { white-space: nowrap; }
   .cmdk-trigger-label, .cmdk-kbd { display: none; }
   .cmdk-trigger { padding: 8px 10px; }
 
