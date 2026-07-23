@@ -73,11 +73,16 @@ def process_scheduled_posts():
     now = timezone.now()
     janela_24h = now - timedelta(hours=24)
 
+    from django.db.models import F
+
     due = (ScheduledPost.objects.filter(status='queued', scheduled_for__lte=now)
            .select_related('account', 'owner', 'queue')
            # Rodízio: a fila que despachou há mais tempo vem primeiro, então
            # várias filas da mesma conta avançam de forma justa.
-           .order_by('queue__last_dispatch', 'scheduled_for'))
+           # nulls_first é ESSENCIAL: no PostgreSQL, ASC joga NULL para o fim,
+           # e a fila que nunca despachou (NULL) ficaria sempre por último —
+           # o que fazia uma fila drenar inteira antes da outra começar.
+           .order_by(F('queue__last_dispatch').asc(nulls_first=True), 'scheduled_for'))
 
     despachadas = set()
     for post in due:
