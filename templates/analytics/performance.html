@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 {% block title %}Performance - SandraoFlow{% endblock %}
 {% block page_title %}Performance{% endblock %}
 {% block content %}
@@ -23,8 +24,15 @@
     </div>
     <div class="col-6 col-md-3">
         <div class="card glass-modal p-3 border-0">
-            <h6 class="text-muted">Taxa de Engajamento</h6>
-            <h3 class="text-white">{{ engagement_rate }}%</h3>
+            <h6 class="text-muted">Visualizações (total)</h6>
+            <h3 class="text-white">{{ views_total|intcomma }}</h3>
+            <small class="text-success">{{ views_today|intcomma }} hoje</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card glass-modal p-3 border-0">
+            <h6 class="text-muted">Média de views por post</h6>
+            <h3 class="text-white">{{ views_por_post|intcomma }}</h3>
         </div>
     </div>
 </div>

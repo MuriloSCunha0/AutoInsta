@@ -114,13 +114,19 @@ def performance(request):
     following_total = accounts.aggregate(Sum('following_count'))['following_count__sum'] or 0
     posts_total = accounts.aggregate(Sum('posts_count'))['posts_count__sum'] or 0
     
-    # Calculate a mock engagement rate based on followers vs posts (since we'd need full insights API for true reach)
-    engagement_rate = 0
-    if followers_total > 0:
-        # A simple dummy formula: assume each post gets 10% followers reach
-        engagement_rate = round((posts_total * 0.1), 2)
-        if engagement_rate > 100: engagement_rate = 100
-        
+    # Visualizações REAIS da Meta (métrica `views` do /insights), já
+    # coletadas por conta pelo refresh periódico.
+    somas_views = accounts.aggregate(total=Sum('views_total'), hoje=Sum('views_today'))
+    views_total = somas_views['total'] or 0
+    views_today = somas_views['hoje'] or 0
+
+    # Média de views por publicação — número derivado de dados reais.
+    # Antes aqui havia uma "taxa de engajamento" inventada
+    # (`posts_total * 0.1`, comentada no código como "dummy formula"),
+    # que não vinha de dado nenhum.
+    views_por_post = round(views_total / posts_total, 1) if posts_total else 0
+
+
     # Dados para os gráficos (Chart.js)
     import json
     chart_accounts = list(accounts.order_by('-followers_count')[:8].values_list('ig_username', flat=True))
@@ -137,7 +143,9 @@ def performance(request):
         'followers_total': followers_total,
         'following_total': following_total,
         'posts_total': posts_total,
-        'engagement_rate': engagement_rate,
+        'views_total': views_total,
+        'views_today': views_today,
+        'views_por_post': views_por_post,
         'accounts_count': accounts.count(),
         'chart_accounts': json.dumps(chart_accounts),
         'chart_followers': json.dumps(chart_followers),
@@ -153,6 +161,19 @@ def performance(request):
 import requests
 from django.core.cache import cache
 
+def _views_da_midia(media):
+    """Views reais que vieram em `insights.metric(views)`; 0 se a Meta não deu.
+
+    Formato: {"insights": {"data": [{"name": "views", "values": [{"value": N}]}]}}
+    """
+    for item in ((media.get('insights') or {}).get('data') or []):
+        if item.get('name') == 'views':
+            valores = item.get('values') or []
+            if valores:
+                return valores[0].get('value') or 0
+    return 0
+
+
 @login_required
 def top_posts(request):
     accounts = InstagramAccount.objects.filter(owner=request.user, status='active').exclude(meta_access_token='')
@@ -163,7 +184,8 @@ def top_posts(request):
     total_comments = 0
     
     for account in accounts:
-        cache_key = f'ig_media_{account.id}'
+        # v2: o formato mudou (passou a incluir insights/views reais).
+        cache_key = f'ig_media_v2_{account.id}'
         media_data = cache.get(cache_key)
         
         if not media_data:
@@ -171,7 +193,13 @@ def top_posts(request):
             ig_user_id = account.ig_user_id or 'me'
             url = f"https://graph.instagram.com/v23.0/{ig_user_id}/media"
             params = {
-                'fields': 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,username,comments_count,like_count',
+                # insights.metric(views) traz as VIEWS REAIS de cada mídia na
+                # mesma chamada (expansão de campo) — sem 1 request por post.
+                'fields': (
+                    'id,caption,media_type,media_url,permalink,thumbnail_url,'
+                    'timestamp,username,comments_count,like_count,'
+                    'insights.metric(views)'
+                ),
                 'access_token': account.get_meta_token(),
                 'limit': 20
             }
@@ -190,19 +218,24 @@ def top_posts(request):
             m['account_username'] = account.ig_username
             m['account_pic'] = account.profile_pic_url
             
-            # Instagram sometimes returns views as part of insights, but for now we'll approximate 
-            # if we can't get true views without the insights permission on the exact media.
-            m['views'] = m.get('like_count', 0) * 8  # Dummy view multiplier for display
-            
+            # Views REAIS da Meta (vinham de `insights.metric(views)`).
+            # Antes isto era `like_count * 8`, um multiplicador inventado —
+            # com 0 like mostrava 0 views quando o real eram 87.
+            m['views'] = _views_da_midia(m)
+
             all_media.append(m)
-            
+
             total_views += m['views']
             total_likes += m.get('like_count', 0)
             total_comments += m.get('comments_count', 0)
 
-    # Sort by engagement (likes + comments)
-    all_media.sort(key=lambda x: x.get('like_count', 0) + x.get('comments_count', 0), reverse=True)
-    
+    # Os melhores são os mais vistos; likes+comentários desempatam.
+    all_media.sort(
+        key=lambda x: (x.get('views', 0),
+                       x.get('like_count', 0) + x.get('comments_count', 0)),
+        reverse=True,
+    )
+
     top_media = all_media[:9] # Top 9 posts
     
     context = {
@@ -259,6 +292,6 @@ def sync_top_posts(request):
     from django.contrib import messages
     accounts = InstagramAccount.objects.filter(owner=request.user)
     for acc in accounts:
-        cache.delete(f'ig_media_{acc.id}')
+        cache.delete(f'ig_media_v2_{acc.id}')
     messages.success(request, 'Insights re-sincronizados a partir da API do Instagram.')
     return redirect('analytics:top_posts')
