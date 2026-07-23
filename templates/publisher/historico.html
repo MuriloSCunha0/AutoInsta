@@ -70,6 +70,7 @@
                         <th class="text-muted fw-medium border-0">Publicado em</th>
                         <th class="text-muted fw-medium border-0">Conta</th>
                         <th class="text-muted fw-medium border-0">Tipo</th>
+                        <th class="text-muted fw-medium border-0">Grade</th>
                         <th class="text-muted fw-medium border-0">Fila</th>
                         <th class="text-muted fw-medium border-0">Legenda</th>
                     </tr>
@@ -86,6 +87,20 @@
                         </td>
                         <td class="text-white">@{{ post.account.ig_username }}</td>
                         <td><span class="badge bg-secondary bg-opacity-25 text-secondary">{{ post.get_post_type_display }}</span></td>
+                        <td>
+                            {# Confirmado pela Meta (is_shared_to_feed), não pelo que pedimos. #}
+                            {% if post.na_grade %}
+                            <span class="badge bg-success bg-opacity-25 text-success" title="A Meta confirmou que está na grade do perfil">
+                                <i class="bi bi-grid-3x3-gap-fill"></i> Na grade
+                            </span>
+                            {% elif post.na_grade is False %}
+                            <span class="badge bg-warning bg-opacity-25 text-warning" title="Publicou, mas ficou só na aba de Reels">
+                                <i class="bi bi-exclamation-triangle"></i> Fora da grade
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
                         <td class="text-muted small">{{ post.queue.name|default:"—" }}</td>
                         <td class="text-muted small text-truncate" style="max-width: 320px;">
                             {{ post.caption|default:"—" }}

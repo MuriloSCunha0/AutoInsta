@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",  # intcomma: 133027 -> 133.027
     # Apps de terceiros
     "django_celery_beat",
     "channels",

@@ -273,6 +273,17 @@ def publish_reel(post_id):
 
         post.status = 'published'
         post.published_at = timezone.now()
+
+        # Confirma com a Meta se o Reel caiu mesmo na grade do perfil.
+        # Best-effort: não é motivo para marcar a publicação como falha.
+        if post.post_type != 'STORY' and post.ig_media_id and post.account.meta_access_token:
+            try:
+                post.na_grade = engine.midia_na_grade(post.ig_media_id)
+                if post.share_to_feed and post.na_grade is False:
+                    print(f"Post {post.id}: pedimos a grade, mas a Meta diz que NÃO foi.")
+            except Exception:
+                pass
+
         post.save()
 
         # Publicou: a conta claramente não está mais em cooldown.

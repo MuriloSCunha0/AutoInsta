@@ -66,10 +66,53 @@ def web_login_account(account_id, login_gen=None):
     except Exception as e:
         pass
 
+# A Meta guarda no máximo 2 anos de insights; pedir mais devolve
+# "since param is not valid". 729 dias é o maior intervalo aceito na prática.
+JANELA_TOTAL_DIAS = 729
+
+
+def buscar_views(account):
+    """Views reais da Meta: (do dia, total). Devolve (None, None) se não der.
+
+    Endpoint e parâmetros conferidos contra a API de produção:
+      GET /{ig-user-id}/insights?metric=views&period=day&metric_type=total_value
+    `metric_type=total_value` é OBRIGATÓRIO — sem ele a Meta devolve `data: []`.
+    Sem since/until o retorno é o dia corrente; com since/until, `total_value`
+    já vem agregado no intervalo (não é uma série que precise ser somada).
+    """
+    import time
+
+    import requests
+    from apps.instagram.views import IG_API_VERSION
+
+    token = account.get_meta_token()
+    if not token or not account.ig_user_id:
+        return None, None
+
+    url = f"https://graph.instagram.com/{IG_API_VERSION}/{account.ig_user_id}/insights"
+
+    def pedir(extra=None):
+        params = {'metric': 'views', 'period': 'day',
+                  'metric_type': 'total_value', 'access_token': token}
+        params.update(extra or {})
+        dados = requests.get(url, params=params, timeout=20).json()
+        if 'error' in dados:
+            return None
+        for item in dados.get('data', []):
+            if item.get('name') == 'views':
+                return (item.get('total_value') or {}).get('value')
+        return None
+
+    agora = int(time.time())
+    hoje = pedir()
+    total = pedir({'since': agora - JANELA_TOTAL_DIAS * 86400, 'until': agora})
+    return hoje, total
+
+
 @shared_task
 def refresh_quotas():
-    """Atualiza a cota real de publicação (content_publishing_limit) de todas as
-    contas com token Meta e ig_user_id. Leve: 1 GET por conta, best-effort."""
+    """Atualiza cota de publicação e visualizações de todas as contas com token.
+    Leve e best-effort: uma conta que falhar não derruba as outras."""
     import requests
     from django.utils import timezone
     from apps.instagram.views import IG_API_VERSION
@@ -90,6 +133,21 @@ def refresh_quotas():
                 acc.quota_total = (dados.get('config') or {}).get('quota_total', 0)
                 acc.quota_checked_at = timezone.now()
                 acc.save(update_fields=['quota_usage', 'quota_total', 'quota_checked_at'])
+        except Exception:
+            pass
+
+        try:
+            hoje, total = buscar_views(acc)
+            campos = []
+            if hoje is not None:
+                acc.views_today = hoje
+                campos.append('views_today')
+            if total is not None:
+                acc.views_total = total
+                campos.append('views_total')
+            if campos:
+                acc.views_checked_at = timezone.now()
+                acc.save(update_fields=campos + ['views_checked_at'])
         except Exception:
             pass
 

@@ -15,7 +15,15 @@ def dashboard(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
     posts_queued = ScheduledPost.objects.filter(owner=request.user, status='queued').count()
 
-    followers_total = accounts.aggregate(Sum('followers_count'))['followers_count__sum'] or 0
+    # Números reais da Meta, somados nas contas do usuário.
+    somas = accounts.aggregate(
+        seguidores=Sum('followers_count'),
+        views=Sum('views_total'),
+        views_hoje=Sum('views_today'),
+    )
+    followers_total = somas['seguidores'] or 0
+    views_total = somas['views'] or 0
+    views_today = somas['views_hoje'] or 0
 
     today = timezone.localdate()
     published_today = ScheduledPost.objects.filter(
@@ -45,6 +53,8 @@ def dashboard(request):
                          scheduledpost__published_at__date=today),
             ),
             total_followers=Coalesce(Sum('instagramaccount__followers_count'), 0),
+            total_views=Coalesce(Sum('instagramaccount__views_total'), 0),
+            views_hoje=Coalesce(Sum('instagramaccount__views_today'), 0),
         )
         .filter(posts_hoje__gt=0)
         .order_by('-posts_hoje', '-total_followers')[:10]
@@ -52,13 +62,13 @@ def dashboard(request):
 
     ranking_list = []
     for idx, u in enumerate(users_with_metrics):
-        display_name = u.username
-        display_name = (display_name[:3] + '***') if len(display_name) > 3 else (display_name + '***')
         ranking_list.append({
             'position': idx + 1,
-            'username': display_name,
+            'username': u.username,  # sem censura, a pedido
             'posts': u.posts_hoje,
             'followers': u.total_followers,
+            'views': u.total_views,
+            'views_hoje': u.views_hoje,
             'is_me': u.id == request.user.id,
         })
     
@@ -66,6 +76,8 @@ def dashboard(request):
         'accounts_count': accounts.count(),
         'queued_count': posts_queued,
         'followers_total': followers_total,
+        'views_total': views_total,
+        'views_today': views_today,
         'published_today': published_today,
         'published_yesterday': published_yesterday,
         'recent_posts': recent_posts,

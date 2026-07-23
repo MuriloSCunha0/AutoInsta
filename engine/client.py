@@ -358,6 +358,31 @@ class InstagramEngine:
 
         return {'id': pub_data['id'], 'creation_id': creation_id}
 
+    def midia_na_grade(self, media_id):
+        """A mídia publicada foi mesmo para a grade do perfil?
+
+        Lê `is_shared_to_feed` da própria Meta. Não dá para confiar só no que
+        enviamos: a API aceita silenciosamente parâmetros que não reconhece
+        (verificado — ela aceitou até um parâmetro inventado). Este campo é a
+        resposta dela, não o eco do nosso pedido.
+        """
+        import requests
+
+        token = self.account.get_meta_token()
+        if not token or not media_id:
+            return None
+        try:
+            dados = requests.get(
+                f"https://graph.instagram.com/v23.0/{media_id}",
+                params={'fields': 'is_shared_to_feed', 'access_token': token},
+                timeout=15,
+            ).json()
+        except Exception:
+            return None
+        if 'error' in dados:
+            return None
+        return dados.get('is_shared_to_feed')
+
     def upload_reel_meta_api(self, video_url, caption, cover_url=None, share_to_feed=True):
         """Compatibilidade: publica um Reel via API oficial."""
         return self.publish_meta_api(

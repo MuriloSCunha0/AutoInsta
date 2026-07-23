@@ -65,6 +65,10 @@ class ScheduledPost(models.Model):
     caption_set = models.ForeignKey('library.CaptionSet', on_delete=models.SET_NULL, null=True, blank=True)
     # Reel também na grade principal do perfil (parâmetro oficial share_to_feed).
     share_to_feed = models.BooleanField(default=True)
+    # Confirmação vinda da Meta depois de publicar (campo is_shared_to_feed da
+    # mídia). None = ainda não verificado. Serve para provar que a grade está
+    # funcionando de verdade, em vez de confiar no que pedimos.
+    na_grade = models.BooleanField(null=True, blank=True)
     # Link do Story. A API oficial não permite sticker de link, então quando
     # preenchido a publicação vai pela engine (instagrapi).
     story_link = models.URLField(max_length=500, blank=True)

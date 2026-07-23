@@ -63,6 +63,12 @@ class InstagramAccount(models.Model):
     quota_usage = models.IntegerField(default=0)
     quota_total = models.IntegerField(default=0)
     quota_checked_at = models.DateTimeField(null=True, blank=True)
+    # Visualizações reais da Meta (endpoint /insights, métrica `views`).
+    # `views_today` = dia corrente; `views_total` = tudo que a Meta ainda
+    # guarda (ela mantém no máximo 2 anos de insights).
+    views_today = models.IntegerField(default=0)
+    views_total = models.IntegerField(default=0)
+    views_checked_at = models.DateTimeField(null=True, blank=True)
     session_blob = models.JSONField(null=True, blank=True)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)

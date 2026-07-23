@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block title %}Dashboard | AutoInsta{% endblock %}
 {% block page_title %}Dashboard Geral{% endblock %}
@@ -55,9 +56,33 @@
             <div class="metric-icon" style="color: var(--info); background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2);">
                 <i class="bi bi-people"></i>
             </div>
-            <div class="metric-value">{{ followers_total|default:"0" }}</div>
+            <div class="metric-value">{{ followers_total|intcomma }}</div>
             <div class="metric-label">Total de Seguidores</div>
             <div class="metric-change"><i class="bi bi-person-lines-fill"></i> Base combinada</div>
+        </div>
+    </div>
+
+    <!-- Visualizações (métrica `views` da Meta) -->
+    <div class="col-md-3">
+        <div class="metric-card">
+            <div class="metric-icon" style="color: var(--purple, #a855f7); background: rgba(168, 85, 247, 0.1); border-color: rgba(168, 85, 247, 0.2);">
+                <i class="bi bi-eye"></i>
+            </div>
+            <div class="metric-value">{{ views_total|intcomma }}</div>
+            <div class="metric-label">Visualizações (total)</div>
+            <div class="metric-change up"><i class="bi bi-graph-up-arrow"></i> {{ views_today|intcomma }} hoje</div>
+        </div>
+    </div>
+
+    <!-- Visualizações do dia -->
+    <div class="col-md-3">
+        <div class="metric-card">
+            <div class="metric-icon" style="color: var(--success); background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2);">
+                <i class="bi bi-eye-fill"></i>
+            </div>
+            <div class="metric-value">{{ views_today|intcomma }}</div>
+            <div class="metric-label">Visualizações Hoje</div>
+            <div class="metric-change"><i class="bi bi-clock"></i> Dia corrente</div>
         </div>
     </div>
 </div>
@@ -141,7 +166,15 @@
                                     {{ item.username }}
                                     {% if item.is_me %}<span class="ranking-you">VOCÊ</span>{% endif %}
                                 </div>
-                                <div class="ranking-sub"><i class="bi bi-people"></i> {{ item.followers }} seguidores</div>
+                                <div class="ranking-sub">
+                                    <i class="bi bi-people"></i> {{ item.followers|intcomma }} seguidores
+                                    <span class="ranking-dot">·</span>
+                                    <i class="bi bi-eye"></i> {{ item.views|intcomma }} views
+                                    {% if item.views_hoje %}
+                                    <span class="ranking-dot">·</span>
+                                    <span class="text-success">+{{ item.views_hoje|intcomma }} hoje</span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                         <div class="ranking-score"><i class="bi bi-collection-play me-1"></i>{{ item.posts }} hoje</div>
