@@ -2,6 +2,34 @@ from django.db import models
 from apps.accounts.models import User
 from apps.instagram.models import InstagramAccount
 
+class PostQueue(models.Model):
+    """Fila nomeada. Uma conta pode ter VÁRIAS filas rodando em paralelo
+    (ex.: 'Campanha A' e 'Promoções'), cada uma pausável de forma independente.
+
+    O despacho continua sendo de 1 post por CONTA por rodada — as filas da mesma
+    conta se revezam (round-robin), para não multiplicar o ritmo de publicação
+    e cair no limite da Meta.
+    """
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='filas')
+    account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE, related_name='filas')
+    name = models.CharField(max_length=80)
+    paused = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Marca a última vez que esta fila despachou (usado no rodízio).
+    last_dispatch = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = ['account', 'name']
+
+    def __str__(self):
+        return f"{self.name} (@{self.account.ig_username})"
+
+    @property
+    def pendentes(self):
+        return self.posts.filter(status='queued').count()
+
+
 class ScheduledPost(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Rascunho'),
@@ -19,6 +47,11 @@ class ScheduledPost(models.Model):
 
     account = models.ForeignKey(InstagramAccount, on_delete=models.CASCADE)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    # Fila a que este post pertence (opcional: sem fila = fila padrão da conta).
+    queue = models.ForeignKey(
+        'PostQueue', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='posts',
+    )
     post_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='REELS')
     # FileField tem max_length=100 por padrão — caminhos de mídia estouram isso
     # ("value too long for type character varying(100)").

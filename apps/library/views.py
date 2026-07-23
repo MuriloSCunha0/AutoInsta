@@ -93,6 +93,8 @@ def delete_audio(request, audio_id):
 def media_list(request):
     folders = MediaFolder.objects.filter(owner=request.user)
 
+    from django.core.paginator import Paginator
+
     current_folder_id = request.GET.get('folder')
     assets = MediaAsset.objects.filter(owner=request.user)
     current_folder = None
@@ -100,9 +102,16 @@ def media_list(request):
         current_folder = get_object_or_404(MediaFolder, id=current_folder_id, owner=request.user)
         assets = assets.filter(folder=current_folder)
 
+    # Paginado: sem isso, "selecionar todas" com muitas mídias estoura o limite
+    # de campos do Django (HTTP 400).
+    paginator = Paginator(assets.order_by('-created_at'), 60)
+    page = paginator.get_page(request.GET.get('page'))
+
     context = {
         'folders': folders,
-        'assets': assets,
+        'assets': page,
+        'page_obj': page,
+        'total_filtrado': paginator.count,
         'current_folder': current_folder,
         'total_videos': MediaAsset.objects.filter(owner=request.user, kind='video').count(),
         'total_images': MediaAsset.objects.filter(owner=request.user, kind='image').count(),
@@ -160,8 +169,15 @@ def upload_media(request):
 @require_POST
 def bulk_media(request):
     """Exclui várias mídias selecionadas de uma vez."""
-    ids = request.POST.getlist('media_ids')
-    qs = MediaAsset.objects.filter(id__in=ids, owner=request.user)
+    # "Selecionar todas" manda uma flag (+ pasta) em vez de um campo por mídia.
+    if request.POST.get('todos') == '1':
+        qs = MediaAsset.objects.filter(owner=request.user)
+        pasta = (request.POST.get('folder') or '').strip()
+        if pasta:
+            qs = qs.filter(folder_id=pasta)
+    else:
+        qs = MediaAsset.objects.filter(id__in=request.POST.getlist('media_ids'),
+                                       owner=request.user)
     n = qs.count()
     for a in qs:
         a.file.delete(save=False)

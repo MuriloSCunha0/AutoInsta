@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.utils.dateparse import parse_datetime
-from .models import ScheduledPost, PostLoop
+from .models import ScheduledPost, PostLoop, PostQueue
 from .forms import ScheduledPostForm
 from apps.instagram.models import InstagramAccount
 from apps.library.models import MediaAsset, CaptionSet, Audio
@@ -19,9 +19,12 @@ def queue_list(request):
     from django.db.models import Count
 
     status = (request.GET.get('status') or '').strip()
-    base = ScheduledPost.objects.filter(owner=request.user).select_related('account')
+    fila_id = (request.GET.get('queue') or '').strip()
+    base = ScheduledPost.objects.filter(owner=request.user).select_related('account', 'queue')
     if status:
         base = base.filter(status=status)
+    if fila_id:
+        base = base.filter(queue_id=fila_id)
 
     paginator = Paginator(base.order_by('-scheduled_for'), 100)
     page = paginator.get_page(request.GET.get('page'))
@@ -42,6 +45,8 @@ def queue_list(request):
         'page_obj': page,
         'status_atual': status,
         'filtros': filtros,
+        'filas': PostQueue.objects.filter(owner=request.user).select_related('account'),
+        'fila_atual': fila_id,
         'total_filtrado': paginator.count,
         'form': form,
         'accounts': InstagramAccount.objects.filter(owner=request.user),
@@ -116,6 +121,12 @@ def bulk_posts(request):
         status_filtro = (request.POST.get('status') or '').strip()
         if status_filtro:
             qs = qs.filter(status=status_filtro)
+        tipo_filtro = (request.POST.get('post_type') or '').strip()
+        if tipo_filtro:
+            qs = qs.filter(post_type=tipo_filtro)
+        fila_filtro = (request.POST.get('queue') or '').strip()
+        if fila_filtro:
+            qs = qs.filter(queue_id=fila_filtro)
     else:
         qs = ScheduledPost.objects.filter(id__in=request.POST.getlist('post_ids'),
                                           owner=request.user)
@@ -164,6 +175,18 @@ def bulk_posts(request):
 
     destino = request.POST.get('next') or 'publisher:queue'
     return redirect(destino)
+
+
+@login_required
+@require_POST
+def toggle_queue_pause(request, queue_id):
+    """Pausa/retoma UMA fila específica (as outras da conta seguem rodando)."""
+    fila = get_object_or_404(PostQueue, id=queue_id, owner=request.user)
+    fila.paused = not fila.paused
+    fila.save(update_fields=['paused'])
+    estado = 'pausada' if fila.paused else 'retomada'
+    messages.success(request, f'Fila "{fila.name}" (@{fila.account.ig_username}) {estado}.')
+    return redirect(request.POST.get('next') or 'publisher:queue')
 
 
 @login_required
@@ -262,11 +285,19 @@ def delete_loop(request, loop_id):
 
 @login_required
 def stories(request):
-    posts = ScheduledPost.objects.filter(owner=request.user, post_type='STORY').select_related('account')
+    from django.core.paginator import Paginator
+
+    base = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY')
+            .select_related('account').order_by('-scheduled_for'))
+    paginator = Paginator(base, 60)
+    page = paginator.get_page(request.GET.get('page'))
+
     form = ScheduledPostForm(initial={'post_type': 'STORY'})
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
     return render(request, 'publisher/stories.html', {
-        'posts': posts,
+        'posts': page,
+        'page_obj': page,
+        'total_filtrado': paginator.count,
         'form': form,
         'accounts': InstagramAccount.objects.filter(owner=request.user),
     })
@@ -287,6 +318,9 @@ def composer(request):
         'caption_sets': CaptionSet.objects.filter(owner=user),
         'audios': Audio.objects.filter(owner=user),
         'post_types': ScheduledPost.TYPE_CHOICES,
+        # Nomes de fila já usados, para sugerir no campo.
+        'filas_existentes': sorted(set(
+            PostQueue.objects.filter(owner=user).values_list('name', flat=True))),
     }
     return render(request, 'publisher/composer.html', context)
 
@@ -314,6 +348,9 @@ def _composer_submit(request):
     audio = None
     if request.POST.get('audio_mode') == 'music':
         audio = Audio.objects.filter(id=request.POST.get('audio'), owner=user).first()
+
+    # Nome da fila: permite ter VÁRIAS filas por conta rodando em paralelo.
+    nome_fila = (request.POST.get('queue_name') or '').strip()
 
     # Hashtags: anexadas ao final da legenda.
     hashtags = (request.POST.get('hashtags') or '').strip()
@@ -434,6 +471,13 @@ def _composer_submit(request):
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
+
+        # Cada conta ganha (ou reaproveita) a fila com esse nome.
+        fila = None
+        if nome_fila:
+            fila, _ = PostQueue.objects.get_or_create(
+                owner=user, account=account, name=nome_fila)
+
         for i, vname in enumerate(queue_per_account):
             when_dt = start + i * interval
             when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
@@ -445,6 +489,7 @@ def _composer_submit(request):
             post = ScheduledPost(
                 owner=user,
                 account=account,
+                queue=fila,
                 post_type=post_type,
                 caption=caption,
                 caption_set=caption_set,

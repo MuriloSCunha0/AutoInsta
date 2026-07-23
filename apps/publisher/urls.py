@@ -10,6 +10,7 @@ urlpatterns = [
     path('remove/<int:post_id>/', views.remove_post, name='remove'),
     path('bulk/', views.bulk_posts, name='bulk_posts'),
     path('pause/', views.toggle_pause, name='toggle_pause'),
+    path('fila/<int:queue_id>/pause/', views.toggle_queue_pause, name='toggle_queue_pause'),
     path('loops/', views.loops, name='loops'),
     path('loops/add/', views.add_loop, name='add_loop'),
     path('loops/toggle/<int:loop_id>/', views.toggle_loop, name='toggle_loop'),

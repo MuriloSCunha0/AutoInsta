@@ -20,15 +20,23 @@
 {% block content %}
 <form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
     {% csrf_token %}
-    <input type="hidden" name="next" value="{% url 'publisher:stories' %}">
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="post_type" value="STORY">
+    <input type="hidden" name="todos" id="todos-flag" value="0">
 
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-        <h5 class="text-white mb-0"><i class="bi bi-play-btn text-warning me-2"></i> Meus Stories Agendados</h5>
+        <h5 class="text-white mb-0">
+            <i class="bi bi-play-btn text-warning me-2"></i> Meus Stories Agendados
+            <span class="text-muted small ms-1">({{ total_filtrado }})</span>
+        </h5>
         {% if posts %}
         <div class="d-flex align-items-center gap-2">
             <label class="text-muted small mb-0" style="cursor:pointer;">
-                <input type="checkbox" id="check-all" class="form-check-input me-1"> Selecionar todos
+                <input type="checkbox" id="check-all" class="form-check-input me-1"> Selecionar página
             </label>
+            {% if total_filtrado > posts|length %}
+            <a href="#" id="marcar-todos" class="small text-info">Selecionar todos os {{ total_filtrado }}</a>
+            {% endif %}
             <span class="text-muted small"><span id="sel-count">0</span> sel.</span>
             <button type="submit" name="acao" value="forcar" class="btn btn-sm btn-warning bulk-btn" disabled
                     onclick="return confirm('Forçar a publicação agora das selecionadas?')">
@@ -85,6 +93,20 @@
     </div>
 </form>
 
+{% if page_obj.has_other_pages %}
+<nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
 {% include 'publisher/partials/add_modal.html' %}
 
 <script>
@@ -95,13 +117,30 @@
     const rows = () => form.querySelectorAll('.row-check');
     const count = document.getElementById('sel-count');
     const btns = form.querySelectorAll('.bulk-btn');
+    const flag = document.getElementById('todos-flag');
+    const totalGeral = {{ total_filtrado }};
+
     function refresh() {
+        if (flag.value === '1') { btns.forEach((b) => { b.disabled = false; }); return; }
         const m = form.querySelectorAll('.row-check:checked').length;
         if (count) count.textContent = m;
         btns.forEach((b) => { b.disabled = m === 0; });
     }
-    if (all) all.addEventListener('change', () => { rows().forEach((c) => { c.checked = all.checked; }); refresh(); });
-    form.addEventListener('change', (e) => { if (e.target.classList.contains('row-check')) refresh(); });
+    if (all) all.addEventListener('change', () => {
+        flag.value = '0';
+        rows().forEach((c) => { c.checked = all.checked; }); refresh();
+    });
+    form.addEventListener('change', (e) => {
+        if (e.target.classList.contains('row-check')) { flag.value = '0'; refresh(); }
+    });
+    const marcarTodos = document.getElementById('marcar-todos');
+    if (marcarTodos) marcarTodos.addEventListener('click', (e) => {
+        e.preventDefault();
+        flag.value = '1';
+        if (count) count.textContent = totalGeral;
+        btns.forEach((b) => { b.disabled = false; });
+        marcarTodos.textContent = 'Todos os ' + totalGeral + ' selecionados';
+    });
     refresh();
 })();
 </script>

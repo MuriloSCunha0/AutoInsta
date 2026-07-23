@@ -25,6 +25,35 @@
 </div>
 {% endif %}
 
+{% if filas %}
+<div class="card p-3 mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="text-white mb-0"><i class="bi bi-list-ol text-purple me-2"></i> Filas</h6>
+        <a href="{% url 'publisher:queue' %}" class="btn btn-sm {% if not fila_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Ver tudo</a>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% for f in filas %}
+        <div class="d-flex align-items-center gap-1 border border-subtle rounded p-1 ps-2"
+             style="{% if f.paused %}opacity:.6;{% endif %}">
+            <a href="?queue={{ f.id }}" class="text-decoration-none small {% if fila_atual == f.id|stringformat:'s' %}text-info fw-bold{% else %}text-white{% endif %}">
+                {{ f.name }}
+                <span class="text-muted">· @{{ f.account.ig_username }}</span>
+                <span class="badge bg-dark bg-opacity-25 ms-1">{{ f.pendentes }}</span>
+            </a>
+            <form method="post" action="{% url 'publisher:toggle_queue_pause' f.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-sm btn-link p-0 px-1 {% if f.paused %}text-success{% else %}text-warning{% endif %}"
+                        title="{% if f.paused %}Retomar esta fila{% else %}Pausar esta fila{% endif %}">
+                    <i class="bi {% if f.paused %}bi-play-fill{% else %}bi-pause-fill{% endif %}"></i>
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <div class="d-flex flex-wrap gap-2 mb-4">
     <a href="{% url 'publisher:queue' %}" class="btn btn-sm {% if not status_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
     {% for chave, rotulo, qtd in filtros %}
@@ -38,6 +67,7 @@
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
     <input type="hidden" name="status" value="{{ status_atual }}">
+    <input type="hidden" name="queue" value="{{ fila_atual }}">
     <input type="hidden" name="todos" id="todos-flag" value="0">
 
     <div class="card p-0 overflow-hidden border-subtle">
@@ -109,7 +139,14 @@
                             </span>
                         </td>
                         <td class="text-white border-0">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
-                        <td class="border-0"><span class="text-white">@{{ post.account.ig_username }}</span></td>
+                        <td class="border-0">
+                            <span class="text-white">@{{ post.account.ig_username }}</span>
+                            {% if post.queue %}
+                            <div class="text-muted" style="font-size:0.7rem;">
+                                <i class="bi bi-list-ol"></i> {{ post.queue.name }}{% if post.queue.paused %} (pausada){% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
                         <td class="text-muted border-0">{{ post.get_post_type_display }}</td>
                         <td class="border-0 text-truncate text-secondary" style="max-width: 220px;" title="{{ post.caption }}">
                             {{ post.caption|default:"Sem legenda" }}

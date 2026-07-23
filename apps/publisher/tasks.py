@@ -74,7 +74,10 @@ def process_scheduled_posts():
     janela_24h = now - timedelta(hours=24)
 
     due = (ScheduledPost.objects.filter(status='queued', scheduled_for__lte=now)
-           .select_related('account').order_by('scheduled_for'))
+           .select_related('account', 'owner', 'queue')
+           # Rodízio: a fila que despachou há mais tempo vem primeiro, então
+           # várias filas da mesma conta avançam de forma justa.
+           .order_by('queue__last_dispatch', 'scheduled_for'))
 
     despachadas = set()
     for post in due:
@@ -82,6 +85,10 @@ def process_scheduled_posts():
 
         # Fila pausada pelo usuário: não publica nada dele.
         if post.owner.publishing_paused:
+            continue
+
+        # Fila nomeada pausada individualmente.
+        if post.queue and post.queue.paused:
             continue
 
         if conta.id in despachadas:
@@ -106,6 +113,11 @@ def process_scheduled_posts():
         post.save(update_fields=['status'])
         publish_reel.delay(post.id)
         despachadas.add(conta.id)
+
+        # Marca o rodízio: esta fila acabou de despachar.
+        if post.queue:
+            post.queue.last_dispatch = now
+            post.queue.save(update_fields=['last_dispatch'])
 
 
 def _e_rate_limit(msg):
