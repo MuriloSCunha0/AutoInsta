@@ -103,8 +103,14 @@ def buscar_views(account):
                 return (item.get('total_value') or {}).get('value')
         return None
 
+    from django.utils import timezone as _tz
+
     agora = int(time.time())
-    hoje = pedir()
+    # "Hoje" ancorado à meia-noite de Brasília (TIME_ZONE): sem since/until a
+    # Meta devolve uma janela ambígua (~25-48h) que inflava o número. Assim é
+    # exatamente o dia-calendário do usuário.
+    inicio_dia = _tz.localtime(_tz.now()).replace(hour=0, minute=0, second=0, microsecond=0)
+    hoje = pedir({'since': int(inicio_dia.timestamp()), 'until': agora})
     total = pedir({'since': agora - JANELA_TOTAL_DIAS * 86400, 'until': agora})
     return hoje, total
 

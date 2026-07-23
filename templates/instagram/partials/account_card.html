@@ -44,7 +44,7 @@
             </div>
         </div>
         
-        <div class="account-stats mb-4">
+        <div class="account-stats mb-3">
             <div class="stat w-100">
                 <span class="stat-value">{{ account.followers_count }}</span>
                 <span class="stat-label">Seguidores</span>
@@ -56,6 +56,18 @@
             <div class="stat w-100">
                 <span class="stat-value">{{ account.posts_count }}</span>
                 <span class="stat-label">Posts</span>
+            </div>
+        </div>
+
+        {# Visualizações reais da Meta (métrica `views` do /insights). #}
+        <div class="account-stats views-stats mb-4">
+            <div class="stat w-100">
+                <span class="stat-value text-info">{{ account.views_today|default:0 }}</span>
+                <span class="stat-label"><i class="bi bi-eye"></i> Views hoje</span>
+            </div>
+            <div class="stat w-100">
+                <span class="stat-value">{{ account.views_total|default:0 }}</span>
+                <span class="stat-label">Views total</span>
             </div>
         </div>
 

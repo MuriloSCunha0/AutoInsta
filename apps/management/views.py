@@ -124,6 +124,76 @@ def instagram_list(request):
     accounts = InstagramAccount.objects.select_related('owner').all().order_by('-created_at')
     return render(request, 'management/instagram.html', {'accounts': accounts})
 
+
+# =============================================================================
+# Moderação — o admin inspeciona o que está sendo postado (silencioso: o
+# usuário não é avisado) e pode banir contas.
+# =============================================================================
+@staff_member_required
+def moderation(request):
+    """Lista todos os usuários com suas contas, para revisão manual."""
+    from django.db.models import Count, Q
+
+    q = (request.GET.get('q') or '').strip()
+    usuarios = (User.objects.all()
+                .annotate(
+                    n_contas=Count('instagramaccount', distinct=True),
+                    n_posts=Count('scheduledpost', distinct=True),
+                )
+                .order_by('-n_posts'))
+    if q:
+        usuarios = usuarios.filter(Q(username__icontains=q) | Q(nickname__icontains=q))
+
+    # Contas de cada usuário, já carregadas para a tela.
+    contas = (InstagramAccount.objects.select_related('owner')
+              .order_by('owner_id', 'ig_username'))
+    por_usuario = {}
+    for c in contas:
+        por_usuario.setdefault(c.owner_id, []).append(c)
+
+    linhas = [{'user': u, 'contas': por_usuario.get(u.id, [])} for u in usuarios]
+    return render(request, 'management/moderation.html', {'linhas': linhas, 'q': q})
+
+
+@staff_member_required
+def moderation_account(request, account_id):
+    """Mostra o conteúdo que uma conta está postando, para avaliação manual."""
+    from django.core.paginator import Paginator
+
+    account = get_object_or_404(InstagramAccount.objects.select_related('owner'), id=account_id)
+    posts = (ScheduledPost.objects.filter(account=account)
+             .exclude(video_file='')
+             .order_by('-scheduled_for'))
+    paginator = Paginator(posts, 24)
+    page = paginator.get_page(request.GET.get('page'))
+    return render(request, 'management/moderation_account.html', {
+        'account': account,
+        'posts': page,
+        'page_obj': page,
+        'total': paginator.count,
+    })
+
+
+@staff_member_required
+def account_ban(request, account_id):
+    """Bane/desbane uma conta (silencioso — o usuário não é notificado)."""
+    if request.method != 'POST':
+        return redirect('management:moderation')
+    from django.utils import timezone
+
+    account = get_object_or_404(InstagramAccount, id=account_id)
+    account.banned_by_admin = not account.banned_by_admin
+    if account.banned_by_admin:
+        account.banned_reason = (request.POST.get('reason') or '').strip()[:255]
+        account.banned_at = timezone.now()
+        messages.success(request, f'Conta @{account.ig_username} banida. Não publica mais.')
+    else:
+        account.banned_reason = ''
+        account.banned_at = None
+        messages.success(request, f'Conta @{account.ig_username} desbanida. Voltou a publicar.')
+    account.save(update_fields=['banned_by_admin', 'banned_reason', 'banned_at'])
+    return redirect(request.POST.get('next') or 'management:moderation')
+
 @staff_member_required
 def posts_list(request):
     posts = ScheduledPost.objects.select_related('account', 'account__owner').all().order_by('-created_at')

@@ -69,6 +69,12 @@ class InstagramAccount(models.Model):
     views_today = models.IntegerField(default=0)
     views_total = models.IntegerField(default=0)
     views_checked_at = models.DateTimeField(null=True, blank=True)
+    # Moderação: banimento manual pelo admin (independe do status da Meta).
+    # Quando True, a conta não publica mais — usado quando o admin revisa o
+    # conteúdo e decide barrar. Silencioso: o usuário não é notificado.
+    banned_by_admin = models.BooleanField(default=False)
+    banned_reason = models.CharField(max_length=255, blank=True)
+    banned_at = models.DateTimeField(null=True, blank=True)
     session_blob = models.JSONField(null=True, blank=True)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)

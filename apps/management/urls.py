@@ -13,4 +13,7 @@ urlpatterns = [
     path('users/<int:user_id>/delete/', views.user_delete, name='user_delete'),
     path('instagram/', views.instagram_list, name='instagram'),
     path('posts/', views.posts_list, name='posts'),
+    path('moderacao/', views.moderation, name='moderation'),
+    path('moderacao/conta/<int:account_id>/', views.moderation_account, name='moderation_account'),
+    path('moderacao/conta/<int:account_id>/ban/', views.account_ban, name='account_ban'),
 ]

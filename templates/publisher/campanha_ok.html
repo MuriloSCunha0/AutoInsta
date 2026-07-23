@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Campanha agendada | AutoInsta{% endblock %}
+{% block page_title %}Campanha agendada{% endblock %}
+
+{% block content %}
+<div class="campaign-ok">
+    <div class="campaign-card">
+        <a href="{% url 'publisher:queue' %}" class="campaign-close" title="Fechar"><i class="bi bi-x-lg"></i></a>
+
+        <div class="campaign-kicker">Campanha agendada</div>
+        <h2 class="campaign-title">Fila criada com sucesso</h2>
+        <p class="campaign-sub">
+            <strong>{{ r.created|intcomma }}</strong> postagem(ns) agendada(s) em
+            <strong>{{ r.n_contas }}</strong> conta(s), usando <strong>{{ r.n_midias }}</strong> mídia(s).
+        </p>
+
+        <div class="campaign-grid">
+            <div class="campaign-stat">
+                <div class="campaign-stat-label">Tipo</div>
+                <div class="campaign-stat-value">{{ r.tipo }}</div>
+            </div>
+            <div class="campaign-stat">
+                <div class="campaign-stat-label">Modo</div>
+                <div class="campaign-stat-value">{{ r.modo }}</div>
+            </div>
+            <div class="campaign-stat">
+                <div class="campaign-stat-label">Intervalo</div>
+                <div class="campaign-stat-value">{{ r.intervalo }} min</div>
+            </div>
+            <div class="campaign-stat">
+                <div class="campaign-stat-label">Entradas na fila</div>
+                <div class="campaign-stat-value">{{ r.entradas }}</div>
+            </div>
+            <div class="campaign-stat">
+                <div class="campaign-stat-label">Repetição</div>
+                <div class="campaign-stat-value">{{ r.repeticao }}x</div>
+            </div>
+            <div class="campaign-stat">
+                <div class="campaign-stat-label">Limite diário</div>
+                <div class="campaign-stat-value">{{ r.limite }}</div>
+            </div>
+        </div>
+
+        {% if r.fila %}
+        <div class="campaign-fila-badge"><i class="bi bi-collection"></i> Fila: {{ r.fila }}</div>
+        {% endif %}
+
+        {% if r.por_conta %}
+        <div class="campaign-accounts">
+            {% for username, qtd in r.por_conta %}
+            <div class="campaign-account-row">
+                <span class="campaign-account-name">@{{ username }}</span>
+                <span class="campaign-account-count">{{ qtd }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if r.adiados or r.skipped %}
+        <div class="campaign-notes">
+            {% if r.adiados %}<div><i class="bi bi-calendar-plus"></i> {{ r.adiados }} remanejada(s) para os dias seguintes pelo limite diário.</div>{% endif %}
+            {% if r.skipped %}<div><i class="bi bi-slash-circle"></i> {{ r.skipped }} ignorada(s) por passar do "Parar em".</div>{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="campaign-actions">
+            <a href="{% url 'publisher:queue' %}" class="btn btn-primary"><i class="bi bi-list-check me-1"></i> Ver filas agora</a>
+            <a href="{% url 'publisher:composer' %}" class="btn btn-outline-secondary">Criar outra</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

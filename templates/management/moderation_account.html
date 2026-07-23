@@ -1,0 +1,89 @@
+{% extends 'management/base_management.html' %}
+{% load humanize %}
+
+{% block title %}@{{ account.ig_username }} | Moderação{% endblock %}
+{% block page_title %}Revisão de conteúdo{% endblock %}
+
+{% block management_content %}
+<div class="card bg-surface border-subtle mb-3">
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <div class="mod-account-pic" style="width:56px;height:56px;">
+                {% if account.profile_pic_url %}<img src="{{ account.profile_pic_url }}" alt="">
+                {% else %}<i class="bi bi-instagram"></i>{% endif %}
+            </div>
+            <div>
+                <div class="h5 text-white mb-0">@{{ account.ig_username }}</div>
+                <div class="text-muted small">
+                    Dono: {{ account.owner.display_name }} (@{{ account.owner.username }})
+                    · {{ account.followers_count|intcomma }} seguidores
+                    · {{ account.views_today|intcomma }} views hoje
+                </div>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'management:moderation' %}" class="btn btn-sm btn-outline-secondary">Voltar</a>
+            <form method="post" action="{% url 'management:account_ban' account.id %}" onsubmit="return confirm('{% if account.banned_by_admin %}Desbanir{% else %}Banir{% endif %} @{{ account.ig_username }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% if account.banned_by_admin %}
+                <button class="btn btn-sm btn-outline-success"><i class="bi bi-check-circle"></i> Desbanir</button>
+                {% else %}
+                <input type="text" name="reason" class="d-none" value="Conteúdo em violação">
+                <button class="btn btn-sm btn-danger"><i class="bi bi-slash-circle"></i> Banir conta</button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% if account.banned_by_admin %}
+    <div class="card-footer bg-transparent border-subtle text-danger small">
+        <i class="bi bi-slash-circle"></i> Conta banida{% if account.banned_reason %}: {{ account.banned_reason }}{% endif %}
+        {% if account.banned_at %}· {{ account.banned_at|date:"d/m/Y H:i" }}{% endif %} — não publica mais.
+    </div>
+    {% endif %}
+</div>
+
+<div class="text-muted small mb-2">{{ total|intcomma }} publicação(ões) — as mais recentes primeiro.</div>
+
+{% if posts %}
+<div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2">
+    {% for post in posts %}
+    <div class="col">
+        <div class="mod-media">
+            {% if post.thumbnail %}
+            <img src="{{ post.thumbnail.url }}" alt="" loading="lazy">
+            {% elif post.video_file %}
+            <video src="{{ post.video_file.url }}" preload="metadata" muted
+                   onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0;"></video>
+            {% endif %}
+            <div class="mod-media-info">
+                <span class="badge {% if post.status == 'published' %}bg-success{% elif post.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-75">
+                    {{ post.get_post_type_display }}
+                </span>
+                <span class="mod-media-date">{{ post.scheduled_for|date:"d/m H:i" }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="empty-state text-center py-5">
+    <i class="bi bi-camera-video-off text-muted mb-3" style="font-size: 3rem;"></i>
+    <p class="text-muted">Esta conta ainda não tem conteúdo na fila.</p>
+</div>
+{% endif %}
+{% endblock %}

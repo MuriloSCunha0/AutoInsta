@@ -517,6 +517,7 @@ def _composer_submit(request):
     created = 0
     skipped = 0
     adiados = 0
+    por_conta = []  # [(username, quantos)] para o resumo da campanha
     for account_id in account_ids:
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
@@ -528,6 +529,7 @@ def _composer_submit(request):
             fila, _ = PostQueue.objects.get_or_create(
                 owner=user, account=account, name=nome_fila)
 
+        criados_conta = 0
         for i, vname in enumerate(queue_per_account):
             when_dt = start + i * interval
             when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
@@ -555,15 +557,40 @@ def _composer_submit(request):
                 post.thumbnail.name = cover_name
             post.save()
             created += 1
+            criados_conta += 1
 
-    when = 'agora' if mode == 'now' else 'no horário agendado'
-    msg = f'{created} publicação(ões) enfileirada(s) para {len(account_ids)} conta(s) — começando {when}.'
-    if adiados:
-        msg += f' {adiados} remanejada(s) para os dias seguintes pelo limite diário.'
-    if skipped:
-        msg += f' {skipped} ignorada(s) por passar do "Parar em".'
-    messages.success(request, msg)
-    return redirect('publisher:queue')
+        if criados_conta:
+            por_conta.append((account.ig_username, criados_conta))
+
+    # Resumo da campanha para a tela de sucesso (como no Murphy).
+    total_contas = InstagramAccount.objects.filter(owner=user, status='active').count()
+    n_contas = len(por_conta)
+    request.session['campanha_ok'] = {
+        'created': created,
+        'skipped': skipped,
+        'adiados': adiados,
+        'n_contas': n_contas,
+        'n_midias': len(video_names),
+        'tipo': dict(ScheduledPost.TYPE_CHOICES).get(post_type, post_type),
+        'modo': 'Todas as contas' if n_contas >= total_contas and total_contas else f'{n_contas} conta(s)',
+        'intervalo': interval_minutes,
+        'entradas': len(queue_per_account),
+        'repeticao': repeat,
+        'limite': 'Ignorado' if not respeitar_limite else 'Respeitado',
+        'fila': nome_fila or '',
+        'por_conta': por_conta[:60],
+        'inicio': 'agora' if mode == 'now' else 'no horário agendado',
+    }
+    return redirect('publisher:campanha_ok')
+
+
+@login_required
+def campanha_ok(request):
+    """Tela de sucesso da campanha (resumo do que foi agendado)."""
+    resumo = request.session.pop('campanha_ok', None)
+    if not resumo:
+        return redirect('publisher:queue')
+    return render(request, 'publisher/campanha_ok.html', {'r': resumo})
 
 
 @login_required

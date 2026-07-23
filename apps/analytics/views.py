@@ -57,14 +57,15 @@ def dashboard(request):
             views_hoje=Coalesce(Sum('instagramaccount__views_today'), 0),
         )
         .filter(posts_hoje__gt=0)
-        .order_by('-posts_hoje', '-total_followers')[:10]
+        .order_by('-posts_hoje', '-total_followers')[:5]
     )
 
     ranking_list = []
     for idx, u in enumerate(users_with_metrics):
         ranking_list.append({
             'position': idx + 1,
-            'username': u.username,  # sem censura, a pedido
+            'name': u.display_name,  # nome do usuário, sem censura (a pedido)
+            'avatar': u.avatar.url if u.avatar else '',
             'posts': u.posts_hoje,
             'followers': u.total_followers,
             'views': u.total_views,

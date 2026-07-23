@@ -2006,6 +2006,46 @@ textarea.form-control {
   }
 }
 
+/* ── Reforço de responsividade mobile ────────────────────────────── */
+/* Nada deve empurrar a página para os lados: conteúdo largo rola dentro
+   do próprio container, nunca a tela inteira. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+@media (max-width: 768px) {
+  /* Tabelas largas rolam sozinhas em vez de estourar o layout. */
+  .table-responsive { -webkit-overflow-scrolling: touch; }
+  table { min-width: 0; }
+
+  /* Top-bar enxuta: a busca vira só o ícone, o título encolhe. */
+  .top-bar { padding: 0 14px; gap: 8px; }
+  .top-bar .page-title {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .top-bar .top-actions { gap: 6px; }
+  .cmdk-trigger-label, .cmdk-kbd { display: none; }
+  .cmdk-trigger { padding: 8px 10px; }
+
+  /* Barras de ação em massa e cabeçalhos de card sempre quebram linha. */
+  .card-header { flex-wrap: wrap; }
+
+  /* Imagens e vídeos nunca ultrapassam a largura disponível. */
+  img, video { max-width: 100%; height: auto; }
+
+  /* Grupos de botões do topo descem para baixo do título sem cortar. */
+  .top-actions .btn { padding: 6px 10px; }
+}
+
+@media (max-width: 480px) {
+  .content-wrap { padding: 16px 12px 100px; }
+  /* Cards de métrica em 2 colunas no celular (melhor que 1 gigante). */
+  .hero-title { font-size: 1.15rem; }
+  .modal-dialog { margin: 0.5rem; }
+}
+
 /* ── Sidebar overlay for mobile ────────────────────────────── */
 .sidebar-overlay {
   position: fixed;
@@ -3070,5 +3110,252 @@ input[type="file"].form-control:focus {
   .ranking-row { gap: 10px; padding: 10px 12px; }
   .ranking-sub { font-size: 0.72rem; }
   .ranking-score { padding: 6px 10px; font-size: 0.78rem; }
+}
+
+/* ── Moderação (painel admin) ────────────────────────────────────── */
+.mod-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-subtle);
+}
+.mod-account.is-banned { border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.06); }
+.mod-account-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(139, 92, 246, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c4b5fd;
+}
+.mod-account-pic img { width: 100%; height: 100%; object-fit: cover; }
+.mod-media {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #05070f;
+  border: 1px solid var(--border-subtle);
+}
+.mod-media img,
+.mod-media video { width: 100%; height: 100%; object-fit: cover; }
+.mod-media-info {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+}
+.mod-media-date { color: #fff; font-size: 0.68rem; opacity: 0.85; }
+
+/* ── Tela de sucesso da campanha ─────────────────────────────────── */
+.campaign-ok {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 80px;
+}
+.campaign-card {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: 22px;
+  padding: 36px 34px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+}
+.campaign-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all var(--tr-base);
+}
+.campaign-close:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.campaign-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.campaign-title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin: 8px 0 12px;
+}
+.campaign-sub { color: var(--text-secondary); margin-bottom: 24px; }
+.campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.campaign-stat {
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.campaign-stat-label {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.campaign-stat-value { color: var(--text-primary); font-weight: 700; font-size: 1.05rem; }
+.campaign-fila-badge {
+  display: inline-block;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+.campaign-accounts {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 6px 4px;
+  margin-bottom: 18px;
+}
+.campaign-account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+}
+.campaign-account-row + .campaign-account-row { border-top: 1px solid var(--border-subtle); }
+.campaign-account-name { color: var(--text-secondary); font-size: 0.9rem; }
+.campaign-account-count { color: var(--text-primary); font-weight: 700; }
+.campaign-notes {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.campaign-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+@media (max-width: 576px) {
+  .campaign-card { padding: 28px 20px; border-radius: 16px; }
+  .campaign-title { font-size: 1.6rem; }
+  .campaign-grid { grid-template-columns: 1fr 1fr; }
+  .campaign-actions .btn { flex: 1; }
+}
+
+/* ── Ranking "Top 5 players do dia" (estilo painel) ───────────────── */
+.rank-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.rank-title {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.15;
+  margin-bottom: 22px;
+}
+.rank-list { display: flex; flex-direction: column; }
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+.rank-row:last-child { border-bottom: 0; }
+/* Barrinha vertical à esquerda, como na referência */
+.rank-row::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 26px;
+  border-radius: 3px;
+  background: var(--primary);
+  opacity: 0.55;
+}
+.rank-row.is-me::before { opacity: 1; box-shadow: 0 0 12px var(--primary); }
+.rank-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: rgba(139, 92, 246, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c4b5fd;
+  font-size: 1.2rem;
+}
+.rank-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rank-id { flex: 1; min-width: 0; }
+.rank-name {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 1.02rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rank-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.rank-posts {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--primary);
+  white-space: nowrap;
+}
+@media (max-width: 576px) {
+  .rank-title { font-size: 1.3rem; margin-bottom: 16px; }
+  .rank-row { gap: 12px; padding: 12px 4px; }
+  .rank-avatar { width: 40px; height: 40px; }
+  .rank-name { font-size: 0.92rem; }
+  .rank-posts { font-size: 0.85rem; }
 }
 

@@ -1,0 +1,76 @@
+{% extends 'management/base_management.html' %}
+{% load humanize %}
+
+{% block title %}Moderação | Gestão{% endblock %}
+{% block page_title %}Moderação{% endblock %}
+
+{% block management_content %}
+<div class="card bg-surface border-subtle mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h5 class="text-white mb-0"><i class="bi bi-shield-check text-info me-2"></i> Revisão de conteúdo</h5>
+            <form method="get" class="d-flex gap-2">
+                <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm text-white border-subtle"
+                       style="background: var(--bg-input); min-width: 220px;" placeholder="Buscar usuário…">
+                <button class="btn btn-sm btn-outline-secondary">Buscar</button>
+            </form>
+        </div>
+        <p class="text-muted small mb-0">
+            Inspecione o que cada conta está postando e bana as que violarem as regras.
+            A revisão é silenciosa — o usuário não é avisado.
+        </p>
+    </div>
+</div>
+
+{% for linha in linhas %}
+<div class="card bg-surface border-subtle mb-3">
+    <div class="card-header bg-transparent border-subtle d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <span class="text-white fw-bold">{{ linha.user.display_name }}</span>
+            <span class="text-muted small">@{{ linha.user.username }}</span>
+            {% if not linha.user.is_active %}<span class="badge bg-warning bg-opacity-25 text-warning ms-1">inativo</span>{% endif %}
+        </div>
+        <div class="text-muted small">
+            {{ linha.contas|length }} conta(s) · {{ linha.user.n_posts|intcomma }} post(s)
+        </div>
+    </div>
+    <div class="card-body">
+        {% if linha.contas %}
+        <div class="row g-2">
+            {% for conta in linha.contas %}
+            <div class="col-md-6 col-lg-4">
+                <div class="mod-account {% if conta.banned_by_admin %}is-banned{% endif %}">
+                    <div class="mod-account-pic">
+                        {% if conta.profile_pic_url %}
+                        <img src="{{ conta.profile_pic_url }}" alt="">
+                        {% else %}<i class="bi bi-instagram"></i>{% endif %}
+                    </div>
+                    <div class="min-w-0 flex-grow-1">
+                        <div class="text-white text-truncate">@{{ conta.ig_username }}</div>
+                        <div class="text-muted small">
+                            {% if conta.banned_by_admin %}
+                            <span class="text-danger"><i class="bi bi-slash-circle"></i> banida</span>
+                            {% else %}
+                            {{ conta.views_today|intcomma }} views hoje
+                            {% endif %}
+                        </div>
+                    </div>
+                    <a href="{% url 'management:moderation_account' conta.id %}" class="btn btn-sm btn-outline-info" title="Ver conteúdo">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0">Nenhuma conta cadastrada.</p>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<div class="empty-state text-center py-5">
+    <i class="bi bi-people text-muted mb-3" style="font-size: 3rem;"></i>
+    <p class="text-muted">Nenhum usuário encontrado.</p>
+</div>
+{% endfor %}
+{% endblock %}

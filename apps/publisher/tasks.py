@@ -96,6 +96,10 @@ def process_scheduled_posts():
         if post.queue and post.queue.paused:
             continue
 
+        # Conta banida pelo admin (moderação): não publica mais nada.
+        if conta.banned_by_admin:
+            continue
+
         if conta.id in despachadas:
             continue  # já mandamos um post desta conta nesta rodada
 
