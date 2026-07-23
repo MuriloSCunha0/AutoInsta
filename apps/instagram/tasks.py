@@ -136,6 +136,27 @@ def refresh_quotas():
         except Exception:
             pass
 
+        # Seguidores: sem isto o número só era atualizado ao conectar a conta e
+        # ficava velho (visto em produção: 139 gravado × 151 na API).
+        try:
+            perfil = requests.get(
+                f"https://graph.instagram.com/{IG_API_VERSION}/me",
+                params={'fields': 'followers_count,follows_count,media_count',
+                        'access_token': token}, timeout=15,
+            ).json()
+            if 'error' not in perfil:
+                campos = []
+                for chave, atributo in (('followers_count', 'followers_count'),
+                                        ('follows_count', 'following_count'),
+                                        ('media_count', 'posts_count')):
+                    if perfil.get(chave) is not None:
+                        setattr(acc, atributo, perfil[chave])
+                        campos.append(atributo)
+                if campos:
+                    acc.save(update_fields=campos)
+        except Exception:
+            pass
+
         try:
             hoje, total = buscar_views(acc)
             campos = []
