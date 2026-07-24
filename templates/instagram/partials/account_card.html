@@ -17,10 +17,12 @@
             
             <div class="account-info">
                 <div class="account-username">@{{ account.ig_username }}</div>
-                {# Nem toda conta tem "nome" preenchido na Meta. Dizer
-                   "Aguardando sincronização" numa conta que está publicando
-                   normalmente é mentira — só usamos esse texto quando a
-                   conta realmente ainda não sincronizou. #}
+                {% comment %}
+                A Meta não devolve "name" para toda conta (verificado: contas
+                MEDIA_CREATOR vêm sem esse campo). Dizer "Aguardando
+                sincronização" numa conta que está publicando é mentira — esse
+                texto só vale quando a conta realmente não sincronizou.
+                {% endcomment %}
                 <div class="account-fullname">
                     {% if account.full_name %}{{ account.full_name }}
                     {% elif account.status == 'active' %}<span class="text-success">Conta sincronizada</span>
