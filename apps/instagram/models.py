@@ -130,6 +130,25 @@ class InstagramAccount(models.Model):
         from django.utils import timezone
         return bool(self.rate_limited_until and self.rate_limited_until > timezone.now())
 
+    def credenciais_meta(self):
+        """(app_id, app_secret) do app DESTA conta. Nunca de outro.
+
+        Cada conta é única e pertence ao Meta app pelo qual foi conectada.
+        Não existe fallback para "app ativo do usuário" nem para credencial
+        global: usar o app errado gera token inválido e derruba a conta.
+        """
+        app = self.meta_app
+        if not app:
+            raise ValueError(
+                f'@{self.ig_username} não está vinculada a um app Meta. '
+                'Reconecte a conta escolhendo o app dela.'
+            )
+        if app.owner_id != self.owner_id:
+            raise ValueError(
+                f'@{self.ig_username} está vinculada a um app de outro dono.'
+            )
+        return (app.meta_app_id or '').strip(), app.get_meta_secret()
+
     @property
     def esta_limitada(self):
         """Está barrada agora — por cooldown da Meta ou pelo teto diário."""

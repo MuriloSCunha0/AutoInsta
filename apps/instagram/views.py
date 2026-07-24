@@ -240,8 +240,15 @@ def add_account_meta(request):
     if meta_app_id:
         from apps.accounts.models import MetaApp
         meta_app = MetaApp.objects.filter(id=meta_app_id, owner=request.user).first()
+    # Cada conta pertence a UM app. Com vários apps e nenhum escolhido, não
+    # adivinhamos: vincular ao app errado invalida o token e derruba a conta.
+    meta_app = _resolver_app(request.user, meta_app)
     if meta_app is None:
-        meta_app = request.user.get_active_meta_app()
+        return HttpResponse(
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> '
+            'Escolha o <strong>app Meta</strong> desta conta. Cada conta é conectada '
+            'por um app específico — o token só funciona no app que o gerou.</div>'
+        )
 
     # O @ é opcional no import por token: se não vier, usamos o ig_user_id
     # como identificador provisório (a sincronização com a Meta preenche depois).
@@ -252,6 +259,20 @@ def add_account_meta(request):
         return HttpResponse(
             '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> O Token do Instagram é obrigatório.</div>'
         )
+
+    # Cada conta do Instagram é única no sistema: se outro usuário já a
+    # cadastrou, os dois publicariam nela ao mesmo tempo — cota da Meta
+    # estourada e risco real de bloqueio.
+    if ig_user_id.isdigit():
+        dona = (InstagramAccount.objects
+                .filter(ig_user_id=int(ig_user_id))
+                .exclude(owner=request.user).first())
+        if dona:
+            return HttpResponse(
+                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> '
+                'Esta conta do Instagram já está cadastrada por outro usuário. '
+                'Cada conta pertence a um único cadastro.</div>'
+            )
 
     # Sem limite de contas por enquanto (ainda não há planos pagos).
     try:
@@ -523,22 +544,50 @@ def _get_user_meta_app(user, app_pk):
     return MetaApp.objects.filter(id=app_pk, owner=user).first()
 
 
+def _resolver_app(user, escolhido=None):
+    """App Meta a vincular na conta. Só resolve quando NÃO há ambiguidade.
+
+    Cada conta pertence a um único app. Se o usuário tem mais de um app e não
+    escolheu, adivinhar (usando o "app ativo") vincularia a conta ao app
+    errado — o token não bate e a conta cai. Nesse caso devolvemos None e
+    quem chamou avisa o usuário.
+    """
+    from apps.accounts.models import MetaApp
+
+    if escolhido is not None:
+        return escolhido
+    apps_do_usuario = list(MetaApp.objects.filter(owner=user))
+    if len(apps_do_usuario) == 1:
+        return apps_do_usuario[0]
+    return None
+
+
 def _meta_credentials(user, app=None):
-    """Credenciais a usar, em ordem de prioridade:
-    1) app Meta informado (o escolhido para esta conta)
-    2) app ativo do usuário
-    3) campos legados no próprio usuário
-    4) variáveis globais do .env
+    """Credenciais Meta DESTE usuário. Nunca as de outro.
+
+    Ordem:
+      1) app informado (já validado como sendo do próprio usuário)
+      2) app ativo do usuário
+      3) campos legados no próprio usuário
+
+    Não existe passo 4. Antes havia um fallback para META_APP_ID/SECRET do
+    .env — um app ÚNICO compartilhado por todos os usuários. Bastava alguém
+    ficar sem app próprio para passar a usar o app de outra pessoa (na
+    prática, o do sistema), misturando as conexões. Sem credencial própria,
+    devolvemos vazio e a tela pede para cadastrar o app.
     """
     app = app or user.get_active_meta_app()
     if app and app.is_complete:
+        # Cinto de segurança: um app só serve ao seu dono.
+        if app.owner_id != user.id:
+            return '', ''
         return (app.meta_app_id or '').strip(), app.get_meta_secret()
 
     legacy_id = (getattr(user, 'meta_app_id', '') or '').strip()
     if legacy_id:
         return legacy_id, user.get_meta_app_secret()
 
-    return getattr(settings, 'META_APP_ID', ''), getattr(settings, 'META_APP_SECRET', '')
+    return '', ''
 
 
 @login_required
@@ -680,6 +729,19 @@ def oauth_callback(request):
             messages.error(request, "Não foi possível obter o username da Meta.")
             return redirect('instagram:list')
 
+        # Conta única no sistema: dois donos publicando na mesma conta
+        # estouram a cota da Meta e levam a bloqueio.
+        if user_id.isdigit():
+            ja_existe = (InstagramAccount.objects
+                         .filter(ig_user_id=int(user_id))
+                         .exclude(owner=request.user).exists())
+            if ja_existe:
+                messages.error(
+                    request,
+                    f'A conta @{username} já está cadastrada por outro usuário. '
+                    'Cada conta do Instagram pertence a um único cadastro.')
+                return redirect('instagram:list')
+
         # 4. Salvar / Atualizar Conta
         account, _created = InstagramAccount.objects.get_or_create(
             owner=request.user,
@@ -688,8 +750,9 @@ def oauth_callback(request):
         )
 
         account.set_meta_token(access_token)
-        # Vincula a conta ao app Meta pelo qual ela foi conectada.
-        account.meta_app = chosen_app or request.user.get_active_meta_app()
+        # Vincula a conta ao app pelo qual ela foi REALMENTE conectada — é o
+        # app que assinou o state e trocou o código pelo token.
+        account.meta_app = _resolver_app(request.user, chosen_app)
         if user_id.isdigit():
             account.ig_user_id = int(user_id)
         account.status = 'active'
