@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Postar | AutoInsta{% endblock %}
+{% block title %}Postar | SandraoFlow{% endblock %}
 {% block page_title %}Composer — Publicação em Massa{% endblock %}
 
 {% block content %}
@@ -108,21 +108,40 @@
         <div class="col-lg-5">
             <!-- Contas -->
             <div class="card p-4 mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="text-white mb-0"><i class="bi bi-people text-purple me-2"></i> Contas</h6>
                     {% if accounts %}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-all-accounts">Todas</button>
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="sel-sem-fila" title="Só as que não têm nada agendado">Sem fila</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-all-accounts">Todas</button>
+                    </div>
                     {% endif %}
                 </div>
                 {% if accounts %}
-                <div style="max-height: 220px; overflow-y: auto;">
+                <div style="max-height: 240px; overflow-y: auto;">
                     {% for acc in accounts %}
-                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle" style="cursor: pointer;">
+                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle acc-row" data-pendentes="{{ acc.pendentes }}" style="cursor: pointer;">
                         <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check">
-                        <span class="text-white">@{{ acc.ig_username }}</span>
-                        <span class="badge {% if acc.status == 'active' %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 ms-auto">{{ acc.get_status_display }}</span>
+                        <span class="text-white text-truncate" style="max-width: 45%;">@{{ acc.ig_username }}</span>
+                        {% if acc.status != 'active' %}
+                        <span class="badge bg-secondary bg-opacity-25 text-muted" style="font-size:0.6rem;" title="{{ acc.get_status_display }}"><i class="bi bi-slash-circle"></i></span>
+                        {% endif %}
+                        <span class="ms-auto">
+                            {% if acc.pendentes %}
+                            <span class="badge bg-warning bg-opacity-25 text-warning" title="Já tem {{ acc.pendentes }} na fila">
+                                <i class="bi bi-hourglass-split"></i> {{ acc.pendentes }} na fila
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success" style="opacity:.8;">
+                                <i class="bi bi-check2"></i> livre
+                            </span>
+                            {% endif %}
+                        </span>
                     </label>
                     {% endfor %}
+                </div>
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-info-circle"></i> Ordenadas: as <strong>livres</strong> primeiro, depois as que já têm fila.
                 </div>
                 {% else %}
                 <p class="text-muted small mb-0">Nenhuma conta conectada.
@@ -416,6 +435,19 @@
             const boxes = form.querySelectorAll('.acc-check');
             const allOn = [...boxes].every((b) => b.checked);
             boxes.forEach((b) => { b.checked = !allOn; });
+            recount();
+        });
+    }
+
+    // Selecionar só as contas SEM nada na fila (livres).
+    const selSemFila = document.getElementById('sel-sem-fila');
+    if (selSemFila) {
+        selSemFila.addEventListener('click', () => {
+            form.querySelectorAll('.acc-row').forEach((row) => {
+                const livre = row.getAttribute('data-pendentes') === '0';
+                const box = row.querySelector('.acc-check');
+                if (box) box.checked = livre;
+            });
             recount();
         });
     }

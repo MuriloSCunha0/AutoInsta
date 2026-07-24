@@ -265,6 +265,12 @@ SITE_URL = env("SITE_URL", default="http://localhost:8000")
 # vazio, cada usuário pode informar o token do próprio bot nas Configurações.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 
+# Web Push (PWA) — chaves VAPID. Geradas uma vez e postas no .env.
+# Sem elas, o Web Push fica desligado (o alerta ainda aparece no sino).
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", default="")
+VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="admin@sandraoflow.com")
+
 # =============================================================================
 # Meta / Facebook API OAuth
 # =============================================================================

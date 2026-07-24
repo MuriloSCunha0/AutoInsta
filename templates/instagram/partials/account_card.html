@@ -28,13 +28,34 @@
                     {% elif account.status == 'active' %}<span class="text-success">Conta sincronizada</span>
                     {% else %}Aguardando sincronização...{% endif %}
                 </div>
-                {% if account.meta_app %}
-                <div class="mt-1">
-                    <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill" style="font-size:0.65rem;">
-                        <i class="bi bi-meta me-1"></i>{{ account.meta_app.name }}
+                {# App Meta da conta — trocável na hora (sem apagar/recadastrar). #}
+                <div class="mt-1 dropdown">
+                    <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill"
+                          style="font-size:0.65rem; cursor:pointer;"
+                          data-bs-toggle="dropdown" title="Trocar o app Meta desta conta">
+                        <i class="bi bi-meta me-1"></i>{{ account.meta_app.name|default:"Sem app" }}
+                        <i class="bi bi-chevron-down ms-1"></i>
                     </span>
+                    <ul class="dropdown-menu" style="background: var(--bg-card); border-color: var(--border-subtle);">
+                        <li><h6 class="dropdown-header text-muted small">Vincular a este app:</h6></li>
+                        {% for app in account.owner.meta_apps.all %}
+                        <li>
+                            <form hx-post="{% url 'instagram:change_app' account.id %}"
+                                  hx-target="#account-{{ account.id }}" hx-swap="outerHTML">
+                                {% csrf_token %}
+                                <input type="hidden" name="meta_app" value="{{ app.id }}">
+                                <button type="submit" class="dropdown-item small {% if account.meta_app_id == app.id %}text-info{% endif %}"
+                                        style="color: var(--text-primary);">
+                                    {% if account.meta_app_id == app.id %}<i class="bi bi-check2 me-1"></i>{% else %}<i class="bi bi-meta me-1 opacity-50"></i>{% endif %}
+                                    {{ app.name }}
+                                </button>
+                            </form>
+                        </li>
+                        {% empty %}
+                        <li><span class="dropdown-item-text text-muted small">Nenhum app cadastrado.</span></li>
+                        {% endfor %}
+                    </ul>
                 </div>
-                {% endif %}
             </div>
             
             <div class="ms-auto text-end">
@@ -53,7 +74,30 @@
                 {% endif %}
             </div>
         </div>
-        
+
+        {# Forçar postagem — no topo, bem visível (publica mesmo no limite/cooldown). #}
+        <form hx-post="{% url 'instagram:toggle_forcar' account.id %}"
+              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+              class="forcar-topo mb-3">
+            {% csrf_token %}
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-lightning-charge-fill {% if account.ignorar_limites %}text-warning{% else %}text-muted{% endif %}"></i>
+                <span class="small {% if account.ignorar_limites %}text-white{% else %}text-muted{% endif %} flex-grow-1">
+                    Forçar postagem
+                </span>
+                {% if account.ignorar_limites %}
+                <span class="badge bg-warning bg-opacity-25 text-warning" style="font-size:0.62rem;">ignorando limite</span>
+                {% elif account.esta_limitada %}
+                <span class="badge bg-danger bg-opacity-25 text-danger" style="font-size:0.62rem;">limitada agora</span>
+                {% endif %}
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch"
+                           {% if account.ignorar_limites %}checked{% endif %}
+                           onchange="this.form.requestSubmit()">
+                </div>
+            </div>
+        </form>
+
         <div class="account-stats mb-3">
             <div class="stat w-100">
                 <span class="stat-value">{{ account.followers_count }}</span>
@@ -187,29 +231,6 @@
             {% endif %}
         </form>
 
-        {# Forçar: publica mesmo com o teto batido ou em cooldown da Meta. #}
-        <form hx-post="{% url 'instagram:toggle_forcar' account.id %}"
-              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
-              class="d-flex align-items-center gap-2 mb-3 small">
-            {% csrf_token %}
-            <span class="text-muted" title="Ignora o limite diário e o cooldown da Meta">
-                <i class="bi bi-lightning-charge"></i> Forçar postagem
-            </span>
-            <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" role="switch"
-                       {% if account.ignorar_limites %}checked{% endif %}
-                       onchange="this.form.requestSubmit()">
-            </div>
-            {% if account.ignorar_limites %}
-            <span class="badge bg-warning bg-opacity-25 text-warning" style="font-size:0.65rem;">
-                ignorando limite
-            </span>
-            {% elif account.esta_limitada %}
-            <span class="badge bg-secondary bg-opacity-25 text-muted" style="font-size:0.65rem;">
-                limitada agora
-            </span>
-            {% endif %}
-        </form>
 
         <div class="account-actions mt-auto d-flex gap-2">
             {% if account.meta_access_token %}

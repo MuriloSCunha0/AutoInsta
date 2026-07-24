@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block title %}Alertas | AutoInsta{% endblock %}
+{% block title %}Alertas | SandraoFlow{% endblock %}
 {% block page_title %}Alertas e notificações{% endblock %}
 
 {% block top_actions %}
@@ -81,48 +81,24 @@
 
         <div class="col-lg-5">
             <div class="card p-4 h-100">
-                <h5 class="text-white mb-1"><i class="bi bi-phone text-info me-2"></i> Receber no celular</h5>
+                <h5 class="text-white mb-1"><i class="bi bi-phone text-info me-2"></i> Notificações no celular</h5>
                 <p class="text-muted small mb-3">
-                    Os alertas chegam pelo Telegram, como notificação do celular.
+                    As notificações chegam pelo próprio site, como um app — sem instalar nada de fora.
                 </p>
 
-                <div class="alerta-passos mb-3">
-                    <div><span>1</span> No Telegram, procure <strong>@BotFather</strong> e envie <code>/newbot</code>.</div>
-                    <div><span>2</span> Copie o <strong>token</strong> que ele devolver e cole abaixo.</div>
-                    <div><span>3</span> Abra uma conversa com o seu bot e mande <code>/start</code>.</div>
-                    <div><span>4</span> Acesse <strong>@userinfobot</strong> para pegar o seu <strong>chat ID</strong>.</div>
+                <div id="push-status" class="alert py-2 small border-0 bg-secondary bg-opacity-10 text-muted mb-3">
+                    <i class="bi bi-info-circle"></i> Verificando…
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label text-muted small">Chat ID</label>
-                    <input type="text" name="telegram_chat_id" value="{{ pref.telegram_chat_id }}"
-                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
-                           placeholder="Ex: 123456789">
-                </div>
+                <button type="button" id="btn-ativar-push" class="btn btn-primary w-100 mb-3">
+                    <i class="bi bi-bell-fill me-1"></i> Ativar notificações neste aparelho
+                </button>
 
-                <div class="mb-3">
-                    <label class="form-label text-muted small">
-                        Token do bot
-                        {% if pref.telegram_token_enc %}<span class="text-success">(já configurado)</span>{% endif %}
-                    </label>
-                    <input type="password" name="telegram_token" autocomplete="new-password"
-                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
-                           placeholder="{% if pref.telegram_token_enc %}Deixe vazio para manter{% else %}123456:ABC-DEF...{% endif %}">
-                </div>
-
-                {% if pref.telegram_token_enc %}
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" name="limpar_telegram" id="limpar_telegram">
-                    <label class="form-check-label text-muted small" for="limpar_telegram">Remover o token salvo</label>
-                </div>
-                {% endif %}
-
-                <div class="alert py-2 small border-0 {% if pref.telegram_ativo %}bg-success bg-opacity-10 text-success{% else %}bg-secondary bg-opacity-10 text-muted{% endif %}">
-                    {% if pref.telegram_ativo %}
-                    <i class="bi bi-check-circle"></i> Telegram configurado.
-                    {% else %}
-                    <i class="bi bi-info-circle"></i> Sem Telegram: os alertas ficam só no sino do painel.
-                    {% endif %}
+                <div class="alerta-passos">
+                    <div><span>1</span> No celular, abra este site no navegador.</div>
+                    <div><span>2</span> No <strong>iPhone</strong>: toque em Compartilhar → <strong>Adicionar à Tela de Início</strong> e abra por lá (o iOS só permite notificação assim).</div>
+                    <div><span>3</span> Toque em <strong>Ativar notificações</strong> acima e permita quando o navegador perguntar.</div>
+                    <div><span>4</span> Pronto — use o botão <strong>Enviar teste</strong> lá em cima para conferir.</div>
                 </div>
             </div>
         </div>
@@ -133,4 +109,54 @@
         <a href="{% url 'notifications:list' %}" class="btn btn-outline-secondary">Ver notificações</a>
     </div>
 </form>
+
+<script>
+(function () {
+    const status = document.getElementById('push-status');
+    const btn = document.getElementById('btn-ativar-push');
+    if (!btn) return;
+
+    function pinta(classe, icone, texto) {
+        status.className = 'alert py-2 small border-0 ' + classe;
+        status.innerHTML = '<i class="bi ' + icone + '"></i> ' + texto;
+    }
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        pinta('bg-warning bg-opacity-10 text-warning', 'bi-exclamation-triangle',
+              'Este navegador não suporta notificações. No iPhone, adicione o site à Tela de Início e abra por lá.');
+        btn.disabled = true;
+        return;
+    }
+
+    async function checa() {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub && Notification.permission === 'granted') {
+            pinta('bg-success bg-opacity-10 text-success', 'bi-check-circle', 'Notificações ativas neste aparelho.');
+            btn.innerHTML = '<i class="bi bi-check2 me-1"></i> Ativado';
+        } else if (Notification.permission === 'denied') {
+            pinta('bg-danger bg-opacity-10 text-danger', 'bi-x-circle',
+                  'As notificações foram bloqueadas. Libere nas configurações do navegador/site.');
+        } else {
+            pinta('bg-secondary bg-opacity-10 text-muted', 'bi-bell-slash', 'Ainda não ativado neste aparelho.');
+        }
+    }
+    checa();
+
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const r = await window.ativarNotificacoes();
+        if (r && r.ok) {
+            pinta('bg-success bg-opacity-10 text-success', 'bi-check-circle', 'Notificações ativas neste aparelho!');
+            btn.innerHTML = '<i class="bi bi-check2 me-1"></i> Ativado';
+        } else {
+            const motivo = r && r.motivo === 'permissao'
+                ? 'Você recusou a permissão. Libere nas configurações do site.'
+                : 'Não consegui ativar aqui. No iPhone, abra pela Tela de Início.';
+            pinta('bg-warning bg-opacity-10 text-warning', 'bi-exclamation-triangle', motivo);
+            btn.disabled = false;
+        }
+    });
+})();
+</script>
 {% endblock %}

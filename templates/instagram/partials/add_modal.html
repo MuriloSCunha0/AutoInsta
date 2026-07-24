@@ -115,12 +115,14 @@
                                 {% if meta_apps %}
                                 <select name="meta_app" class="form-select text-white border-subtle" style="background: var(--bg-input);">
                                     {% for app in meta_apps %}
-                                    <option value="{{ app.id }}" {% if app.is_active %}selected{% endif %}>
+                                    {# Se o usuário está filtrando por um app, já vem esse — senão o ativo. #}
+                                    <option value="{{ app.id }}"
+                                        {% if filtro_app and filtro_app == app.id|stringformat:'s' %}selected{% elif not filtro_app and app.is_active %}selected{% endif %}>
                                         {{ app.name }}{% if app.is_active %} (padrão){% endif %}
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <small class="text-muted">A conta ficará vinculada a este app.</small>
+                                <small class="text-muted">A conta ficará vinculada a este app. Confira antes de importar.</small>
                                 {% else %}
                                 <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-0">
                                     <i class="bi bi-exclamation-triangle me-1"></i> Nenhum app Meta cadastrado.

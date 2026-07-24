@@ -31,6 +31,16 @@ urlpatterns = [
     path("management/", include("apps.management.urls", namespace="management")),
 ]
 
+# PWA: manifest, service worker e ícones PRECISAM ficar na raiz do domínio —
+# o escopo do service worker é o diretório de onde ele é servido.
+from apps.notifications import views as _pwa  # noqa: E402
+
+urlpatterns += [
+    path("manifest.webmanifest", _pwa.manifest, name="pwa_manifest"),
+    path("sw.js", _pwa.service_worker, name="pwa_sw"),
+    path("icon-<int:size>.png", _pwa.app_icon, name="pwa_icon"),
+]
+
 # Servir arquivos de mídia em desenvolvimento
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

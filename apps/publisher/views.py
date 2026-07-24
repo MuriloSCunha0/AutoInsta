@@ -356,8 +356,16 @@ def composer(request):
     if request.method == 'POST':
         return _composer_submit(request)
 
+    # Cada conta com a contagem do que já está na fila — o disparo em massa
+    # precisa distinguir "já tem agendado" de "sem nada", não só ativa/inativa.
+    from django.db.models import Count, Q
+    contas = (InstagramAccount.objects.filter(owner=user)
+              .annotate(pendentes=Count('scheduledpost',
+                                        filter=Q(scheduledpost__status__in=['queued', 'processing'])))
+              .order_by('pendentes', 'ig_username'))  # as sem agendados primeiro
+
     context = {
-        'accounts': InstagramAccount.objects.filter(owner=user),
+        'accounts': contas,
         # Story e Post de feed aceitam IMAGEM também — não filtramos só vídeo.
         'library_media': MediaAsset.objects.filter(owner=user),
         'library_covers': MediaAsset.objects.filter(owner=user, kind='image'),

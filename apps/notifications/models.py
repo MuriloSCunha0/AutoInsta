@@ -51,6 +51,25 @@ class AlertPreference(models.Model):
     def telegram_ativo(self):
         return bool(self.telegram_chat_id and self.get_telegram_token())
 
+
+class PushSubscription(models.Model):
+    """Aparelho inscrito para receber notificações Web Push (PWA).
+
+    Cada navegador/dispositivo do usuário vira uma inscrição. É o que faz a
+    notificação chegar no celular mesmo com o site fechado — sem bot, só o
+    próprio site instalado como app.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='push_subs')
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def como_dict(self):
+        return {'endpoint': self.endpoint,
+                'keys': {'p256dh': self.p256dh, 'auth': self.auth}}
+
 class Notification(models.Model):
     TYPE_CHOICES = [
         ('info', 'Informação'),

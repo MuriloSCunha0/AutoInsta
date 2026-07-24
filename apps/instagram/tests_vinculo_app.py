@@ -120,3 +120,27 @@ class ContaUnicaTest(TestCase):
         })
         self.assertIn('já está cadastrada por outro usuário', resp.content.decode())
         self.assertEqual(InstagramAccount.objects.filter(ig_user_id=555).count(), 1)
+
+
+class TrocarAppTest(TestCase):
+    """Trocar o app de uma conta sem apagar/recadastrar (bug relatado)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='dono', password='x', is_active=True)
+        self.a = MetaApp.objects.create(owner=self.user, name='App A', meta_app_id='1')
+        self.b = MetaApp.objects.create(owner=self.user, name='App B', meta_app_id='2')
+        self.conta = InstagramAccount.objects.create(
+            owner=self.user, ig_username='c', meta_app=self.a)
+        self.client.force_login(self.user)
+
+    def test_troca_para_o_outro_app(self):
+        self.client.post(f'/instagram/{self.conta.id}/change-app/', {'meta_app': self.b.id})
+        self.conta.refresh_from_db()
+        self.assertEqual(self.conta.meta_app_id, self.b.id)
+
+    def test_nao_aceita_app_de_outro_usuario(self):
+        outro = User.objects.create_user(username='outro', password='x')
+        alheio = MetaApp.objects.create(owner=outro, name='Alheio', meta_app_id='9')
+        self.client.post(f'/instagram/{self.conta.id}/change-app/', {'meta_app': alheio.id})
+        self.conta.refresh_from_db()
+        self.assertEqual(self.conta.meta_app_id, self.a.id)  # não mudou

@@ -439,6 +439,29 @@ def update_account_limit(request, account_id):
 
 @login_required
 @require_POST
+def change_account_app(request, account_id):
+    """Troca o app Meta de uma conta (sem apagar e recadastrar).
+
+    Resolve o caso real: o usuário queria mover contas de um app para outro e,
+    como o cadastro sempre repunha no app ativo, elas não iam para o app novo.
+    Só aceita um app do próprio usuário — nunca de outro.
+    """
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    app_pk = (request.POST.get('meta_app') or '').strip()
+    if app_pk:
+        app = _get_user_meta_app(request.user, app_pk)
+        if app is None:
+            return _toast('App inválido.', 'error')
+        account.meta_app = app
+        account.save(update_fields=['meta_app'])
+    return render(request, 'instagram/partials/account_card.html', {
+        'account': account,
+        'meta_apps': MetaApp.objects.filter(owner=request.user),
+    })
+
+
+@login_required
+@require_POST
 def toggle_forcar(request, account_id):
     """Liga/desliga o modo forçado: publica mesmo com o limite batido.
 

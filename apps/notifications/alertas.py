@@ -67,5 +67,12 @@ def alertar(user, tipo_pref, titulo, mensagem, chave, nivel='warning', account=N
         user=user, title=titulo, message=mensagem,
         notification_type=nivel, related_account=account,
     )
+    # Notificação no celular pelo próprio site (Web Push / PWA).
+    try:
+        from .push import enviar_push
+        enviar_push(user, titulo, mensagem, url='/notifications/')
+    except Exception:
+        pass
+    # Telegram continua disponível como canal extra opcional.
     _enviar_telegram(pref, titulo, mensagem)
     return True
