@@ -446,6 +446,8 @@ def change_account_app(request, account_id):
     como o cadastro sempre repunha no app ativo, elas não iam para o app novo.
     Só aceita um app do próprio usuário — nunca de outro.
     """
+    from apps.accounts.models import MetaApp
+
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     app_pk = (request.POST.get('meta_app') or '').strip()
     if app_pk:
