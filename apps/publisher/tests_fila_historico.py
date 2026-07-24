@@ -79,3 +79,41 @@ class FilaHistoricoTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         for post in resp.context['recent_posts']:
             self.assertIn(post.status, ScheduledPost.STATUS_ATIVOS)
+
+
+class FiltroPorContaTest(TestCase):
+    """Filtro por conta na fila: ver e operar só a conta escolhida."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='dono', password='x', is_active=True)
+        self.client.force_login(self.user)
+        self.a = InstagramAccount.objects.create(owner=self.user, ig_username='conta_a')
+        self.b = InstagramAccount.objects.create(owner=self.user, ig_username='conta_b')
+        agora = timezone.now()
+        for _ in range(3):
+            ScheduledPost.objects.create(owner=self.user, account=self.a, post_type='REELS',
+                                         status='queued', scheduled_for=agora)
+        for _ in range(2):
+            ScheduledPost.objects.create(owner=self.user, account=self.b, post_type='REELS',
+                                         status='queued', scheduled_for=agora)
+
+    def test_filtra_a_fila_pela_conta(self):
+        resp = self.client.get(reverse('publisher:queue'), {'account': self.a.id})
+        self.assertEqual(resp.status_code, 200)
+        contas = {p.account_id for p in resp.context['posts']}
+        self.assertEqual(contas, {self.a.id})
+        self.assertEqual(resp.context['total_filtrado'], 3)
+
+    def test_excluir_todas_da_conta_nao_toca_nas_outras(self):
+        """O ponto crítico: 'selecionar todas' com conta filtrada não pode
+        apagar posts de outra conta."""
+        self.client.post(reverse('publisher:bulk_posts'),
+                         {'acao': 'excluir', 'todos': '1', 'escopo': 'fila',
+                          'account': str(self.a.id)})
+        self.assertEqual(ScheduledPost.objects.filter(account=self.a).count(), 0)
+        self.assertEqual(ScheduledPost.objects.filter(account=self.b).count(), 2)
+
+    def test_sem_filtro_de_conta_opera_todas(self):
+        self.client.post(reverse('publisher:bulk_posts'),
+                         {'acao': 'excluir', 'todos': '1', 'escopo': 'fila'})
+        self.assertEqual(ScheduledPost.objects.filter(status='queued').count(), 0)

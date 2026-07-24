@@ -25,17 +25,46 @@
 </div>
 {% endif %}
 
+{# Filtro por conta: organiza a fila para ver e operar uma conta de cada vez. #}
+<div class="card p-3 mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="text-white mb-0"><i class="bi bi-instagram text-purple me-2"></i> Conta</h6>
+        {% if conta_atual %}
+        <a href="{% url 'publisher:queue' %}{% if status_atual %}?status={{ status_atual }}{% endif %}"
+           class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i> Limpar conta</a>
+        {% endif %}
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'publisher:queue' %}{% if status_atual %}?status={{ status_atual }}{% endif %}"
+           class="btn btn-sm {% if not conta_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Todas as contas
+        </a>
+        {% for acc in accounts %}
+        <a href="?account={{ acc.id }}{% if status_atual %}&status={{ status_atual }}{% endif %}"
+           class="btn btn-sm {% if conta_atual == acc.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            @{{ acc.ig_username }}
+            {% if acc.pendentes %}<span class="badge bg-warning bg-opacity-25 text-warning ms-1">{{ acc.pendentes }}</span>{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
 {% if filas %}
 <div class="card p-3 mb-4">
     <div class="d-flex align-items-center justify-content-between mb-2">
-        <h6 class="text-white mb-0"><i class="bi bi-list-ol text-purple me-2"></i> Filas</h6>
-        <a href="{% url 'publisher:queue' %}" class="btn btn-sm {% if not fila_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Ver tudo</a>
+        <h6 class="text-white mb-0">
+            <i class="bi bi-list-ol text-purple me-2"></i> Filas
+            {% if conta_atual %}<span class="text-muted small">desta conta</span>{% endif %}
+        </h6>
+        <a href="?{% if conta_atual %}account={{ conta_atual }}{% endif %}{% if status_atual %}&status={{ status_atual }}{% endif %}"
+           class="btn btn-sm {% if not fila_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Ver tudo</a>
     </div>
     <div class="d-flex flex-wrap gap-2">
         {% for f in filas %}
         <div class="d-flex align-items-center gap-1 border border-subtle rounded p-1 ps-2"
              style="{% if f.paused %}opacity:.6;{% endif %}">
-            <a href="?queue={{ f.id }}" class="text-decoration-none small {% if fila_atual == f.id|stringformat:'s' %}text-info fw-bold{% else %}text-white{% endif %}">
+            <a href="?queue={{ f.id }}{% if conta_atual %}&account={{ conta_atual }}{% endif %}{% if status_atual %}&status={{ status_atual }}{% endif %}"
+               class="text-decoration-none small {% if fila_atual == f.id|stringformat:'s' %}text-info fw-bold{% else %}text-white{% endif %}">
                 {{ f.name }}
                 <span class="text-muted">· @{{ f.account.ig_username }}</span>
                 <span class="badge bg-dark bg-opacity-25 ms-1">{{ f.pendentes }}</span>
@@ -55,9 +84,11 @@
 {% endif %}
 
 <div class="d-flex flex-wrap gap-2 mb-4">
-    <a href="{% url 'publisher:queue' %}" class="btn btn-sm {% if not status_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+    <a href="?{% if conta_atual %}account={{ conta_atual }}{% endif %}{% if fila_atual %}&queue={{ fila_atual }}{% endif %}"
+       class="btn btn-sm {% if not status_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
     {% for chave, rotulo, qtd in filtros %}
-    <a href="?status={{ chave }}" class="btn btn-sm {% if status_atual == chave %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+    <a href="?status={{ chave }}{% if conta_atual %}&account={{ conta_atual }}{% endif %}{% if fila_atual %}&queue={{ fila_atual }}{% endif %}"
+       class="btn btn-sm {% if status_atual == chave %}btn-primary{% else %}btn-outline-secondary{% endif %}">
         {{ rotulo }} <span class="badge bg-dark bg-opacity-25 ms-1">{{ qtd }}</span>
     </a>
     {% endfor %}
@@ -72,6 +103,7 @@
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
     <input type="hidden" name="status" value="{{ status_atual }}">
     <input type="hidden" name="queue" value="{{ fila_atual }}">
+    <input type="hidden" name="account" value="{{ conta_atual }}">
     <input type="hidden" name="todos" id="todos-flag" value="0">
     {# "Selecionar todas" aqui nunca pode alcançar o histórico de publicados. #}
     <input type="hidden" name="escopo" value="fila">
@@ -183,11 +215,11 @@
 <nav class="mt-3 d-flex justify-content-center">
     <ul class="pagination pagination-sm mb-0">
         {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}">Anterior</a></li>
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}{% if conta_atual %}&account={{ conta_atual }}{% endif %}{% if fila_atual %}&queue={{ fila_atual }}{% endif %}">Anterior</a></li>
         {% endif %}
         <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
         {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}">Próxima</a></li>
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}{% if conta_atual %}&account={{ conta_atual }}{% endif %}{% if fila_atual %}&queue={{ fila_atual }}{% endif %}">Próxima</a></li>
         {% endif %}
     </ul>
 </nav>

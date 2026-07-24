@@ -16,10 +16,11 @@ from django.utils import timezone
 @login_required
 def queue_list(request):
     from django.core.paginator import Paginator
-    from django.db.models import Count
+    from django.db.models import Count, Q
 
     status = (request.GET.get('status') or '').strip()
     fila_id = (request.GET.get('queue') or '').strip()
+    conta_id = (request.GET.get('account') or '').strip()
 
     # A fila é o que está POR FAZER. Publicado saiu da fila: virou histórico,
     # que tem tela própria (publisher:historico).
@@ -30,6 +31,9 @@ def queue_list(request):
         base = base.filter(status=status)
     else:
         status = ''
+    # Filtro por conta: mostra só o que é daquela conta (posts e filas).
+    if conta_id:
+        base = base.filter(account_id=conta_id)
     if fila_id:
         base = base.filter(queue_id=fila_id)
 
@@ -46,6 +50,17 @@ def queue_list(request):
                for chave, rotulo in ScheduledPost.STATUS_CHOICES
                if chave in ScheduledPost.STATUS_ATIVOS]
 
+    # As filas exibidas seguem o filtro de conta, para a tela ficar coerente.
+    filas = PostQueue.objects.filter(owner=request.user).select_related('account')
+    if conta_id:
+        filas = filas.filter(account_id=conta_id)
+
+    # Contas com o total pendente de cada uma, para o seletor de conta.
+    contas = (InstagramAccount.objects.filter(owner=request.user)
+              .annotate(pendentes=Count('scheduledpost',
+                                        filter=Q(scheduledpost__status__in=ScheduledPost.STATUS_ATIVOS)))
+              .order_by('-pendentes', 'ig_username'))
+
     form = ScheduledPostForm()
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
     return render(request, 'publisher/queue.html', {
@@ -53,12 +68,13 @@ def queue_list(request):
         'page_obj': page,
         'status_atual': status,
         'filtros': filtros,
-        'filas': PostQueue.objects.filter(owner=request.user).select_related('account'),
+        'filas': filas,
         'fila_atual': fila_id,
+        'conta_atual': conta_id,
         'total_filtrado': paginator.count,
         'total_publicados': contagens.get('published', 0),
         'form': form,
-        'accounts': InstagramAccount.objects.filter(owner=request.user),
+        'accounts': contas,
     })
 
 
@@ -170,6 +186,11 @@ def bulk_posts(request):
         fila_filtro = (request.POST.get('queue') or '').strip()
         if fila_filtro:
             qs = qs.filter(queue_id=fila_filtro)
+        # Filtro por conta: "selecionar todas" tem de respeitar a conta aberta,
+        # senão a ação atingiria posts de outras contas que a tela nem mostrava.
+        conta_filtro = (request.POST.get('account') or '').strip()
+        if conta_filtro:
+            qs = qs.filter(account_id=conta_filtro)
     else:
         qs = ScheduledPost.objects.filter(id__in=request.POST.getlist('post_ids'),
                                           owner=request.user)
