@@ -114,6 +114,9 @@
                 <a href="{% url 'accounts:settings' %}" class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
                     <i class="bi bi-gear-fill"></i> <span class="nav-text">Configurações</span>
                 </a>
+                <a href="{% url 'notifications:alertas' %}" class="{% if request.resolver_match.url_name == 'alertas' %}active{% endif %}">
+                    <i class="bi bi-bell-fill"></i> <span class="nav-text">Alertas</span>
+                </a>
                 <a href="{% url 'analytics:logs' %}" class="{% if request.resolver_match.url_name == 'logs' %}active{% endif %}">
                     <i class="bi bi-journal-text"></i> <span class="nav-text">Histórico</span>
                 </a>
@@ -170,7 +173,10 @@
                             <li><div class="dropdown-item text-muted small" style="white-space: normal;">Nenhuma notificação.</div></li>
                             {% endfor %}
                             <li><hr class="dropdown-divider" style="border-color: var(--border-subtle);"></li>
-                            <li><a class="dropdown-item text-center text-info small" href="{% url 'notifications:list' %}">Ver todas</a></li>
+                            <li class="d-flex">
+                                <a class="dropdown-item text-center text-info small" href="{% url 'notifications:list' %}">Ver todas</a>
+                                <a class="dropdown-item text-center text-muted small" href="{% url 'notifications:alertas' %}"><i class="bi bi-gear"></i> Configurar</a>
+                            </li>
                         </ul>
                     </div>
                     <div class="dropdown d-inline-block ms-2">

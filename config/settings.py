@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 # Diretório base do projeto
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -215,6 +216,16 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.instagram.tasks.refresh_quotas",
         "schedule": 1800.0,  # a cada 30 min
     },
+    # Alertas: conta caiu, limite atingido, meta de views batida.
+    "checar-alertas": {
+        "task": "apps.notifications.tasks.checar_alertas",
+        "schedule": 600.0,  # a cada 10 min
+    },
+    # Resumo do dia (só para quem ligou).
+    "resumo-diario": {
+        "task": "apps.notifications.tasks.resumo_diario",
+        "schedule": crontab(hour=22, minute=0),
+    },
 }
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos
@@ -249,6 +260,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Se apontar para localhost, os servidores da Meta não conseguem acessar e a
 # criação do contêiner de mídia falha sempre.
 SITE_URL = env("SITE_URL", default="http://localhost:8000")
+
+# Bot do Telegram usado para mandar os alertas ao celular. Opcional: se ficar
+# vazio, cada usuário pode informar o token do próprio bot nas Configurações.
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 
 # =============================================================================
 # Meta / Facebook API OAuth

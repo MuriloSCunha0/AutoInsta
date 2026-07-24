@@ -73,6 +73,14 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="update_details">
                                 <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-medium text-secondary">
+                                            Apelido <span class="text-info">(é o que aparece no ranking)</span>
+                                        </label>
+                                        <input type="text" name="nickname" class="form-control"
+                                               value="{{ request.user.nickname }}"
+                                               placeholder="Como quer ser chamado no painel e no ranking">
+                                    </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-medium text-secondary">Nome</label>
                                         <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}">

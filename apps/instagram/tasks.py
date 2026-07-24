@@ -147,7 +147,8 @@ def refresh_quotas():
         try:
             perfil = requests.get(
                 f"https://graph.instagram.com/{IG_API_VERSION}/me",
-                params={'fields': 'followers_count,follows_count,media_count',
+                params={'fields': 'name,profile_picture_url,followers_count,'
+                                  'follows_count,media_count',
                         'access_token': token}, timeout=15,
             ).json()
             if 'error' not in perfil:
@@ -158,6 +159,15 @@ def refresh_quotas():
                     if perfil.get(chave) is not None:
                         setattr(acc, atributo, perfil[chave])
                         campos.append(atributo)
+                # name/foto também: sem isto o card ficava eternamente em
+                # "Aguardando sincronização..." mesmo com a conta publicando,
+                # porque só a conexão inicial buscava esses campos.
+                if perfil.get('name'):
+                    acc.full_name = perfil['name'][:255]
+                    campos.append('full_name')
+                if perfil.get('profile_picture_url'):
+                    acc.profile_pic_url = perfil['profile_picture_url'][:1000]
+                    campos.append('profile_pic_url')
                 if campos:
                     acc.save(update_fields=campos)
         except Exception:

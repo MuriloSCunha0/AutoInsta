@@ -66,12 +66,15 @@ def profile_update(request):
         action = request.POST.get('action')
         
         if action == 'update_details':
-            request.user.first_name = request.POST.get('first_name', '')
-            request.user.last_name = request.POST.get('last_name', '')
-            request.user.email = request.POST.get('email', '')
-            request.user.phone = request.POST.get('phone', '')
-            request.user.nickname = (request.POST.get('nickname') or '').strip()
-            
+            # Só grava o que o formulário REALMENTE enviou. A tela de Perfil e a
+            # de Configurações postam a mesma ação com campos diferentes: como
+            # o Perfil não tem campo de apelido, salvar por lá apagava o
+            # apelido definido nas Configurações (por isso o ranking mostrava
+            # o nome em vez do apelido).
+            for campo in ('first_name', 'last_name', 'email', 'phone', 'nickname'):
+                if campo in request.POST:
+                    setattr(request.user, campo, (request.POST.get(campo) or '').strip())
+
             # Handle avatar upload if provided
             if 'avatar' in request.FILES:
                 request.user.avatar = request.FILES['avatar']

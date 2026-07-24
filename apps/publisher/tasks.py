@@ -103,12 +103,16 @@ def process_scheduled_posts():
         if conta.id in despachadas:
             continue  # já mandamos um post desta conta nesta rodada
 
+        # Modo forçado: o usuário assumiu o risco e mandou publicar mesmo
+        # limitada. Pula cooldown e teto diário (a Meta ainda pode recusar).
+        forcado = conta.ignorar_limites
+
         # Conta em cooldown por rate limit: não toca.
-        if conta.rate_limited_until and conta.rate_limited_until > now:
+        if not forcado and conta.rate_limited_until and conta.rate_limited_until > now:
             continue
 
         # Respeita o teto diário (0 = sem limite).
-        limite = conta.daily_post_limit or 0
+        limite = 0 if forcado else (conta.daily_post_limit or 0)
         if limite > 0:
             publicados_24h = ScheduledPost.objects.filter(
                 account=conta, status='published', published_at__gte=janela_24h
@@ -333,3 +337,18 @@ def publish_reel(post_id):
             post.error_message = msg
             post.save()
             print(f"Post {post_id} FALHOU em definitivo: {msg[:200]}")
+
+            # Avisa o dono (se ele quiser) — sem repetir a cada post da mesma
+            # conta: a chave inclui só a conta e a hora.
+            try:
+                from apps.notifications.alertas import alertar
+                agora = timezone.now()
+                alertar(
+                    post.owner, 'falha_publicacao',
+                    'Falha ao publicar',
+                    f'@{post.account.ig_username}: {msg[:140]}',
+                    chave=f'falha:{post.account_id}:{agora:%Y%m%d%H}',
+                    nivel='error', account=post.account,
+                )
+            except Exception:
+                pass

@@ -84,7 +84,9 @@ def dashboard(request):
             continue
         ranking_list.append({
             'position': idx + 1,
-            'name': u.display_name,  # nome do usuário, sem censura (a pedido)
+            # O ranking é público entre os usuários: mostra o APELIDO que a
+            # pessoa escolheu, nunca o nome real. Sem apelido, cai no @usuário.
+            'name': (u.nickname or '').strip() or u.username,
             'avatar': u.avatar.url if u.avatar else '',
             'posts': dados['posts'],
             'contas': dados['contas'],

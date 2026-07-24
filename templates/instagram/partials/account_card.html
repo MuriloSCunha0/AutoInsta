@@ -17,7 +17,15 @@
             
             <div class="account-info">
                 <div class="account-username">@{{ account.ig_username }}</div>
-                <div class="account-fullname">{{ account.full_name|default:"Aguardando sincronização..." }}</div>
+                {# Nem toda conta tem "nome" preenchido na Meta. Dizer
+                   "Aguardando sincronização" numa conta que está publicando
+                   normalmente é mentira — só usamos esse texto quando a
+                   conta realmente ainda não sincronizou. #}
+                <div class="account-fullname">
+                    {% if account.full_name %}{{ account.full_name }}
+                    {% elif account.status == 'active' %}<span class="text-success">Conta sincronizada</span>
+                    {% else %}Aguardando sincronização...{% endif %}
+                </div>
                 {% if account.meta_app %}
                 <div class="mt-1">
                     <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill" style="font-size:0.65rem;">
@@ -174,6 +182,30 @@
             </button>
             {% if account.daily_post_limit == 0 %}
             <span class="text-muted" style="font-size:0.7rem;">sem limite</span>
+            {% endif %}
+        </form>
+
+        {# Forçar: publica mesmo com o teto batido ou em cooldown da Meta. #}
+        <form hx-post="{% url 'instagram:toggle_forcar' account.id %}"
+              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+              class="d-flex align-items-center gap-2 mb-3 small">
+            {% csrf_token %}
+            <span class="text-muted" title="Ignora o limite diário e o cooldown da Meta">
+                <i class="bi bi-lightning-charge"></i> Forçar postagem
+            </span>
+            <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       {% if account.ignorar_limites %}checked{% endif %}
+                       onchange="this.form.requestSubmit()">
+            </div>
+            {% if account.ignorar_limites %}
+            <span class="badge bg-warning bg-opacity-25 text-warning" style="font-size:0.65rem;">
+                ignorando limite
+            </span>
+            {% elif account.esta_limitada %}
+            <span class="badge bg-secondary bg-opacity-25 text-muted" style="font-size:0.65rem;">
+                limitada agora
+            </span>
             {% endif %}
         </form>
 

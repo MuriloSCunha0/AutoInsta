@@ -418,6 +418,24 @@ def update_account_limit(request, account_id):
 
 @login_required
 @require_POST
+def toggle_forcar(request, account_id):
+    """Liga/desliga o modo forçado: publica mesmo com o limite batido.
+
+    Ao ligar, também zera o cooldown atual — senão a conta continuaria parada
+    até o horário antigo mesmo com o modo ligado.
+    """
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    account.ignorar_limites = not account.ignorar_limites
+    campos = ['ignorar_limites']
+    if account.ignorar_limites and account.rate_limited_until:
+        account.rate_limited_until = None
+        campos.append('rate_limited_until')
+    account.save(update_fields=campos)
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
 def sync_meta_account(request, account_id):
     """Sincroniza uma conta específica com a Meta (HTMX → devolve o card)."""
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)

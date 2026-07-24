@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Alertas | AutoInsta{% endblock %}
+{% block page_title %}Alertas e notificações{% endblock %}
+
+{% block top_actions %}
+<form method="post" action="{% url 'notifications:alertas_testar' %}" class="d-inline">
+    {% csrf_token %}
+    <button class="btn btn-outline-secondary"><i class="bi bi-send"></i> Enviar teste</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'notifications:alertas_salvar' %}">
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card p-4 h-100">
+                <h5 class="text-white mb-1"><i class="bi bi-bell text-warning me-2"></i> O que quero receber</h5>
+                <p class="text-muted small mb-4">Todo alerta aparece no sino do painel. Configure o Telegram ao lado para receber também no celular.</p>
+
+                <div class="alerta-item">
+                    <div>
+                        <div class="alerta-titulo">Conta caiu</div>
+                        <div class="alerta-desc">A conta perdeu permissão na Meta, expirou ou foi bloqueada.</div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="conta_caiu" {% if pref.conta_caiu %}checked{% endif %}>
+                    </div>
+                </div>
+
+                <div class="alerta-item">
+                    <div>
+                        <div class="alerta-titulo">Falha ao publicar</div>
+                        <div class="alerta-desc">Uma publicação falhou em definitivo, depois das tentativas.</div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="falha_publicacao" {% if pref.falha_publicacao %}checked{% endif %}>
+                    </div>
+                </div>
+
+                <div class="alerta-item">
+                    <div>
+                        <div class="alerta-titulo">Limite atingido</div>
+                        <div class="alerta-desc">A conta bateu o teto diário ou entrou em espera da Meta.</div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="limite_atingido" {% if pref.limite_atingido %}checked{% endif %}>
+                    </div>
+                </div>
+
+                <div class="alerta-item">
+                    <div class="flex-grow-1">
+                        <div class="alerta-titulo">Meta de views do dia</div>
+                        <div class="alerta-desc">Avisa quando suas contas passarem desta marca no dia.</div>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <input type="number" name="meta_views_alvo" min="0" step="1000"
+                                   value="{{ pref.meta_views_alvo }}"
+                                   class="form-control form-control-sm text-white border-subtle"
+                                   style="background: var(--bg-input); width: 130px;">
+                            <span class="text-muted small">views</span>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="meta_views" {% if pref.meta_views %}checked{% endif %}>
+                    </div>
+                </div>
+
+                <div class="alerta-item border-0">
+                    <div>
+                        <div class="alerta-titulo">Resumo do dia</div>
+                        <div class="alerta-desc">Um resumo às 22h com publicações e views do dia.</div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="resumo_diario" {% if pref.resumo_diario %}checked{% endif %}>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card p-4 h-100">
+                <h5 class="text-white mb-1"><i class="bi bi-phone text-info me-2"></i> Receber no celular</h5>
+                <p class="text-muted small mb-3">
+                    Os alertas chegam pelo Telegram, como notificação do celular.
+                </p>
+
+                <div class="alerta-passos mb-3">
+                    <div><span>1</span> No Telegram, procure <strong>@BotFather</strong> e envie <code>/newbot</code>.</div>
+                    <div><span>2</span> Copie o <strong>token</strong> que ele devolver e cole abaixo.</div>
+                    <div><span>3</span> Abra uma conversa com o seu bot e mande <code>/start</code>.</div>
+                    <div><span>4</span> Acesse <strong>@userinfobot</strong> para pegar o seu <strong>chat ID</strong>.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Chat ID</label>
+                    <input type="text" name="telegram_chat_id" value="{{ pref.telegram_chat_id }}"
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                           placeholder="Ex: 123456789">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">
+                        Token do bot
+                        {% if pref.telegram_token_enc %}<span class="text-success">(já configurado)</span>{% endif %}
+                    </label>
+                    <input type="password" name="telegram_token" autocomplete="new-password"
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                           placeholder="{% if pref.telegram_token_enc %}Deixe vazio para manter{% else %}123456:ABC-DEF...{% endif %}">
+                </div>
+
+                {% if pref.telegram_token_enc %}
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="limpar_telegram" id="limpar_telegram">
+                    <label class="form-check-label text-muted small" for="limpar_telegram">Remover o token salvo</label>
+                </div>
+                {% endif %}
+
+                <div class="alert py-2 small border-0 {% if pref.telegram_ativo %}bg-success bg-opacity-10 text-success{% else %}bg-secondary bg-opacity-10 text-muted{% endif %}">
+                    {% if pref.telegram_ativo %}
+                    <i class="bi bi-check-circle"></i> Telegram configurado.
+                    {% else %}
+                    <i class="bi bi-info-circle"></i> Sem Telegram: os alertas ficam só no sino do painel.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Salvar preferências</button>
+        <a href="{% url 'notifications:list' %}" class="btn btn-outline-secondary">Ver notificações</a>
+    </div>
+</form>
+{% endblock %}

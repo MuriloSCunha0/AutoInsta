@@ -58,6 +58,9 @@ class InstagramAccount(models.Model):
     # Enquanto isso, a fila NÃO tenta publicar nela (evita martelar a API — o
     # que é o padrão que dispara bans).
     rate_limited_until = models.DateTimeField(null=True, blank=True)
+    # Modo forçado: ignora o teto diário e o cooldown de rate limit desta conta.
+    # É o usuário assumindo o risco — a Meta ainda pode recusar por volume real.
+    ignorar_limites = models.BooleanField(default=False)
     # Cota real de publicação da Meta (endpoint content_publishing_limit),
     # janela móvel de 24h. Preenchida na sincronização.
     quota_usage = models.IntegerField(default=0)
@@ -126,6 +129,25 @@ class InstagramAccount(models.Model):
         """Conta em espera por rate limit da Meta neste momento."""
         from django.utils import timezone
         return bool(self.rate_limited_until and self.rate_limited_until > timezone.now())
+
+    @property
+    def esta_limitada(self):
+        """Está barrada agora — por cooldown da Meta ou pelo teto diário."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        if self.em_cooldown:
+            return True
+        limite = self.daily_post_limit or 0
+        if limite <= 0:
+            return False
+        from apps.publisher.models import ScheduledPost
+        publicados = ScheduledPost.objects.filter(
+            account=self, status='published',
+            published_at__gte=timezone.now() - timedelta(hours=24),
+        ).count()
+        return publicados >= limite
 
     @property
     def tem_sessao_engine(self):

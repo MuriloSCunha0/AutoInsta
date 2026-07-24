@@ -10,6 +10,7 @@ urlpatterns = [
     path('add-meta/', views.add_account_meta, name='add_meta'),
     path('meta/<int:account_id>/sync/', views.sync_meta_account, name='sync_meta_account'),
     path('<int:account_id>/limit/', views.update_account_limit, name='update_account_limit'),
+    path('<int:account_id>/forcar/', views.toggle_forcar, name='toggle_forcar'),
     path('meta/sync-all/', views.sync_all_meta, name='sync_all_meta'),
     path('oauth/url/', views.oauth_url, name='oauth_url'),
     path('oauth/callback/', views.oauth_callback, name='oauth_callback'),
