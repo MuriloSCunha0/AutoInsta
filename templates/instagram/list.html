@@ -21,12 +21,25 @@
        class="btn btn-sm {% if not filtro_app %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
     {% for app in meta_apps %}
     <a href="{% url 'instagram:list' %}?app={{ app.id }}"
-       class="btn btn-sm {% if filtro_app == app.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+       class="btn btn-sm {% if filtro_app == app.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+       {% if app.n_contas > limite_app %}title="Muitas contas neste app — se a Meta banir o app, todas caem juntas"{% endif %}>
         {{ app.name }}
-        <span class="badge bg-dark bg-opacity-25 ms-1">{{ app.accounts.count }}</span>
+        <span class="badge {% if app.n_contas > limite_app %}bg-warning text-dark{% else %}bg-dark bg-opacity-25{% endif %} ms-1">
+            {% if app.n_contas > limite_app %}<i class="bi bi-exclamation-triangle"></i> {% endif %}{{ app.n_contas }}
+        </span>
     </a>
     {% endfor %}
 </div>
+
+{% for app in meta_apps %}
+    {% if app.n_contas > limite_app %}
+    <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small py-2 mb-4">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        O app <strong>{{ app.name }}</strong> tem <strong>{{ app.n_contas }}</strong> contas.
+        Se a Meta banir esse app, todas caem de uma vez — vale distribuir em mais de um app.
+    </div>
+    {% endif %}
+{% endfor %}
 {% endif %}
 
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="account-list">

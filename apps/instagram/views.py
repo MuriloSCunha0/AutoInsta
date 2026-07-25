@@ -79,8 +79,14 @@ def account_list(request):
     if filtro_app:
         accounts = accounts.filter(meta_app_id=filtro_app)
 
+    from django.db.models import Count
+
     from apps.accounts.models import MetaApp
-    meta_apps = MetaApp.objects.filter(owner=request.user)
+    meta_apps = MetaApp.objects.filter(owner=request.user).annotate(n_contas=Count('accounts'))
+
+    # Limite a partir do qual um app é "lotado" (mesmo número usado no alerta).
+    from apps.notifications.alertas import preferencias
+    limite_app = preferencias(request.user).app_lotado_limite or 15
 
     form = AddInstagramAccountForm()
     connect_url = request.build_absolute_uri('/instagram/connect-extension/')
@@ -88,6 +94,7 @@ def account_list(request):
         'accounts': accounts,
         'meta_apps': meta_apps,
         'filtro_app': filtro_app,
+        'limite_app': limite_app,
         'form': form,
         'extension_token': request.user.ensure_extension_token(),
         'connect_url': connect_url,

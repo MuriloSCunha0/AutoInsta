@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from celery import shared_task
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.utils import timezone
 
 from apps.instagram.models import InstagramAccount
@@ -86,6 +86,27 @@ def checar_alertas():
                 f'Você já tem {total:,} visualizações hoje '
                 f'(meta: {alvo:,}).'.replace(',', '.'),
                 chave=f'metaviews:{dono.id}:{hoje}', nivel='success',
+            )
+
+    # ── App Meta com muitas contas (não bloqueia, só avisa) ──────────
+    # Quanto mais contas num único app, maior o estrago se a Meta banir o app.
+    from apps.accounts.models import MetaApp
+
+    apps_lotados = (MetaApp.objects.annotate(n=Count('accounts'))
+                    .select_related('owner'))
+    for app in apps_lotados:
+        dono = app.owner
+        from .alertas import preferencias
+        limite = preferencias(dono).app_lotado_limite or 15
+        if app.n > limite:
+            alertar(
+                dono, 'app_lotado',
+                'App Meta com muitas contas',
+                f'O app "{app.name}" tem {app.n} contas. Se a Meta banir esse '
+                f'app, todas caem juntas. Vale distribuir em mais de um app '
+                f'para reduzir o risco.',
+                # muda quando a contagem cruza outra dezena -> avisa de novo
+                chave=f'applotado:{app.id}:{app.n // 5}', account=None,
             )
 
 

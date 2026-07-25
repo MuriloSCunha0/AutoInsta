@@ -34,13 +34,18 @@ def alert_settings_save(request):
     pref = preferencias(request.user)
 
     for campo in ('conta_caiu', 'falha_publicacao', 'limite_atingido',
-                  'meta_views', 'resumo_diario'):
+                  'meta_views', 'resumo_diario', 'app_lotado'):
         setattr(pref, campo, request.POST.get(campo) == 'on')
 
     try:
         pref.meta_views_alvo = max(int(request.POST.get('meta_views_alvo') or 0), 0)
     except (TypeError, ValueError):
         pref.meta_views_alvo = 10000
+
+    try:
+        pref.app_lotado_limite = max(int(request.POST.get('app_lotado_limite') or 0), 1)
+    except (TypeError, ValueError):
+        pref.app_lotado_limite = 15
 
     pref.telegram_chat_id = (request.POST.get('telegram_chat_id') or '').strip()[:64]
     # Só troca o token se o usuário digitou um novo (o campo vem vazio quando

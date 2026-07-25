@@ -18,6 +18,10 @@ class AlertPreference(models.Model):
     meta_views = models.BooleanField(default=True)           # bateu a meta de views do dia
     meta_views_alvo = models.IntegerField(default=10000)
     resumo_diario = models.BooleanField(default=False)       # resumo do dia
+    # App Meta com muitas contas — não bloqueia, só avisa. Quanto mais contas
+    # num único app, maior o estrago se a Meta banir o app (ponto único de falha).
+    app_lotado = models.BooleanField(default=True)
+    app_lotado_limite = models.IntegerField(default=15)      # avisa acima disto
 
     # Canal no celular (opcional)
     telegram_chat_id = models.CharField(max_length=64, blank=True)

@@ -67,6 +67,27 @@
                     </div>
                 </div>
 
+                <div class="alerta-item">
+                    <div class="flex-grow-1">
+                        <div class="alerta-titulo">App Meta com muitas contas</div>
+                        <div class="alerta-desc">
+                            Muitas contas num único app viram ponto único de falha: se a Meta
+                            banir o app, todas caem juntas. Avisa quando passar deste número.
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span class="text-muted small">avisar acima de</span>
+                            <input type="number" name="app_lotado_limite" min="1" step="1"
+                                   value="{{ pref.app_lotado_limite }}"
+                                   class="form-control form-control-sm text-white border-subtle"
+                                   style="background: var(--bg-input); width: 90px;">
+                            <span class="text-muted small">contas por app</span>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="app_lotado" {% if pref.app_lotado %}checked{% endif %}>
+                    </div>
+                </div>
+
                 <div class="alerta-item border-0">
                     <div>
                         <div class="alerta-titulo">Resumo do dia</div>

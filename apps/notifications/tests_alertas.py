@@ -194,3 +194,47 @@ class ForcarPostagemTest(TestCase):
         self.conta.refresh_from_db()
         self.assertTrue(self.conta.ignorar_limites)
         self.assertIsNone(self.conta.rate_limited_until)
+
+
+class AppLotadoTest(TestCase):
+    """Alerta quando um app Meta passa do limite de contas (não bloqueia)."""
+
+    def setUp(self):
+        from apps.accounts.models import MetaApp
+        cache.clear()
+        self.user = User.objects.create_user(username='dono', password='x', is_active=True)
+        self.app = MetaApp.objects.create(owner=self.user, name='App', meta_app_id='1')
+        pref = preferencias(self.user)
+        pref.app_lotado = True
+        pref.app_lotado_limite = 3
+        pref.save()
+
+    def _contas(self, n):
+        for i in range(n):
+            InstagramAccount.objects.create(owner=self.user, ig_username=f'c{i}',
+                                            meta_app=self.app)
+
+    def test_avisa_quando_passa_do_limite(self):
+        from apps.notifications.tasks import checar_alertas
+        self._contas(5)  # limite é 3
+        checar_alertas()
+        n = Notification.objects.filter(user=self.user, title='App Meta com muitas contas')
+        self.assertEqual(n.count(), 1)
+        self.assertIn('5 contas', n.first().message)
+
+    def test_nao_avisa_dentro_do_limite(self):
+        from apps.notifications.tasks import checar_alertas
+        self._contas(3)  # igual ao limite, não passa
+        checar_alertas()
+        self.assertEqual(
+            Notification.objects.filter(title='App Meta com muitas contas').count(), 0)
+
+    def test_respeita_o_desligado(self):
+        from apps.notifications.tasks import checar_alertas
+        pref = preferencias(self.user)
+        pref.app_lotado = False
+        pref.save()
+        self._contas(10)
+        checar_alertas()
+        self.assertEqual(
+            Notification.objects.filter(title='App Meta com muitas contas').count(), 0)
