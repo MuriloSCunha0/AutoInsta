@@ -331,15 +331,21 @@ class InstagramEngine:
         # Só com 'status_code' o erro volta como um "ERROR" mudo.
         status_params = {'fields': 'status_code,status', 'access_token': token}
 
-        # Polling com BACKOFF em vez de GET fixo a cada 5s. Cada consulta é uma
-        # chamada à API contada no app Meta; com 600+ posts/dia num único app,
-        # o excesso de chamadas ajuda a Meta a marcar o app como abuso. Esperar
-        # mais antes de perguntar corta ~metade das consultas (um Reel leva
-        # ~30-60s para processar — perguntar a cada 5s é desperdício).
+        # ── Polling ENXUTO — a causa nº1 do ban do app Meta ────────────────
+        # Cada consulta de status é uma chamada contada NO app. Antes eram até
+        # 30 GETs a cada 5s por post (8 das 11 chamadas de um post eram só
+        # polling). Como o post é agendado, esperar mais antes de perguntar NÃO
+        # atrapalha o usuário e derruba as chamadas de forma enorme:
+        #   - a 1ª espera é longa (o Reel quase sempre já terminou nela ->
+        #     1 consulta em vez de 8);
+        #   - as seguintes são bem espaçadas.
+        # Os tempos são configuráveis por settings para ajuste fino sem deploy.
+        from django.conf import settings as _dj
         if is_image:
-            esperas = [4, 5, 6, 8, 10, 12, 15, 20]
+            esperas = getattr(_dj, 'META_POLL_IMAGE', [10, 12, 20, 30])
         else:
-            esperas = [12, 8, 8, 10, 12, 15, 15, 20, 25, 30]  # ~155s no total
+            # cumulativo: 30, 55, 90, 140, 205s (máx 5 consultas; típico 1-2)
+            esperas = getattr(_dj, 'META_POLL_REEL', [30, 25, 35, 50, 65])
         ready = False
         for espera in esperas:
             time.sleep(espera)

@@ -272,6 +272,13 @@ TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 # publish_reel). A grade quase sempre dá "sim"; ligue só para auditar.
 VERIFICAR_GRADE = env.bool("VERIFICAR_GRADE", default=False)
 
+# Espera (segundos) entre cada consulta de status ao publicar. A 1ª é longa de
+# propósito: o Reel quase sempre já terminou de processar nela, então gastamos
+# 1 consulta em vez de 8. É o principal corte de chamadas ao app Meta.
+# Ajustável por .env sem novo deploy (lista separada por vírgula).
+META_POLL_REEL = env.list("META_POLL_REEL", cast=int, default=[30, 25, 35, 50, 65])
+META_POLL_IMAGE = env.list("META_POLL_IMAGE", cast=int, default=[10, 12, 20, 30])
+
 # Web Push (PWA) — chaves VAPID. Geradas uma vez e postas no .env.
 # Sem elas, o Web Push fica desligado (o alerta ainda aparece no sino).
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
