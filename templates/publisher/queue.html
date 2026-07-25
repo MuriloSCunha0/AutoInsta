@@ -43,7 +43,9 @@
         <a href="?account={{ acc.id }}{% if status_atual %}&status={{ status_atual }}{% endif %}"
            class="btn btn-sm {% if conta_atual == acc.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
             @{{ acc.ig_username }}
-            {% if acc.pendentes %}<span class="badge bg-warning bg-opacity-25 text-warning ms-1">{{ acc.pendentes }}</span>{% endif %}
+            {% if acc.pausada %}<i class="bi bi-pause-circle-fill text-warning ms-1" title="Conta pausada"></i>
+            {% elif acc.esta_limitada %}<i class="bi bi-hourglass-split text-danger ms-1" title="No limite da Meta agora"></i>{% endif %}
+            {% if acc.pendentes %}<span class="badge bg-dark bg-opacity-25 ms-1">{{ acc.pendentes }}</span>{% endif %}
         </a>
         {% endfor %}
     </div>

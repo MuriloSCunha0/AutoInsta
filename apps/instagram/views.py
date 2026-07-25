@@ -489,6 +489,16 @@ def toggle_forcar(request, account_id):
 
 @login_required
 @require_POST
+def toggle_pausada(request, account_id):
+    """Pausa/retoma a fila DESTA conta. As outras contas seguem publicando."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    account.pausada = not account.pausada
+    account.save(update_fields=['pausada'])
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
 def sync_meta_account(request, account_id):
     """Sincroniza uma conta específica com a Meta (HTMX → devolve o card)."""
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)

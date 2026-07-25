@@ -61,6 +61,10 @@ class InstagramAccount(models.Model):
     # Modo forçado: ignora o teto diário e o cooldown de rate limit desta conta.
     # É o usuário assumindo o risco — a Meta ainda pode recusar por volume real.
     ignorar_limites = models.BooleanField(default=False)
+    # Conta pausada pelo usuário: a fila DELA para, mas a das outras contas
+    # continua normalmente. Serve para "desativar" uma conta problemática sem
+    # travar o resto (ex.: enquanto ela está limitada).
+    pausada = models.BooleanField(default=False)
     # Cota real de publicação da Meta (endpoint content_publishing_limit),
     # janela móvel de 24h. Preenchida na sincronização.
     quota_usage = models.IntegerField(default=0)
@@ -150,23 +154,59 @@ class InstagramAccount(models.Model):
         return (app.meta_app_id or '').strip(), app.get_meta_secret()
 
     @property
-    def esta_limitada(self):
-        """Está barrada agora — por cooldown da Meta ou pelo teto diário."""
+    def teto_efetivo(self):
+        """Máximo de posts em 24h — o MENOR entre o limite do usuário e a cota
+        real da Meta (content_publishing_limit, ~100). 0 = sem teto.
+
+        Ritmar pela cota real evita o pior cenário: o usuário põe 500, a conta
+        vai a todo vapor e a Meta CORTA de surpresa com 3h de cooldown. Com o
+        teto real, a conta desliza logo abaixo do limite e nunca leva o corte.
+        """
+        tetos = [t for t in (self.daily_post_limit or 0, self.quota_total or 0) if t > 0]
+        return min(tetos) if tetos else 0
+
+    def _publicados_24h(self):
         from datetime import timedelta
 
         from django.utils import timezone
-
-        if self.em_cooldown:
-            return True
-        limite = self.daily_post_limit or 0
-        if limite <= 0:
-            return False
         from apps.publisher.models import ScheduledPost
-        publicados = ScheduledPost.objects.filter(
+        return ScheduledPost.objects.filter(
             account=self, status='published',
             published_at__gte=timezone.now() - timedelta(hours=24),
-        ).count()
-        return publicados >= limite
+        )
+
+    @property
+    def esta_limitada(self):
+        """Está barrada agora — por cooldown da Meta ou pelo teto efetivo."""
+        if self.em_cooldown:
+            return True
+        teto = self.teto_efetivo
+        if teto <= 0:
+            return False
+        return self._publicados_24h().count() >= teto
+
+    def livre_em(self):
+        """Quando a conta volta a poder publicar (datetime), ou None se livre.
+
+        - Em cooldown da Meta: até o fim do cooldown.
+        - No teto de 24h: quando o post mais antigo da janela sai dos 24h,
+          liberando uma vaga (janela móvel).
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+        agora = timezone.now()
+        if self.em_cooldown:
+            return self.rate_limited_until
+        teto = self.teto_efetivo
+        if teto <= 0:
+            return None
+        recentes = list(self._publicados_24h().order_by('published_at')
+                        .values_list('published_at', flat=True))
+        if len(recentes) < teto:
+            return None
+        # A vaga abre quando o mais antigo completa 24h.
+        return recentes[0] + timedelta(hours=24)
 
     @property
     def tem_sessao_engine(self):

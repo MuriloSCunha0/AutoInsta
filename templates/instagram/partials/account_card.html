@@ -98,6 +98,34 @@
             </div>
         </form>
 
+        {# Pausar esta conta — para só a fila dela, o resto continua. #}
+        <form hx-post="{% url 'instagram:toggle_pausada' account.id %}"
+              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+              class="mb-3">
+            {% csrf_token %}
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi {% if account.pausada %}bi-pause-circle-fill text-warning{% else %}bi-play-circle text-muted{% endif %}"></i>
+                <span class="small {% if account.pausada %}text-white{% else %}text-muted{% endif %} flex-grow-1">
+                    {% if account.pausada %}Conta pausada{% else %}Pausar esta conta{% endif %}
+                </span>
+                {% if not account.pausada and not account.ignorar_limites and account.esta_limitada %}
+                    {% with livre=account.livre_em %}
+                    {% if livre %}
+                    <span class="badge bg-danger bg-opacity-25 text-danger" style="font-size:0.62rem;"
+                          title="No limite da Meta — volta sozinha neste horário">
+                        <i class="bi bi-hourglass-split"></i> livre {{ livre|timeuntil }}
+                    </span>
+                    {% endif %}
+                    {% endwith %}
+                {% endif %}
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch"
+                           {% if account.pausada %}checked{% endif %}
+                           onchange="this.form.requestSubmit()">
+                </div>
+            </div>
+        </form>
+
         <div class="account-stats mb-3">
             <div class="stat w-100">
                 <span class="stat-value">{{ account.followers_count }}</span>
@@ -230,6 +258,12 @@
             <span class="text-muted" style="font-size:0.7rem;">sem limite</span>
             {% endif %}
         </form>
+        {% if account.quota_total and account.daily_post_limit > account.quota_total %}
+        <div class="text-warning mb-3" style="font-size:0.72rem; margin-top:-8px;">
+            <i class="bi bi-info-circle"></i> A Meta permite ~{{ account.quota_total }}/dia nesta conta.
+            Vamos ritmar por esse teto real — acima dele a Meta corta sozinha.
+        </div>
+        {% endif %}
 
 
         <div class="account-actions mt-auto d-flex gap-2">

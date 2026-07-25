@@ -100,6 +100,10 @@ def process_scheduled_posts():
         if conta.banned_by_admin:
             continue
 
+        # Conta pausada pelo usuário: para a fila DELA, o resto segue normal.
+        if conta.pausada:
+            continue
+
         if conta.id in despachadas:
             continue  # já mandamos um post desta conta nesta rodada
 
@@ -107,19 +111,29 @@ def process_scheduled_posts():
         # limitada. Pula cooldown e teto diário (a Meta ainda pode recusar).
         forcado = conta.ignorar_limites
 
-        # Conta em cooldown por rate limit: não toca.
+        # Conta em cooldown por rate limit: reagenda o post para o FIM do
+        # cooldown (em vez de deixar vencido, martelando a cada rodada).
         if not forcado and conta.rate_limited_until and conta.rate_limited_until > now:
+            if post.scheduled_for < conta.rate_limited_until:
+                post.scheduled_for = conta.rate_limited_until
+                post.save(update_fields=['scheduled_for'])
             continue
 
-        # Respeita o teto diário (0 = sem limite).
-        limite = 0 if forcado else (conta.daily_post_limit or 0)
+        # Teto efetivo = menor entre o limite do usuário e a cota real da Meta.
+        # Ritmar pela cota real evita o corte de surpresa da Meta.
+        limite = 0 if forcado else conta.teto_efetivo
         if limite > 0:
             publicados_24h = ScheduledPost.objects.filter(
                 account=conta, status='published', published_at__gte=janela_24h
             ).count()
             if publicados_24h >= limite:
-                post.scheduled_for = now + timedelta(hours=2)
-                post.save(update_fields=['scheduled_for'])
+                # Reagenda para quando uma vaga da janela de 24h abrir — assim
+                # o horário do post fica HONESTO e ele não fica "vencido"
+                # reprocessando a cada minuto.
+                quando = conta.livre_em() or (now + timedelta(hours=1))
+                if post.scheduled_for < quando:
+                    post.scheduled_for = quando
+                    post.save(update_fields=['scheduled_for'])
                 continue
 
         post.status = 'processing'
