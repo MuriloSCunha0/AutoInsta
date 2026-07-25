@@ -282,9 +282,14 @@ def publish_reel(post_id):
         post.status = 'published'
         post.published_at = timezone.now()
 
-        # Confirma com a Meta se o Reel caiu mesmo na grade do perfil.
-        # Best-effort: não é motivo para marcar a publicação como falha.
-        if post.post_type != 'STORY' and post.ig_media_id and post.account.meta_access_token:
+        # Confirmar a grade custa +1 chamada à Meta por post — com centenas de
+        # posts/dia num único app, isso engorda o volume que leva ao banimento
+        # do app. Por padrão fica DESLIGADO (VERIFICAR_GRADE=False); a grade
+        # quase sempre dá "sim" mesmo. Ligue só se precisar auditar.
+        from django.conf import settings as _dj
+        if (getattr(_dj, 'VERIFICAR_GRADE', False)
+                and post.post_type != 'STORY' and post.ig_media_id
+                and post.account.meta_access_token):
             try:
                 post.na_grade = engine.midia_na_grade(post.ig_media_id)
                 if post.share_to_feed and post.na_grade is False:

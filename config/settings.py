@@ -211,10 +211,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.publisher.tasks.process_loops",
         "schedule": 60.0,
     },
-    # Atualiza a cota real de publicação (Meta) de cada conta.
+    # Atualiza cota/seguidores/views (Meta) de cada conta. A cada 3h: antes
+    # era 30min, o que gerava ~192 chamadas por conta/dia num único app Meta —
+    # peso desnecessário no volume que a Meta usa para marcar o app como abuso.
     "refresh-quotas": {
         "task": "apps.instagram.tasks.refresh_quotas",
-        "schedule": 1800.0,  # a cada 30 min
+        "schedule": 10800.0,  # a cada 3 horas
     },
     # Alertas: conta caiu, limite atingido, meta de views batida.
     "checar-alertas": {
@@ -264,6 +266,11 @@ SITE_URL = env("SITE_URL", default="http://localhost:8000")
 # Bot do Telegram usado para mandar os alertas ao celular. Opcional: se ficar
 # vazio, cada usuário pode informar o token do próprio bot nas Configurações.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
+
+# Confirmar na Meta se o post caiu na grade custa +1 chamada/post. Desligado
+# por padrão para não engordar o volume de chamadas no app Meta (ver
+# publish_reel). A grade quase sempre dá "sim"; ligue só para auditar.
+VERIFICAR_GRADE = env.bool("VERIFICAR_GRADE", default=False)
 
 # Web Push (PWA) — chaves VAPID. Geradas uma vez e postas no .env.
 # Sem elas, o Web Push fica desligado (o alerta ainda aparece no sino).

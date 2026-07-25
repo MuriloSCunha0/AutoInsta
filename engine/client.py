@@ -330,10 +330,19 @@ class InstagramEngine:
         # Pedimos 'status' junto: é o único campo que traz o MOTIVO da falha.
         # Só com 'status_code' o erro volta como um "ERROR" mudo.
         status_params = {'fields': 'status_code,status', 'access_token': token}
-        delay = 2 if is_image else 5
+
+        # Polling com BACKOFF em vez de GET fixo a cada 5s. Cada consulta é uma
+        # chamada à API contada no app Meta; com 600+ posts/dia num único app,
+        # o excesso de chamadas ajuda a Meta a marcar o app como abuso. Esperar
+        # mais antes de perguntar corta ~metade das consultas (um Reel leva
+        # ~30-60s para processar — perguntar a cada 5s é desperdício).
+        if is_image:
+            esperas = [4, 5, 6, 8, 10, 12, 15, 20]
+        else:
+            esperas = [12, 8, 8, 10, 12, 15, 15, 20, 25, 30]  # ~155s no total
         ready = False
-        for _ in range(30):
-            time.sleep(delay)
+        for espera in esperas:
+            time.sleep(espera)
             status_data = requests.get(status_url, params=status_params, timeout=15).json()
             code = status_data.get('status_code')
             if code == 'FINISHED':
