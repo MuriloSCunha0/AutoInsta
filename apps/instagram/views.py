@@ -534,6 +534,8 @@ def reativar_conta(request, account_id):
 @require_POST
 def save_modelo(request, account_id):
     """Grava o 'modelo' (grupo) da conta — para separar contas no painel."""
+    from apps.accounts.models import MetaApp
+
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     account.modelo = (request.POST.get('modelo') or '').strip()[:60]
     account.save(update_fields=['modelo'])
