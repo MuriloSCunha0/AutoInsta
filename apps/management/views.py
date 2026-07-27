@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.contrib import messages
+from django.db.models import Q
 from apps.instagram.models import InstagramAccount
 from apps.publisher.models import ScheduledPost
 
@@ -139,10 +140,16 @@ def instagram_list(request):
     linhas = [{'dono': dono, 'contas': lista, 'total': len(lista)}
               for dono, lista in sorted(grupos.items(), key=lambda kv: kv[0].username.lower())]
 
-    # Lista de donos (com contagem) para o seletor do filtro.
-    from django.db.models import Count
+    # Lista de donos (com contagem) — vira o "diretório" de entrada e o filtro.
+    from django.db.models import Count, Sum
     donos = (User.objects.filter(instagramaccount__isnull=False)
-             .annotate(n=Count('instagramaccount')).distinct().order_by('username'))
+             .annotate(n=Count('instagramaccount', distinct=True),
+                       ativas=Count('instagramaccount',
+                                    filter=Q(instagramaccount__status='active'), distinct=True))
+             .order_by('username'))
+
+    # Sem filtro nenhum = mostra o diretório de usuários (não a lista gigante).
+    modo_diretorio = not owner_id and not busca
 
     return render(request, 'management/instagram.html', {
         'grupos': linhas,
@@ -150,6 +157,7 @@ def instagram_list(request):
         'donos': donos,
         'owner_atual': owner_id,
         'busca': busca,
+        'modo_diretorio': modo_diretorio,
     })
 
 

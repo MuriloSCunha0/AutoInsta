@@ -4,14 +4,14 @@
 
 {% block management_content %}
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-    <h5 class="text-white mb-0">Todas as Contas do Instagram</h5>
-    <span class="text-muted small">{{ total_contas }} conta(s) · {{ grupos|length }} usuário(s)</span>
+    <h5 class="text-white mb-0">Contas do Instagram</h5>
+    <span class="text-muted small">{{ donos|length }} usuário(s)</span>
 </div>
 
 {# Filtro por usuário + busca por @conta. #}
 <form method="get" class="d-flex flex-wrap gap-2 mb-4">
     <select name="owner" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input); max-width: 260px;" onchange="this.form.submit()">
-        <option value="">Todos os usuários ({{ donos|length }})</option>
+        <option value="">— Escolha um usuário —</option>
         {% for d in donos %}
         <option value="{{ d.id }}" {% if owner_atual == d.id|stringformat:'s' %}selected{% endif %}>
             {{ d.display_name }} — {{ d.n }} conta(s)
@@ -19,12 +19,37 @@
         {% endfor %}
     </select>
     <input type="text" name="q" value="{{ busca }}" class="form-control form-control-sm text-white border-subtle"
-           style="background: var(--bg-input); max-width: 220px;" placeholder="Buscar @conta…">
-    <button class="btn btn-sm btn-outline-secondary">Filtrar</button>
+           style="background: var(--bg-input); max-width: 220px;" placeholder="Buscar @conta em todos…">
+    <button class="btn btn-sm btn-outline-secondary">Buscar</button>
     {% if owner_atual or busca %}
-    <a href="{% url 'management:instagram' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i> Limpar</a>
+    <a href="{% url 'management:instagram' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Ver usuários</a>
     {% endif %}
 </form>
+
+{% if modo_diretorio %}
+{# Diretório: escolha o usuário para abrir as contas dele. #}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for d in donos %}
+    <div class="col">
+        <a href="?owner={{ d.id }}" class="user-dir-card">
+            <div class="user-dir-avatar">
+                {% if d.avatar %}<img src="{{ d.avatar.url }}" alt="">{% else %}<i class="bi bi-person-fill"></i>{% endif %}
+            </div>
+            <div class="min-w-0 flex-grow-1">
+                <div class="user-dir-name text-truncate">{{ d.display_name }}</div>
+                <div class="text-muted small">@{{ d.username }}</div>
+            </div>
+            <div class="text-end">
+                <div class="user-dir-count">{{ d.n }}</div>
+                <div class="text-muted" style="font-size:0.62rem;">{{ d.ativas }} ativa(s)</div>
+            </div>
+        </a>
+    </div>
+    {% empty %}
+    <div class="col-12"><p class="text-muted">Nenhum usuário com contas.</p></div>
+    {% endfor %}
+</div>
+{% else %}
 
 {% for grupo in grupos %}
 <div class="card bg-surface border-subtle mb-3">
@@ -90,7 +115,8 @@
 {% empty %}
 <div class="empty-state text-center py-5">
     <i class="bi bi-instagram text-muted mb-3" style="font-size: 3rem;"></i>
-    <p class="text-muted">Nenhuma conta de Instagram conectada na plataforma.</p>
+    <p class="text-muted">Nenhuma conta encontrada para este filtro.</p>
 </div>
 {% endfor %}
+{% endif %}
 {% endblock %}
