@@ -121,8 +121,18 @@ def users_purge_unapproved(request):
 
 @staff_member_required
 def instagram_list(request):
-    accounts = InstagramAccount.objects.select_related('owner').all().order_by('-created_at')
-    return render(request, 'management/instagram.html', {'accounts': accounts})
+    # Agrupado por DONO: cada usuário vira um bloco com suas contas.
+    contas = (InstagramAccount.objects.select_related('owner', 'meta_app')
+              .order_by('owner__username', '-created_at'))
+    grupos = {}
+    for c in contas:
+        grupos.setdefault(c.owner, []).append(c)
+    linhas = [{'dono': dono, 'contas': lista, 'total': len(lista)}
+              for dono, lista in sorted(grupos.items(), key=lambda kv: kv[0].username.lower())]
+    return render(request, 'management/instagram.html', {
+        'grupos': linhas,
+        'total_contas': contas.count(),
+    })
 
 
 # =============================================================================
