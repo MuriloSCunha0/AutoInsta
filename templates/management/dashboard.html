@@ -78,16 +78,20 @@
                         <tbody>
                             {% for post in recent_posts %}
                             <tr>
-                                <td>{{ post.account.owner.username }}</td>
-                                <td>@{{ post.account.username }}</td>
-                                <td>{{ post.scheduled_time|date:"d/m/Y H:i" }}</td>
+                                <td>{{ post.account.owner.display_name }} <span class="text-muted small">@{{ post.account.owner.username }}</span></td>
+                                <td><strong>@{{ post.account.ig_username }}</strong></td>
+                                <td class="text-muted small">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
                                 <td>
-                                    {% if post.status == 'PENDING' %}
-                                        <span class="badge bg-warning">Pendente</span>
-                                    {% elif post.status == 'PUBLISHED' %}
-                                        <span class="badge bg-success">Publicado</span>
+                                    {% if post.status == 'queued' %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25"><i class="bi bi-clock"></i> Na fila</span>
+                                    {% elif post.status == 'processing' %}
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25"><i class="bi bi-arrow-repeat"></i> Publicando</span>
+                                    {% elif post.status == 'published' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"><i class="bi bi-check-circle"></i> Publicado</span>
+                                    {% elif post.status == 'failed' %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" title="{{ post.error_message }}"><i class="bi bi-x-circle"></i> Erro</span>
                                     {% else %}
-                                        <span class="badge bg-danger">Erro</span>
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">{{ post.get_status_display }}</span>
                                     {% endif %}
                                 </td>
                             </tr>
