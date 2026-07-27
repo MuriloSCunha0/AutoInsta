@@ -18,6 +18,24 @@ def _get_fernet():
             "de ambiente FERNET_KEY no Railway."
         )
 
+class Pasta(models.Model):
+    """Pasta para organizar contas num nível acima do 'modelo'.
+
+    Ex.: pasta "Clientes premium" agrupando várias modelos. O modelo continua
+    sendo a subdivisão dentro da pasta.
+    """
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='pastas')
+    name = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = ['owner', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class InstagramAccount(models.Model):
     STATUS_CHOICES = [
         ('connecting', 'Conectando...'),
@@ -37,6 +55,11 @@ class InstagramAccount(models.Model):
         null=True, blank=True, related_name='accounts',
     )
     ig_username = models.CharField(max_length=150)
+    # Pasta (organização de alto nível, acima do "modelo"). Opcional.
+    pasta = models.ForeignKey(
+        Pasta, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='contas',
+    )
     # "Modelo" (ex.: op1): agrupa contas de uma mesma modelo/operação, para
     # separar visualmente no painel e no composer. Vazio = "Sem modelo".
     modelo = models.CharField(max_length=60, blank=True, db_index=True)

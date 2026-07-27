@@ -88,6 +88,16 @@
                     </div>
                 </div>
 
+                <div class="alerta-item">
+                    <div>
+                        <div class="alerta-titulo">Stories</div>
+                        <div class="alerta-desc">Avisa quando um story for publicado (1 aviso por conta a cada hora).</div>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="story_publicado" {% if pref.story_publicado %}checked{% endif %}>
+                    </div>
+                </div>
+
                 <div class="alerta-item border-0">
                     <div>
                         <div class="alerta-titulo">Resumo do dia</div>

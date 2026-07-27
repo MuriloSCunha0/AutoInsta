@@ -37,7 +37,8 @@ def queue_list(request):
     if fila_id:
         base = base.filter(queue_id=fila_id)
 
-    paginator = Paginator(base.order_by('-scheduled_for'), 100)
+    # Mais PRÓXIMAS de postar primeiro; as mais distantes ficam no fim.
+    paginator = Paginator(base.order_by('scheduled_for'), 100)
     page = paginator.get_page(request.GET.get('page'))
 
     contagens = {
@@ -353,9 +354,10 @@ def stories(request):
     from django.core.paginator import Paginator
 
     # Stories também é fila: o que já publicou sai daqui e vai para o histórico.
+    # Mais próximas primeiro.
     base = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY',
                                          status__in=ScheduledPost.STATUS_ATIVOS)
-            .select_related('account').order_by('-scheduled_for'))
+            .select_related('account').order_by('scheduled_for'))
     paginator = Paginator(base, 60)
     page = paginator.get_page(request.GET.get('page'))
 

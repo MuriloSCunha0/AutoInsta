@@ -14,6 +14,36 @@
 
 {% block content %}
 
+{# Abas de PASTA (organização acima do modelo). #}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <span class="text-muted small fw-semibold me-1"><i class="bi bi-folder2 me-1"></i> Pasta:</span>
+    <a href="{% url 'instagram:list' %}{% if filtro_app %}?app={{ filtro_app }}{% endif %}"
+       class="btn btn-sm {% if not filtro_pasta %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
+    {% for p in pastas %}
+    <div class="btn-group">
+        <a href="?pasta={{ p.id }}{% if filtro_app %}&app={{ filtro_app }}{% endif %}"
+           class="btn btn-sm {% if filtro_pasta == p.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-folder-fill"></i> {{ p.name }}
+            <span class="badge bg-dark bg-opacity-25 ms-1">{{ p.n_contas }}</span>
+        </a>
+        <form method="post" action="{% url 'instagram:delete_pasta' p.id %}" class="d-inline"
+              onsubmit="return confirm('Excluir a pasta \'{{ p.name }}\'? As contas dela ficam sem pasta (não são apagadas).')">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-secondary text-danger" title="Excluir pasta"><i class="bi bi-x"></i></button>
+        </form>
+    </div>
+    {% endfor %}
+    {% if sem_pasta %}
+    <a href="?pasta=none{% if filtro_app %}&app={{ filtro_app }}{% endif %}"
+       class="btn btn-sm {% if filtro_pasta == 'none' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        Sem pasta <span class="badge bg-dark bg-opacity-25 ms-1">{{ sem_pasta }}</span>
+    </a>
+    {% endif %}
+    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#novaPastaModal">
+        <i class="bi bi-folder-plus"></i> Nova pasta
+    </button>
+</div>
+
 {% if meta_apps %}
 <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
     <span class="text-muted small fw-semibold me-1"><i class="bi bi-meta me-1"></i> App Meta:</span>
@@ -72,4 +102,30 @@
 
 <!-- Add Account Modal -->
 {% include 'instagram/partials/add_modal.html' %}
+
+<!-- Nova pasta -->
+<div class="modal fade" id="novaPastaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-folder-plus text-purple me-2"></i> Nova pasta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'instagram:criar_pasta' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <label class="form-label text-muted">Nome da pasta</label>
+                    <input type="text" name="name" required maxlength="80"
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                           placeholder="Ex: Clientes premium">
+                    <small class="text-muted">Organiza as contas num nível acima do modelo.</small>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar pasta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

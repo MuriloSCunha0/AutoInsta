@@ -34,7 +34,7 @@ def alert_settings_save(request):
     pref = preferencias(request.user)
 
     for campo in ('conta_caiu', 'falha_publicacao', 'limite_atingido',
-                  'meta_views', 'resumo_diario', 'app_lotado'):
+                  'meta_views', 'story_publicado', 'resumo_diario', 'app_lotado'):
         setattr(pref, campo, request.POST.get(campo) == 'on')
 
     try:

@@ -27,6 +27,11 @@ def dashboard(request):
 
     today = timezone.localdate()
 
+    # Contas CONECTADAS = só as que estão de fato ativas (status active). Uma
+    # conta que desconectou (erro/banida/sessão expirada) sai desta contagem e
+    # só volta quando for realmente reconectada.
+    contas_conectadas = accounts.filter(status='active').count()
+
     # Contas que realmente postaram HOJE (o card mostrava só o total conectado).
     contas_ativas_hoje = (ScheduledPost.objects
                           .filter(owner=request.user, status='published',
@@ -95,7 +100,7 @@ def dashboard(request):
         })
     
     context = {
-        'accounts_count': accounts.count(),
+        'accounts_count': contas_conectadas,
         'contas_ativas_hoje': contas_ativas_hoje,
         'queued_count': posts_queued,
         'followers_total': followers_total,

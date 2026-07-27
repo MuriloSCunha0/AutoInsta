@@ -76,6 +76,21 @@
             </div>
         </div>
 
+        {# Pasta: organização acima do modelo. #}
+        <form hx-post="{% url 'instagram:set_pasta' account.id %}"
+              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+              class="conta-modelo-form">
+            {% csrf_token %}
+            <span class="text-muted small"><i class="bi bi-folder2"></i> Pasta</span>
+            <select name="pasta" onchange="this.form.requestSubmit()"
+                    class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input);">
+                <option value="">— Sem pasta —</option>
+                {% for p in account.owner.pastas.all %}
+                <option value="{{ p.id }}" {% if account.pasta_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
         {# Modelo (item 1): agrupa contas da mesma modelo/operação. #}
         <form hx-post="{% url 'instagram:save_modelo' account.id %}"
               hx-target="#account-{{ account.id }}" hx-swap="outerHTML"

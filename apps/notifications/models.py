@@ -17,6 +17,7 @@ class AlertPreference(models.Model):
     limite_atingido = models.BooleanField(default=True)      # conta bateu o teto/cooldown
     meta_views = models.BooleanField(default=True)           # bateu a meta de views do dia
     meta_views_alvo = models.IntegerField(default=10000)
+    story_publicado = models.BooleanField(default=False)     # story publicado / falhou
     resumo_diario = models.BooleanField(default=False)       # resumo do dia
     # App Meta com muitas contas — não bloqueia, só avisa. Quanto mais contas
     # num único app, maior o estrago se a Meta banir o app (ponto único de falha).

@@ -313,6 +313,22 @@ def publish_reel(post_id):
 
         post.save()
 
+        # Alerta de STORY publicado (opcional, ligado nas Configurações).
+        # Anti-spam: 1 aviso por conta a cada hora, mesmo com vários stories.
+        if post.post_type == 'STORY':
+            try:
+                from apps.notifications.alertas import alertar
+                agora_st = timezone.now()
+                alertar(
+                    post.owner, 'story_publicado',
+                    'Story publicado',
+                    f'@{post.account.ig_username} publicou um story.',
+                    chave=f'story_ok:{post.account_id}:{agora_st:%Y%m%d%H}',
+                    nivel='success', account=post.account,
+                )
+            except Exception:
+                pass
+
         # Publicou: a conta claramente não está mais em cooldown.
         if post.account.rate_limited_until:
             post.account.rate_limited_until = None

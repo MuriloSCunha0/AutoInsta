@@ -72,12 +72,19 @@ def _state_signer():
 
 @login_required
 def account_list(request):
-    accounts = InstagramAccount.objects.filter(owner=request.user).select_related('meta_app')
+    accounts = InstagramAccount.objects.filter(owner=request.user).select_related('meta_app', 'pasta')
 
     # Permite filtrar as contas por app Meta (?app=<id>).
     filtro_app = (request.GET.get('app') or '').strip()
     if filtro_app:
         accounts = accounts.filter(meta_app_id=filtro_app)
+
+    # Filtro por PASTA (?pasta=<id> ou ?pasta=none para "Sem pasta").
+    filtro_pasta = (request.GET.get('pasta') or '').strip()
+    if filtro_pasta == 'none':
+        accounts = accounts.filter(pasta__isnull=True)
+    elif filtro_pasta:
+        accounts = accounts.filter(pasta_id=filtro_pasta)
 
     # Agrupa por MODELO (item 1): cada modelo vira um bloco; as sem modelo
     # caem em "Sem modelo". Como no Murphy — conjuntos salvos aparecem separados.
@@ -100,6 +107,11 @@ def account_list(request):
     from apps.notifications.alertas import preferencias
     limite_app = preferencias(request.user).app_lotado_limite or 15
 
+    # Pastas do usuário (para as abas de filtro e para atribuir no card).
+    from .models import Pasta
+    pastas = Pasta.objects.filter(owner=request.user).annotate(n_contas=Count('contas'))
+    sem_pasta = InstagramAccount.objects.filter(owner=request.user, pasta__isnull=True).count()
+
     form = AddInstagramAccountForm()
     connect_url = request.build_absolute_uri('/instagram/connect-extension/')
     return render(request, 'instagram/list.html', {
@@ -107,6 +119,9 @@ def account_list(request):
         'grupos_modelo': grupos_ordenados,
         'meta_apps': meta_apps,
         'filtro_app': filtro_app,
+        'pastas': pastas,
+        'filtro_pasta': filtro_pasta,
+        'sem_pasta': sem_pasta,
         'limite_app': limite_app,
         'form': form,
         'extension_token': request.user.ensure_extension_token(),
@@ -528,6 +543,46 @@ def reativar_conta(request, account_id):
     account.save(update_fields=['pausada', 'rate_limited_until'])
     _subir_fila_agora(account)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
+def criar_pasta(request):
+    """Cria uma pasta para organizar as contas."""
+    from .models import Pasta
+    nome = (request.POST.get('name') or '').strip()[:80]
+    if nome:
+        Pasta.objects.get_or_create(owner=request.user, name=nome)
+    return redirect('instagram:list')
+
+
+@login_required
+@require_POST
+def delete_pasta(request, pasta_id):
+    """Apaga a pasta (as contas ficam sem pasta, não são excluídas)."""
+    from .models import Pasta
+    pasta = get_object_or_404(Pasta, id=pasta_id, owner=request.user)
+    pasta.delete()  # contas ficam com pasta=NULL (SET_NULL)
+    return redirect('instagram:list')
+
+
+@login_required
+@require_POST
+def set_pasta(request, account_id):
+    """Move a conta para uma pasta (ou tira, com pasta vazia)."""
+    from .models import Pasta
+    from apps.accounts.models import MetaApp
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    pasta_id = (request.POST.get('pasta') or '').strip()
+    if pasta_id:
+        account.pasta = get_object_or_404(Pasta, id=pasta_id, owner=request.user)
+    else:
+        account.pasta = None
+    account.save(update_fields=['pasta'])
+    return render(request, 'instagram/partials/account_card.html', {
+        'account': account,
+        'meta_apps': MetaApp.objects.filter(owner=request.user),
+    })
 
 
 @login_required
