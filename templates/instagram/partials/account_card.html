@@ -175,8 +175,7 @@
             </div>
         </form>
 
-        {# Infos enxutas: o que importa é VISUALIZAÇÃO. Seguidores/seguindo/posts
-           saíram — pouca utilidade para a operação. #}
+        {% comment %}Infos enxutas: o que importa é VISUALIZAÇÃO. Seguidores/seguindo/posts saíram — pouca utilidade para a operação.{% endcomment %}
         <div class="account-stats views-stats mb-3">
             <div class="stat w-100">
                 <span class="stat-value text-info">{{ account.views_today|default:0|intcomma }}</span>
@@ -188,8 +187,7 @@
             </div>
         </div>
 
-        {# Próximo post da fila (item 2): mostra QUANDO sai o próximo, não o
-           status do último. #}
+        {% comment %}Próximo post da fila (item 2): mostra QUANDO sai o próximo, não o status do último.{% endcomment %}
         <div class="proximo-post mb-4">
             {% if account.proximo_post %}
             <i class="bi bi-clock-history text-purple"></i>
