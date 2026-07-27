@@ -5,28 +5,10 @@
 (function () {
   'use strict';
 
-  /* ── Theme Toggler ─────────────────────────────── */
-  function initThemeToggle() {
-    const toggleBtn = document.getElementById('theme-toggle');
-    const toggleIcon = document.getElementById('theme-icon');
-    if (!toggleBtn) return;
-
-    function updateIcon() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      if(toggleIcon) toggleIcon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-    }
-
-    updateIcon();
-
-    toggleBtn.addEventListener('click', () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const newTheme = isDark ? 'light' : 'dark';
-      
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-      updateIcon();
-    });
-  }
+  /* ── Tema ──────────────────────────────────────────────────
+     O app usa só o tema escuro. O botão de troca foi removido; esta
+     função virou no-op (mantida para não quebrar chamadas existentes). */
+  function initThemeToggle() {}
 
   /* ── Toast Notification System ──────────────────────────── */
   const TOAST_ICONS = {

@@ -25,8 +25,10 @@
     
     <!-- Theme Script (prevents FOUC) -->
     <script>
-        const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        if (storedTheme) document.documentElement.setAttribute('data-theme', storedTheme);
+        // App usa só o tema escuro. Fixo aqui e limpamos qualquer preferência
+        // antiga de tema claro que tenha ficado salva.
+        document.documentElement.setAttribute('data-theme', 'dark');
+        try { localStorage.removeItem('theme'); } catch (e) {}
         // Estado da sidebar (colapsada) aplicado antes da pintura para evitar flash.
         if (localStorage.getItem('nav-collapsed') === '1') document.documentElement.setAttribute('data-nav', 'collapsed');
     </script>
@@ -201,9 +203,6 @@
                             </li>
                         </ul>
                     </div>
-                    <button class="btn btn-outline-secondary ms-2" id="theme-toggle" aria-label="Toggle Theme" style="border: 1px solid var(--border-subtle); color: var(--text-primary); background: transparent;">
-                        <i class="bi bi-moon-fill" id="theme-icon"></i>
-                    </button>
                 </div>
             </header>
             
