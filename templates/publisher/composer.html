@@ -122,7 +122,15 @@
                     {% for acc in accounts %}
                     <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle acc-row" data-pendentes="{{ acc.pendentes }}" style="cursor: pointer;">
                         <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check">
-                        <span class="text-white text-truncate" style="max-width: 45%;">@{{ acc.ig_username }}</span>
+                        {# Foto da conta (item 3): ajuda a distinguir as contas na hora de postar. #}
+                        <span class="composer-acc-pic">
+                            {% if acc.profile_pic_url %}<img src="{{ acc.profile_pic_url }}" alt="">
+                            {% else %}<i class="bi bi-person"></i>{% endif %}
+                        </span>
+                        <span class="min-w-0">
+                            <span class="text-white text-truncate d-block" style="max-width: 150px;">@{{ acc.ig_username }}</span>
+                            {% if acc.modelo %}<span class="text-muted" style="font-size:0.68rem;"><i class="bi bi-collection"></i> {{ acc.modelo }}</span>{% endif %}
+                        </span>
                         {% if acc.status != 'active' %}
                         <span class="badge bg-secondary bg-opacity-25 text-muted" style="font-size:0.6rem;" title="{{ acc.get_status_display }}"><i class="bi bi-slash-circle"></i></span>
                         {% endif %}
@@ -381,7 +389,7 @@
                     <span class="total-label">publicações na fila</span>
                 </div>
                 <button type="submit" class="btn btn-primary w-100" id="composer-submit">
-                    <i class="bi bi-send"></i> Enfileirar publicações
+                    <i class="bi bi-send"></i> Criar postagens
                 </button>
                 <small class="text-muted d-block text-center mt-2">Selecione ao menos 1 conta e 1 vídeo.</small>
             </div>

@@ -124,7 +124,7 @@ def add_post(request):
     if quando and timezone.is_naive(quando):
         quando = timezone.make_aware(quando, timezone.get_current_timezone())
     if not quando:
-        quando = timezone.now() + timedelta(minutes=1)
+        quando = timezone.now()
 
     # Salva o arquivo UMA vez e referencia em todos os posts (sem duplicar).
     from apps.core_utils import nome_seguro
@@ -452,9 +452,10 @@ def _composer_submit(request):
         if start and timezone.is_naive(start):
             start = timezone.make_aware(start, timezone.get_current_timezone())
         if not start:
-            start = timezone.now() + timedelta(minutes=1)
+            start = timezone.now()
     else:
-        start = timezone.now() + timedelta(minutes=1)
+        # "Agora": sai já no próximo ciclo do dispatcher (segundos), não +1min.
+        start = timezone.now()
 
     try:
         interval_minutes = max(int(request.POST.get('interval_minutes', 5)), 0)

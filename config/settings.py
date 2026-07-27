@@ -198,8 +198,10 @@ CELERY_TASK_TRACK_STARTED = True
 # Varre a fila a cada 60s e dispara as publicações cujo horário já chegou.
 CELERY_BEAT_SCHEDULE = {
     "process-scheduled-posts": {
+        # 30s (era 60s): posts "agora" saem mais rápido após subir a fila.
+        # Não adiciona chamadas à Meta — só checa o banco com mais frequência.
         "task": "apps.publisher.tasks.process_scheduled_posts",
-        "schedule": 60.0,
+        "schedule": 30.0,
     },
     # Aquecimento gradual das contas (ações sociais em pequenos lotes).
     "run-account-warmups": {

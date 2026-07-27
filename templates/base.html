@@ -101,9 +101,6 @@
                 <a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.url_name == 'list' and request.resolver_match.namespace == 'instagram' %}active{% endif %}">
                     <i class="bi bi-instagram"></i> <span class="nav-text">Contas</span>
                 </a>
-                <a href="{% url 'instagram:profile' %}" class="{% if request.resolver_match.url_name == 'profile' and request.resolver_match.namespace == 'instagram' %}active{% endif %}">
-                    <i class="bi bi-person-lines-fill"></i> <span class="nav-text">Perfil Instagram</span>
-                </a>
                 <a href="{% url 'analytics:health' %}" class="{% if request.resolver_match.url_name == 'health' %}active{% endif %}">
                     <i class="bi bi-heart-pulse-fill"></i> <span class="nav-text">Saúde</span>
                 </a>

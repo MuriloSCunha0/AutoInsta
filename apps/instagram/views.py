@@ -79,6 +79,18 @@ def account_list(request):
     if filtro_app:
         accounts = accounts.filter(meta_app_id=filtro_app)
 
+    # Agrupa por MODELO (item 1): cada modelo vira um bloco; as sem modelo
+    # caem em "Sem modelo". Como no Murphy — conjuntos salvos aparecem separados.
+    accounts = accounts.order_by('modelo', 'ig_username')
+    grupos = {}
+    for acc in accounts:
+        grupos.setdefault(acc.modelo or '', []).append(acc)
+    # Ordena: modelos nomeados primeiro (alfabético), "Sem modelo" por último.
+    grupos_ordenados = [
+        {'nome': nome or 'Sem modelo', 'contas': contas, 'sem_nome': not nome}
+        for nome, contas in sorted(grupos.items(), key=lambda kv: (kv[0] == '', kv[0].lower()))
+    ]
+
     from django.db.models import Count
 
     from apps.accounts.models import MetaApp
@@ -92,6 +104,7 @@ def account_list(request):
     connect_url = request.build_absolute_uri('/instagram/connect-extension/')
     return render(request, 'instagram/list.html', {
         'accounts': accounts,
+        'grupos_modelo': grupos_ordenados,
         'meta_apps': meta_apps,
         'filtro_app': filtro_app,
         'limite_app': limite_app,
@@ -480,11 +493,54 @@ def toggle_forcar(request, account_id):
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     account.ignorar_limites = not account.ignorar_limites
     campos = ['ignorar_limites']
-    if account.ignorar_limites and account.rate_limited_until:
-        account.rate_limited_until = None
-        campos.append('rate_limited_until')
+    if account.ignorar_limites:
+        # Ao FORÇAR: zera cooldown, tira a pausa e puxa os posts que tinham
+        # sido adiados pelo limite de volta para agora — a fila retoma na hora.
+        if account.rate_limited_until:
+            account.rate_limited_until = None
+            campos.append('rate_limited_until')
+        if account.pausada:
+            account.pausada = False
+            campos.append('pausada')
+        _subir_fila_agora(account)
     account.save(update_fields=campos)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+def _subir_fila_agora(account):
+    """Puxa os posts adiados desta conta de volta para agora (retoma a fila)."""
+    from django.utils import timezone
+    from apps.publisher.models import ScheduledPost
+    agora = timezone.now()
+    (ScheduledPost.objects.filter(account=account, status='queued',
+                                  scheduled_for__gt=agora)
+     .update(scheduled_for=agora))
+
+
+@login_required
+@require_POST
+def reativar_conta(request, account_id):
+    """Reativa a conta e sobe a fila: tira pausa, zera cooldown e traz os posts
+    adiados para agora. É o 'ativar conta novamente' quando ela limitou."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    account.pausada = False
+    account.rate_limited_until = None
+    account.save(update_fields=['pausada', 'rate_limited_until'])
+    _subir_fila_agora(account)
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
+def save_modelo(request, account_id):
+    """Grava o 'modelo' (grupo) da conta — para separar contas no painel."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    account.modelo = (request.POST.get('modelo') or '').strip()[:60]
+    account.save(update_fields=['modelo'])
+    return render(request, 'instagram/partials/account_card.html', {
+        'account': account,
+        'meta_apps': MetaApp.objects.filter(owner=request.user),
+    })
 
 
 @login_required

@@ -37,6 +37,9 @@ class InstagramAccount(models.Model):
         null=True, blank=True, related_name='accounts',
     )
     ig_username = models.CharField(max_length=150)
+    # "Modelo" (ex.: op1): agrupa contas de uma mesma modelo/operação, para
+    # separar visualmente no painel e no composer. Vazio = "Sem modelo".
+    modelo = models.CharField(max_length=60, blank=True, db_index=True)
     ig_password = models.TextField()
     proxy_url = models.CharField(max_length=255, blank=True, help_text="Ex: http://user:pass@ip:port")
     ig_user_id = models.BigIntegerField(null=True, blank=True)
@@ -184,6 +187,15 @@ class InstagramAccount(models.Model):
         if teto <= 0:
             return False
         return self._publicados_24h().count() >= teto
+
+    @property
+    def proximo_post(self):
+        """O PRÓXIMO post a sair desta conta (o mais próximo no futuro/vencido),
+        não o último. Usado no card para mostrar quando sai o próximo."""
+        from apps.publisher.models import ScheduledPost
+        return (ScheduledPost.objects.filter(
+            account=self, status__in=('queued', 'processing'))
+            .order_by('scheduled_for').first())
 
     def livre_em(self):
         """Quando a conta volta a poder publicar (datetime), ou None se livre.

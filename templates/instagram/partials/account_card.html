@@ -1,3 +1,4 @@
+{% load humanize %}
 <div class="col" id="account-{{ account.id }}">
     <div class="account-card h-100 d-flex flex-column {% if account.status == 'connecting' %}connecting{% endif %}"
          {% if account.status == 'connecting' %}
@@ -57,7 +58,7 @@
                     </ul>
                 </div>
             </div>
-            
+
             <div class="ms-auto text-end">
                 {% if account.status == 'active' %}
                     <span class="acct-tag on" title="Conta respondendo à API">ON</span>
@@ -74,6 +75,54 @@
                 {% endif %}
             </div>
         </div>
+
+        {# Modelo (item 1): agrupa contas da mesma modelo/operação. #}
+        <form hx-post="{% url 'instagram:save_modelo' account.id %}"
+              hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+              class="conta-modelo-form">
+            {% csrf_token %}
+            <span class="text-muted small"><i class="bi bi-collection"></i> Modelo</span>
+            <input type="text" name="modelo" value="{{ account.modelo }}" placeholder="ex: op1" maxlength="60">
+            <button type="submit" class="btn btn-sm btn-outline-secondary border-opacity-25 text-muted">Salvar</button>
+        </form>
+
+        {# Banner de status bem claro (item 4): conta caída ou limitada. #}
+        {% if account.status == 'banned' %}
+        <div class="status-banner banner-erro mb-3">
+            <i class="bi bi-x-octagon-fill"></i>
+            <div><strong>Conta desconectada</strong><div class="small">Banida/indisponível na Meta. {{ account.last_error|truncatechars:70 }}</div></div>
+        </div>
+        {% elif account.status == 'error' %}
+        <div class="status-banner banner-erro mb-3">
+            <i class="bi bi-exclamation-octagon-fill"></i>
+            <div><strong>Conta caiu</strong><div class="small">Token inválido/expirado. Reconecte para voltar a publicar.</div></div>
+        </div>
+        {% elif account.status == 'session_expired' %}
+        <div class="status-banner banner-erro mb-3">
+            <i class="bi bi-clock-history"></i>
+            <div><strong>Sessão expirada</strong><div class="small">Reconecte a conta.</div></div>
+        </div>
+        {% elif account.pausada %}
+        <div class="status-banner banner-pausa mb-3">
+            <i class="bi bi-pause-circle-fill"></i>
+            <div><strong>Conta pausada</strong><div class="small">A fila dela está parada. As outras seguem.</div></div>
+        </div>
+        {% elif account.esta_limitada and not account.ignorar_limites %}
+        <div class="status-banner banner-limite mb-3">
+            <i class="bi bi-hourglass-split"></i>
+            <div class="flex-grow-1">
+                <strong>No limite da Meta</strong>
+                <div class="small">Atingiu o teto de 24h.{% with livre=account.livre_em %}{% if livre %} Volta sozinha {{ livre|timeuntil }}.{% endif %}{% endwith %}</div>
+                <form hx-post="{% url 'instagram:reativar_conta' account.id %}"
+                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-warning">
+                        <i class="bi bi-arrow-up-circle"></i> Reativar e subir a fila agora
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
 
         {# Forçar postagem — no topo, bem visível (publica mesmo no limite/cooldown). #}
         <form hx-post="{% url 'instagram:toggle_forcar' account.id %}"
@@ -126,31 +175,32 @@
             </div>
         </form>
 
-        <div class="account-stats mb-3">
+        {# Infos enxutas: o que importa é VISUALIZAÇÃO. Seguidores/seguindo/posts
+           saíram — pouca utilidade para a operação. #}
+        <div class="account-stats views-stats mb-3">
             <div class="stat w-100">
-                <span class="stat-value">{{ account.followers_count }}</span>
-                <span class="stat-label">Seguidores</span>
-            </div>
-            <div class="stat w-100">
-                <span class="stat-value">{{ account.following_count }}</span>
-                <span class="stat-label">Seguindo</span>
-            </div>
-            <div class="stat w-100">
-                <span class="stat-value">{{ account.posts_count }}</span>
-                <span class="stat-label">Posts</span>
-            </div>
-        </div>
-
-        {# Visualizações reais da Meta (métrica `views` do /insights). #}
-        <div class="account-stats views-stats mb-4">
-            <div class="stat w-100">
-                <span class="stat-value text-info">{{ account.views_today|default:0 }}</span>
+                <span class="stat-value text-info">{{ account.views_today|default:0|intcomma }}</span>
                 <span class="stat-label"><i class="bi bi-eye"></i> Views hoje</span>
             </div>
             <div class="stat w-100">
-                <span class="stat-value">{{ account.views_total|default:0 }}</span>
+                <span class="stat-value">{{ account.views_total|default:0|intcomma }}</span>
                 <span class="stat-label">Views total</span>
             </div>
+        </div>
+
+        {# Próximo post da fila (item 2): mostra QUANDO sai o próximo, não o
+           status do último. #}
+        <div class="proximo-post mb-4">
+            {% if account.proximo_post %}
+            <i class="bi bi-clock-history text-purple"></i>
+            <span class="text-muted small">Próximo post</span>
+            <span class="text-white small fw-semibold ms-auto">
+                {% if account.proximo_post.scheduled_for %}{{ account.proximo_post.scheduled_for|date:"d/m H:i" }}{% endif %}
+            </span>
+            {% else %}
+            <i class="bi bi-check2-circle text-success"></i>
+            <span class="text-muted small">Sem posts na fila</span>
+            {% endif %}
         </div>
 
         {% if account.status == 'challenge_required' or account.status == '2fa_required' %}

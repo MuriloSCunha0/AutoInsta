@@ -3134,6 +3134,49 @@ input[type="file"].form-control:focus {
   .ranking-score { padding: 6px 10px; font-size: 0.78rem; }
 }
 
+/* ── Foto da conta no composer ───────────────────────────────────── */
+.composer-acc-pic {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: rgba(139, 92, 246, 0.18); display: flex; align-items: center;
+  justify-content: center; color: #c4b5fd;
+}
+.composer-acc-pic img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Grupos por modelo (tela de Contas) ──────────────────────────── */
+.modelo-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 8px 2px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.modelo-nome { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.9rem; }
+
+/* ── Banners de status da conta (caiu / limitada / pausada) ──────── */
+.status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+.status-banner > i { font-size: 1.1rem; margin-top: 1px; }
+.status-banner .small { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+.banner-erro { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
+.banner-limite { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fcd34d; }
+.banner-pausa { background: rgba(148, 163, 184, 0.12); border: 1px solid rgba(148, 163, 184, 0.3); color: #cbd5e1; }
+.proximo-post { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: var(--bg-card-hover); border: 1px solid var(--border-subtle); }
+.conta-modelo-form { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.conta-modelo-form input {
+  flex: 1; min-width: 0; background: var(--bg-input);
+  border: 1px solid var(--border-subtle); color: var(--text-primary);
+  border-radius: 8px; padding: 4px 10px; font-size: 0.82rem;
+}
+
 /* ── Configuração de alertas ─────────────────────────────────────── */
 .alerta-item {
   display: flex;
