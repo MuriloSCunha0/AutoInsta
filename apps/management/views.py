@@ -254,5 +254,38 @@ def account_ban(request, account_id):
 
 @staff_member_required
 def posts_list(request):
-    posts = ScheduledPost.objects.select_related('account', 'account__owner').all().order_by('-created_at')
-    return render(request, 'management/posts.html', {'posts': posts})
+    """Fila global com diretório: escolhe o usuário e vê os posts dele."""
+    from django.core.paginator import Paginator
+    from django.db.models import Count
+
+    owner_id = (request.GET.get('owner') or '').strip()
+    modo_diretorio = not owner_id
+
+    # Diretório de usuários com contagem de posts (por situação).
+    usuarios = (User.objects.filter(scheduledpost__isnull=False)
+                .annotate(
+                    n_posts=Count('scheduledpost', distinct=True),
+                    n_fila=Count('scheduledpost',
+                                 filter=Q(scheduledpost__status__in=['queued', 'processing']),
+                                 distinct=True),
+                    n_pub=Count('scheduledpost',
+                                filter=Q(scheduledpost__status='published'), distinct=True),
+                )
+                .order_by('-n_posts'))
+
+    page = None
+    dono = None
+    if not modo_diretorio:
+        dono = get_object_or_404(User, id=owner_id)
+        posts = (ScheduledPost.objects.filter(owner=dono)
+                 .select_related('account').order_by('-created_at'))
+        page = Paginator(posts, 100).get_page(request.GET.get('page'))
+
+    return render(request, 'management/posts.html', {
+        'usuarios': usuarios,
+        'modo_diretorio': modo_diretorio,
+        'dono': dono,
+        'posts': page,
+        'page_obj': page,
+        'owner_atual': owner_id,
+    })

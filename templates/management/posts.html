@@ -1,11 +1,54 @@
 {% extends 'management/base_management.html' %}
+{% load humanize %}
 
 {% block page_title %}Fila de Postagens Global{% endblock %}
 
 {% block management_content %}
-<div class="card bg-surface border-subtle">
-    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Auditoria de Postagens</h5>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h5 class="text-white mb-0">Auditoria de Postagens</h5>
+    {% if not modo_diretorio %}
+    <a href="{% url 'management:posts' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Ver usuários</a>
+    {% else %}
+    <span class="text-muted small">{{ usuarios|length }} usuário(s)</span>
+    {% endif %}
+</div>
+
+{% if modo_diretorio %}
+{# Diretório: escolha o usuário para ver a fila dele. #}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for u in usuarios %}
+    <div class="col">
+        <a href="?owner={{ u.id }}" class="user-dir-card">
+            <div class="user-dir-avatar">
+                {% if u.avatar %}<img src="{{ u.avatar.url }}" alt="">{% else %}<i class="bi bi-person-fill"></i>{% endif %}
+            </div>
+            <div class="min-w-0 flex-grow-1">
+                <div class="user-dir-name text-truncate">{{ u.display_name }}</div>
+                <div class="text-muted small">
+                    <i class="bi bi-hourglass-split"></i> {{ u.n_fila|intcomma }} na fila
+                    <span class="ranking-dot">·</span>
+                    <i class="bi bi-check2-circle"></i> {{ u.n_pub|intcomma }} publicados
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="user-dir-count">{{ u.n_posts|intcomma }}</div>
+                <div class="text-muted" style="font-size:0.62rem;">total</div>
+            </div>
+        </a>
+    </div>
+    {% empty %}
+    <div class="col-12"><p class="text-muted">Nenhum post agendado na plataforma.</p></div>
+    {% endfor %}
+</div>
+{% else %}
+
+<div class="card bg-surface border-subtle mb-3">
+    <div class="card-header border-subtle bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 text-white">
+            <i class="bi bi-person-circle text-info me-1"></i> {{ dono.display_name }}
+            <span class="text-muted small">@{{ dono.username }}</span>
+        </h6>
+        <span class="text-muted small">{{ page_obj.paginator.count|intcomma }} post(s)</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -13,9 +56,8 @@
                 <thead class="table-light text-muted">
                     <tr>
                         <th>Conteúdo</th>
-                        <th>Dono</th>
-                        <th>Conta Destino</th>
-                        <th>Data Agendada</th>
+                        <th>Conta destino</th>
+                        <th>Data agendada</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -24,43 +66,57 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center">
-                                {% if post.media %}
-                                <img src="{{ post.media.file.url }}" class="rounded me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                                {% if post.thumbnail %}
+                                <img src="{{ post.thumbnail.url }}" class="rounded me-3" style="width: 44px; height: 44px; object-fit: cover;">
+                                {% elif post.video_file %}
+                                <video src="{{ post.video_file.url }}" class="rounded me-3" style="width: 44px; height: 44px; object-fit: cover;" muted preload="metadata"></video>
                                 {% else %}
-                                <div class="bg-secondary rounded me-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
-                                    <i class="bi bi-image text-white"></i>
+                                <div class="bg-secondary bg-opacity-25 rounded me-3 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                    <i class="bi bi-image text-muted"></i>
                                 </div>
                                 {% endif %}
-                                <div>
-                                    <span class="d-inline-block text-truncate text-wrap" style="max-width: 250px; font-size: 0.9em;">
-                                        {{ post.caption|truncatechars:100|default:"Sem legenda" }}
-                                    </span>
-                                </div>
+                                <span class="text-truncate text-muted small" style="max-width: 260px;">
+                                    {{ post.caption|truncatechars:80|default:"Sem legenda" }}
+                                </span>
                             </div>
                         </td>
-                        <td>{{ post.account.owner.username }}</td>
-                        <td><strong>@{{ post.account.username }}</strong></td>
-                        <td>{{ post.scheduled_time|date:"d/m/Y H:i" }}</td>
+                        <td><strong class="text-white">@{{ post.account.ig_username }}</strong></td>
+                        <td class="text-muted small">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
                         <td>
-                            {% if post.status == 'PENDING' %}
-                                <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Pendente</span>
-                            {% elif post.status == 'PUBLISHED' %}
-                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Publicado</span>
-                            {% elif post.status == 'FAILED' %}
-                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Erro</span>
+                            {% if post.status == 'queued' %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25"><i class="bi bi-clock"></i> Na fila</span>
+                            {% elif post.status == 'processing' %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25"><i class="bi bi-arrow-repeat"></i> Publicando</span>
+                            {% elif post.status == 'published' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"><i class="bi bi-check-circle"></i> Publicado</span>
+                            {% elif post.status == 'failed' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" title="{{ post.error_message }}"><i class="bi bi-x-circle"></i> Erro</span>
+                            {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">{{ post.get_status_display }}</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">
-                            Nenhum post agendado na plataforma.
-                        </td>
-                    </tr>
+                    <tr><td colspan="4" class="text-center py-4 text-muted">Este usuário não tem posts.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+{% if page_obj.has_other_pages %}
+<nav class="d-flex justify-content-center">
+    <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?owner={{ owner_atual }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?owner={{ owner_atual }}&page={{ page_obj.next_page_number }}">Próxima</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endif %}
 {% endblock %}
