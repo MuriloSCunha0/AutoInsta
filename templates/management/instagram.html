@@ -3,10 +3,28 @@
 {% block page_title %}Monitoramento de Contas IG{% endblock %}
 
 {% block management_content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <h5 class="text-white mb-0">Todas as Contas do Instagram</h5>
     <span class="text-muted small">{{ total_contas }} conta(s) · {{ grupos|length }} usuário(s)</span>
 </div>
+
+{# Filtro por usuário + busca por @conta. #}
+<form method="get" class="d-flex flex-wrap gap-2 mb-4">
+    <select name="owner" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input); max-width: 260px;" onchange="this.form.submit()">
+        <option value="">Todos os usuários ({{ donos|length }})</option>
+        {% for d in donos %}
+        <option value="{{ d.id }}" {% if owner_atual == d.id|stringformat:'s' %}selected{% endif %}>
+            {{ d.display_name }} — {{ d.n }} conta(s)
+        </option>
+        {% endfor %}
+    </select>
+    <input type="text" name="q" value="{{ busca }}" class="form-control form-control-sm text-white border-subtle"
+           style="background: var(--bg-input); max-width: 220px;" placeholder="Buscar @conta…">
+    <button class="btn btn-sm btn-outline-secondary">Filtrar</button>
+    {% if owner_atual or busca %}
+    <a href="{% url 'management:instagram' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i> Limpar</a>
+    {% endif %}
+</form>
 
 {% for grupo in grupos %}
 <div class="card bg-surface border-subtle mb-3">

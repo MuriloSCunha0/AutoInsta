@@ -124,14 +124,32 @@ def instagram_list(request):
     # Agrupado por DONO: cada usuário vira um bloco com suas contas.
     contas = (InstagramAccount.objects.select_related('owner', 'meta_app')
               .order_by('owner__username', '-created_at'))
+
+    # Filtro por usuário (?owner=<id>) — facilita achar as contas de um dono.
+    owner_id = (request.GET.get('owner') or '').strip()
+    busca = (request.GET.get('q') or '').strip()
+    if owner_id:
+        contas = contas.filter(owner_id=owner_id)
+    if busca:
+        contas = contas.filter(ig_username__icontains=busca)
+
     grupos = {}
     for c in contas:
         grupos.setdefault(c.owner, []).append(c)
     linhas = [{'dono': dono, 'contas': lista, 'total': len(lista)}
               for dono, lista in sorted(grupos.items(), key=lambda kv: kv[0].username.lower())]
+
+    # Lista de donos (com contagem) para o seletor do filtro.
+    from django.db.models import Count
+    donos = (User.objects.filter(instagramaccount__isnull=False)
+             .annotate(n=Count('instagramaccount')).distinct().order_by('username'))
+
     return render(request, 'management/instagram.html', {
         'grupos': linhas,
         'total_contas': contas.count(),
+        'donos': donos,
+        'owner_atual': owner_id,
+        'busca': busca,
     })
 
 
