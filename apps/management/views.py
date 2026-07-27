@@ -167,28 +167,50 @@ def instagram_list(request):
 # =============================================================================
 @staff_member_required
 def moderation(request):
-    """Lista todos os usuários com suas contas, para revisão manual."""
-    from django.db.models import Count, Q
+    """Moderação com diretório: escolhe o usuário e vê as contas dele.
+
+    Sem filtro = diretório de usuários (não a lista gigante). Ao escolher um
+    usuário (?owner=<id>), abre as contas dele para revisar/banir.
+    """
+    from django.db.models import Count
 
     q = (request.GET.get('q') or '').strip()
+    owner_id = (request.GET.get('owner') or '').strip()
+
+    # Diretório de usuários (com contagem de contas e posts).
     usuarios = (User.objects.all()
                 .annotate(
                     n_contas=Count('instagramaccount', distinct=True),
                     n_posts=Count('scheduledpost', distinct=True),
                 )
+                .filter(n_contas__gt=0)
                 .order_by('-n_posts'))
     if q:
         usuarios = usuarios.filter(Q(username__icontains=q) | Q(nickname__icontains=q))
 
-    # Contas de cada usuário, já carregadas para a tela.
-    contas = (InstagramAccount.objects.select_related('owner')
-              .order_by('owner_id', 'ig_username'))
-    por_usuario = {}
-    for c in contas:
-        por_usuario.setdefault(c.owner_id, []).append(c)
+    modo_diretorio = not owner_id and not q
 
-    linhas = [{'user': u, 'contas': por_usuario.get(u.id, [])} for u in usuarios]
-    return render(request, 'management/moderation.html', {'linhas': linhas, 'q': q})
+    linhas = []
+    if not modo_diretorio:
+        # Carrega as contas só dos usuários filtrados (não de todos).
+        ids = list(usuarios.values_list('id', flat=True))
+        if owner_id:
+            ids = [int(owner_id)] if owner_id.isdigit() and int(owner_id) in ids else []
+        contas = (InstagramAccount.objects.filter(owner_id__in=ids)
+                  .select_related('owner').order_by('owner_id', 'ig_username'))
+        por_usuario = {}
+        for c in contas:
+            por_usuario.setdefault(c.owner_id, []).append(c)
+        alvo = usuarios.filter(id__in=ids) if owner_id else usuarios
+        linhas = [{'user': u, 'contas': por_usuario.get(u.id, [])} for u in alvo]
+
+    return render(request, 'management/moderation.html', {
+        'linhas': linhas,
+        'usuarios': usuarios,
+        'q': q,
+        'owner_atual': owner_id,
+        'modo_diretorio': modo_diretorio,
+    })
 
 
 @staff_member_required

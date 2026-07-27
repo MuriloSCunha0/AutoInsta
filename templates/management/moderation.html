@@ -11,16 +11,44 @@
             <h5 class="text-white mb-0"><i class="bi bi-shield-check text-info me-2"></i> Revisão de conteúdo</h5>
             <form method="get" class="d-flex gap-2">
                 <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm text-white border-subtle"
-                       style="background: var(--bg-input); min-width: 220px;" placeholder="Buscar usuário…">
+                       style="background: var(--bg-input); min-width: 200px;" placeholder="Buscar usuário…">
                 <button class="btn btn-sm btn-outline-secondary">Buscar</button>
+                {% if owner_atual or q %}
+                <a href="{% url 'management:moderation' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Ver usuários</a>
+                {% endif %}
             </form>
         </div>
         <p class="text-muted small mb-0">
-            Inspecione o que cada conta está postando e bana as que violarem as regras.
+            Escolha um usuário para inspecionar o que as contas dele estão postando e banir as que violarem as regras.
             A revisão é silenciosa — o usuário não é avisado.
         </p>
     </div>
 </div>
+
+{% if modo_diretorio %}
+{# Diretório: escolha o usuário para moderar as contas dele. #}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for u in usuarios %}
+    <div class="col">
+        <a href="?owner={{ u.id }}" class="user-dir-card">
+            <div class="user-dir-avatar">
+                {% if u.avatar %}<img src="{{ u.avatar.url }}" alt="">{% else %}<i class="bi bi-person-fill"></i>{% endif %}
+            </div>
+            <div class="min-w-0 flex-grow-1">
+                <div class="user-dir-name text-truncate">{{ u.display_name }}</div>
+                <div class="text-muted small">@{{ u.username }} · {{ u.n_posts|intcomma }} post(s)</div>
+            </div>
+            <div class="text-end">
+                <div class="user-dir-count">{{ u.n_contas }}</div>
+                <div class="text-muted" style="font-size:0.62rem;">conta(s)</div>
+            </div>
+        </a>
+    </div>
+    {% empty %}
+    <div class="col-12"><p class="text-muted">Nenhum usuário com contas.</p></div>
+    {% endfor %}
+</div>
+{% else %}
 
 {% for linha in linhas %}
 <div class="card bg-surface border-subtle mb-3">
@@ -73,4 +101,5 @@
     <p class="text-muted">Nenhum usuário encontrado.</p>
 </div>
 {% endfor %}
+{% endif %}
 {% endblock %}
