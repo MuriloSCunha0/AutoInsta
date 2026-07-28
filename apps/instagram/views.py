@@ -1072,15 +1072,42 @@ def stories_ativos(request):
     recarregar via HTMX). Não dá para apagar story pela API — só abrir o
     permalink e remover manualmente no Instagram.
     """
+    from datetime import timedelta
+
     from django.core.paginator import Paginator
+    from django.utils import timezone
 
     todas = (InstagramAccount.objects.filter(owner=request.user, status='active')
              .exclude(meta_access_token='').order_by('modelo', 'ig_username'))
 
-    # Filtro por conta (default = todas). Com muitas contas, buscar os stories
-    # de todas de uma vez é pesado — então paginamos (8/página) e só buscamos
-    # os das contas exibidas. Ao escolher uma conta, mostramos só ela.
+    modo = (request.GET.get('modo') or 'ativos').strip()
     conta_atual = (request.GET.get('account') or '').strip()
+
+    # ── INATIVOS: stories já expirados (>24h) do NOSSO banco ──────────
+    # A Meta só devolve os ativos pelo edge /stories; os expirados a gente
+    # mostra pelo que já publicou (post_type STORY), com a mídia guardada.
+    if modo == 'inativos':
+        from apps.publisher.models import ScheduledPost
+        limite = timezone.now() - timedelta(hours=24)
+        expirados = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY',
+                                                  status='published', published_at__lte=limite)
+                     .select_related('account').order_by('-published_at'))
+        if conta_atual:
+            expirados = expirados.filter(account_id=conta_atual)
+        page_obj = Paginator(expirados, 24).get_page(request.GET.get('page'))
+        return render(request, 'instagram/partials/stories_ativos.html', {
+            'modo': 'inativos',
+            'inativos': page_obj,
+            'total_inativos': page_obj.paginator.count,
+            'total_contas': todas.count(),
+            'todas_contas': todas,
+            'conta_atual': conta_atual,
+            'page_obj': page_obj,
+        })
+
+    # ── ATIVOS: pela API oficial (janela de 24h) ─────────────────────
+    # Com muitas contas, buscar todas de uma vez pesa — paginamos (8/página)
+    # e só buscamos as exibidas. Ao escolher uma conta, mostramos só ela.
     if conta_atual:
         contas_pagina = list(todas.filter(id=conta_atual))
         page_obj = None
@@ -1116,6 +1143,7 @@ def stories_ativos(request):
         linhas.append({'conta': acc, 'stories': stories})
 
     return render(request, 'instagram/partials/stories_ativos.html', {
+        'modo': 'ativos',
         'linhas': linhas,
         'total_stories': total_stories,
         'total_contas': todas.count(),

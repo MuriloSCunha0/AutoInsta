@@ -1,38 +1,88 @@
 {% load humanize %}
 <div class="stories-resumo">
     <div class="stories-resumo-kicker">Resumo</div>
-    <h5 class="text-white mb-3">Stories hoje</h5>
+    <h5 class="text-white mb-3">Stories</h5>
     <div class="d-flex gap-2 mb-3">
         <div class="stories-stat">
-            <div class="stories-stat-num">{{ total_stories }}</div>
-            <div class="stories-stat-lbl">{% if conta_atual %}desta conta{% else %}nesta página{% endif %}</div>
+            <div class="stories-stat-num">{% if modo == 'inativos' %}{{ total_inativos }}{% else %}{{ total_stories }}{% endif %}</div>
+            <div class="stories-stat-lbl">{% if modo == 'inativos' %}inativos{% if conta_atual %} (conta){% endif %}{% elif conta_atual %}ativos (conta){% else %}ativos (página){% endif %}</div>
         </div>
         <div class="stories-stat">
             <div class="stories-stat-num">{{ total_contas }}</div>
             <div class="stories-stat-lbl">contas conectadas</div>
         </div>
     </div>
+
+    {# Abas: Ativos (Meta, 24h) x Inativos (histórico, já expirados). #}
+    <div class="btn-group w-100 mb-3">
+        <button type="button" class="btn btn-sm {% if modo != 'inativos' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                hx-get="{% url 'instagram:stories_ativos' %}?modo=ativos{% if conta_atual %}&account={{ conta_atual }}{% endif %}"
+                hx-target="#stories-ativos-box" hx-swap="innerHTML">Ativos</button>
+        <button type="button" class="btn btn-sm {% if modo == 'inativos' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                hx-get="{% url 'instagram:stories_ativos' %}?modo=inativos{% if conta_atual %}&account={{ conta_atual }}{% endif %}"
+                hx-target="#stories-ativos-box" hx-swap="innerHTML">Inativos</button>
+    </div>
+
     <button type="button" class="btn btn-sm btn-outline-secondary w-100"
-            hx-get="{% url 'instagram:stories_ativos' %}{% if conta_atual %}?account={{ conta_atual }}{% elif page_obj %}?page={{ page_obj.number }}{% endif %}"
+            hx-get="{% url 'instagram:stories_ativos' %}?modo={{ modo }}{% if conta_atual %}&account={{ conta_atual }}{% elif page_obj %}&page={{ page_obj.number }}{% endif %}"
             hx-target="#stories-ativos-box" hx-swap="innerHTML">
-        <i class="bi bi-arrow-repeat"></i> Atualizar stories
+        <i class="bi bi-arrow-repeat"></i> Atualizar
     </button>
 </div>
 
 <div class="stories-ao-vivo mt-4">
-    <div class="stories-resumo-kicker">Ao vivo</div>
-    <h5 class="text-white mb-2">Stories ativos por conta</h5>
+    <div class="stories-resumo-kicker">{% if modo == 'inativos' %}Histórico{% else %}Ao vivo{% endif %}</div>
+    <h5 class="text-white mb-2">Stories {% if modo == 'inativos' %}inativos (expirados){% else %}ativos por conta{% endif %}</h5>
 
     {# Filtro por conta: default todas; escolher mostra só ela. #}
     <select class="form-select form-select-sm text-white border-subtle mb-3" style="background: var(--bg-input);"
-            hx-get="{% url 'instagram:stories_ativos' %}" hx-target="#stories-ativos-box"
-            hx-swap="innerHTML" hx-trigger="change" name="account">
+            hx-get="{% url 'instagram:stories_ativos' %}?modo={{ modo }}" hx-target="#stories-ativos-box"
+            hx-swap="innerHTML" hx-trigger="change" name="account" hx-include="this">
         <option value="">Todas as contas ({{ total_contas }})</option>
         {% for c in todas_contas %}
         <option value="{{ c.id }}" {% if conta_atual == c.id|stringformat:'s' %}selected{% endif %}>@{{ c.ig_username }}</option>
         {% endfor %}
     </select>
 
+    {% if modo == 'inativos' %}
+    {# Grade de stories expirados, do nosso banco. #}
+    {% if inativos %}
+    <div class="row row-cols-3 g-2">
+        {% for post in inativos %}
+        <div class="col">
+            <div class="stories-mini" style="width:100%;">
+                {% if post.thumbnail %}<img src="{{ post.thumbnail.url }}" alt="" loading="lazy">
+                {% elif post.video_file %}<video src="{{ post.video_file.url }}" preload="metadata" muted></video>
+                {% endif %}
+                <div class="stories-mini-info">
+                    <span class="text-white text-truncate" style="font-size:0.56rem;">@{{ post.account.ig_username }}</span>
+                    <span class="stories-mini-data">{{ post.published_at|date:"d/m H:i" }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted small py-3"><i class="bi bi-clock-history"></i> Nenhum story expirado{% if conta_atual %} desta conta{% endif %}.</div>
+    {% endif %}
+
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex align-items-center justify-content-between mt-2">
+        {% if page_obj.has_previous %}
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="{% url 'instagram:stories_ativos' %}?modo=inativos&page={{ page_obj.previous_page_number }}{% if conta_atual %}&account={{ conta_atual }}{% endif %}"
+                hx-target="#stories-ativos-box" hx-swap="innerHTML"><i class="bi bi-chevron-left"></i></button>
+        {% else %}<span></span>{% endif %}
+        <span class="text-muted small">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="{% url 'instagram:stories_ativos' %}?modo=inativos&page={{ page_obj.next_page_number }}{% if conta_atual %}&account={{ conta_atual }}{% endif %}"
+                hx-target="#stories-ativos-box" hx-swap="innerHTML"><i class="bi bi-chevron-right"></i></button>
+        {% else %}<span></span>{% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
     {% for linha in linhas %}
     <div class="stories-conta-card">
         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -84,5 +134,6 @@
                 hx-target="#stories-ativos-box" hx-swap="innerHTML"><i class="bi bi-chevron-right"></i></button>
         {% else %}<span></span>{% endif %}
     </div>
+    {% endif %}
     {% endif %}
 </div>
