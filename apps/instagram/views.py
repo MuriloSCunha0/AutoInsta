@@ -1072,12 +1072,23 @@ def stories_ativos(request):
     recarregar via HTMX). Não dá para apagar story pela API — só abrir o
     permalink e remover manualmente no Instagram.
     """
-    contas = (InstagramAccount.objects.filter(owner=request.user, status='active')
-              .exclude(meta_access_token='').order_by('modelo', 'ig_username'))
+    from django.core.paginator import Paginator
 
-    linhas = []
-    total_stories = 0
-    for acc in contas:
+    todas = (InstagramAccount.objects.filter(owner=request.user, status='active')
+             .exclude(meta_access_token='').order_by('modelo', 'ig_username'))
+
+    # Filtro por conta (default = todas). Com muitas contas, buscar os stories
+    # de todas de uma vez é pesado — então paginamos (8/página) e só buscamos
+    # os das contas exibidas. Ao escolher uma conta, mostramos só ela.
+    conta_atual = (request.GET.get('account') or '').strip()
+    if conta_atual:
+        contas_pagina = list(todas.filter(id=conta_atual))
+        page_obj = None
+    else:
+        page_obj = Paginator(todas, 8).get_page(request.GET.get('page'))
+        contas_pagina = list(page_obj.object_list)
+
+    def buscar(acc):
         cache_key = f'stories_ativos_{acc.id}'
         stories = cache.get(cache_key)
         if stories is None:
@@ -1095,12 +1106,20 @@ def stories_ativos(request):
                 except Exception:
                     stories = []
             cache.set(cache_key, stories, 120)  # 2 min
-        if stories:
-            total_stories += len(stories)
-            linhas.append({'conta': acc, 'stories': stories})
+        return stories
+
+    linhas = []
+    total_stories = 0
+    for acc in contas_pagina:
+        stories = buscar(acc)
+        total_stories += len(stories)
+        linhas.append({'conta': acc, 'stories': stories})
 
     return render(request, 'instagram/partials/stories_ativos.html', {
         'linhas': linhas,
         'total_stories': total_stories,
-        'total_contas': contas.count(),
+        'total_contas': todas.count(),
+        'todas_contas': todas,        # para o seletor
+        'conta_atual': conta_atual,
+        'page_obj': page_obj,
     })

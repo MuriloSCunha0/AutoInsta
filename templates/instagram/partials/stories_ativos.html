@@ -5,7 +5,7 @@
     <div class="d-flex gap-2 mb-3">
         <div class="stories-stat">
             <div class="stories-stat-num">{{ total_stories }}</div>
-            <div class="stories-stat-lbl">ativos pela Meta</div>
+            <div class="stories-stat-lbl">{% if conta_atual %}desta conta{% else %}nesta página{% endif %}</div>
         </div>
         <div class="stories-stat">
             <div class="stories-stat-num">{{ total_contas }}</div>
@@ -13,17 +13,25 @@
         </div>
     </div>
     <button type="button" class="btn btn-sm btn-outline-secondary w-100"
-            hx-get="{% url 'instagram:stories_ativos' %}" hx-target="#stories-ativos-box" hx-swap="innerHTML">
+            hx-get="{% url 'instagram:stories_ativos' %}{% if conta_atual %}?account={{ conta_atual }}{% elif page_obj %}?page={{ page_obj.number }}{% endif %}"
+            hx-target="#stories-ativos-box" hx-swap="innerHTML">
         <i class="bi bi-arrow-repeat"></i> Atualizar stories
     </button>
 </div>
 
 <div class="stories-ao-vivo mt-4">
     <div class="stories-resumo-kicker">Ao vivo</div>
-    <h5 class="text-white mb-1">Stories ativos por conta</h5>
-    <p class="text-muted small mb-3">
-        A Meta permite ver os stories ativos pela API oficial. Para apagar, abra o story e remova pelo Instagram.
-    </p>
+    <h5 class="text-white mb-2">Stories ativos por conta</h5>
+
+    {# Filtro por conta: default todas; escolher mostra só ela. #}
+    <select class="form-select form-select-sm text-white border-subtle mb-3" style="background: var(--bg-input);"
+            hx-get="{% url 'instagram:stories_ativos' %}" hx-target="#stories-ativos-box"
+            hx-swap="innerHTML" hx-trigger="change" name="account">
+        <option value="">Todas as contas ({{ total_contas }})</option>
+        {% for c in todas_contas %}
+        <option value="{{ c.id }}" {% if conta_atual == c.id|stringformat:'s' %}selected{% endif %}>@{{ c.ig_username }}</option>
+        {% endfor %}
+    </select>
 
     {% for linha in linhas %}
     <div class="stories-conta-card">
@@ -35,16 +43,17 @@
                 </span>
                 <span class="text-white text-truncate">@{{ linha.conta.ig_username }}</span>
             </div>
+            {% if linha.stories %}
             <span class="badge bg-danger bg-opacity-25 text-danger">{{ linha.stories|length }} ativo{{ linha.stories|length|pluralize }}</span>
+            {% else %}
+            <span class="badge bg-secondary bg-opacity-25 text-muted">sem story</span>
+            {% endif %}
         </div>
+        {% if linha.stories %}
         <div class="d-flex flex-wrap gap-2">
             {% for s in linha.stories %}
             <div class="stories-mini">
-                {% if s.thumbnail_url or s.media_type == 'VIDEO' %}
                 <img src="{{ s.thumbnail_url|default:s.media_url }}" alt="" loading="lazy">
-                {% else %}
-                <img src="{{ s.media_url }}" alt="" loading="lazy">
-                {% endif %}
                 <div class="stories-mini-info">
                     <span class="badge bg-dark bg-opacity-75" style="font-size:0.58rem;">{{ s.media_type }}</span>
                     <span class="stories-mini-data">{{ s.timestamp|slice:":16" }}</span>
@@ -55,10 +64,25 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
     </div>
     {% empty %}
-    <div class="text-muted small py-3">
-        <i class="bi bi-moon-stars"></i> Nenhuma conta com story ativo agora.
-    </div>
+    <div class="text-muted small py-3"><i class="bi bi-moon-stars"></i> Nenhuma conta para mostrar.</div>
     {% endfor %}
+
+    {% if page_obj and page_obj.has_other_pages %}
+    <div class="d-flex align-items-center justify-content-between mt-2">
+        {% if page_obj.has_previous %}
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="{% url 'instagram:stories_ativos' %}?page={{ page_obj.previous_page_number }}"
+                hx-target="#stories-ativos-box" hx-swap="innerHTML"><i class="bi bi-chevron-left"></i></button>
+        {% else %}<span></span>{% endif %}
+        <span class="text-muted small">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="{% url 'instagram:stories_ativos' %}?page={{ page_obj.next_page_number }}"
+                hx-target="#stories-ativos-box" hx-swap="innerHTML"><i class="bi bi-chevron-right"></i></button>
+        {% else %}<span></span>{% endif %}
+    </div>
+    {% endif %}
 </div>
