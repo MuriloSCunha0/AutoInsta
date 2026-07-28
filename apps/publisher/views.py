@@ -21,6 +21,7 @@ def queue_list(request):
     status = (request.GET.get('status') or '').strip()
     fila_id = (request.GET.get('queue') or '').strip()
     conta_id = (request.GET.get('account') or '').strip()
+    pasta_id = (request.GET.get('pasta') or '').strip()
 
     # A fila é o que está POR FAZER. Publicado saiu da fila: virou histórico,
     # que tem tela própria (publisher:historico).
@@ -31,6 +32,11 @@ def queue_list(request):
         base = base.filter(status=status)
     else:
         status = ''
+    # Filtro por PASTA: posts das contas daquela pasta.
+    if pasta_id == 'none':
+        base = base.filter(account__pasta__isnull=True)
+    elif pasta_id:
+        base = base.filter(account__pasta_id=pasta_id)
     # Filtro por conta: mostra só o que é daquela conta (posts e filas).
     if conta_id:
         base = base.filter(account_id=conta_id)
@@ -40,6 +46,25 @@ def queue_list(request):
     # Mais PRÓXIMAS de postar primeiro; as mais distantes ficam no fim.
     paginator = Paginator(base.order_by('scheduled_for'), 100)
     page = paginator.get_page(request.GET.get('page'))
+
+    # Agrupa a página por DIA: Hoje, Amanhã, depois as datas — na ordem de
+    # postagem. Fica claro o que sai hoje e o que fica para os próximos dias.
+    from datetime import timedelta
+    hoje = timezone.localdate()
+    grupos_dia = []
+    for p in page.object_list:
+        d = timezone.localtime(p.scheduled_for).date() if p.scheduled_for else hoje
+        if d == hoje:
+            rotulo = 'Hoje'
+        elif d == hoje + timedelta(days=1):
+            rotulo = 'Amanhã'
+        elif d < hoje:
+            rotulo = 'Atrasados'
+        else:
+            rotulo = d.strftime('%d/%m/%Y')
+        if not grupos_dia or grupos_dia[-1]['rotulo'] != rotulo:
+            grupos_dia.append({'rotulo': rotulo, 'posts': []})
+        grupos_dia[-1]['posts'].append(p)
 
     contagens = {
         r['status']: r['n']
@@ -62,16 +87,23 @@ def queue_list(request):
                                         filter=Q(scheduledpost__status__in=ScheduledPost.STATUS_ATIVOS)))
               .order_by('-pendentes', 'ig_username'))
 
+    # Pastas para filtrar a fila por grupo de contas.
+    from apps.instagram.models import Pasta
+    pastas = Pasta.objects.filter(owner=request.user)
+
     form = ScheduledPostForm()
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
     return render(request, 'publisher/queue.html', {
         'posts': page,
+        'grupos_dia': grupos_dia,
         'page_obj': page,
         'status_atual': status,
         'filtros': filtros,
         'filas': filas,
         'fila_atual': fila_id,
         'conta_atual': conta_id,
+        'pastas': pastas,
+        'pasta_atual': pasta_id,
         'total_filtrado': paginator.count,
         'total_publicados': contagens.get('published', 0),
         'form': form,
@@ -192,6 +224,12 @@ def bulk_posts(request):
         conta_filtro = (request.POST.get('account') or '').strip()
         if conta_filtro:
             qs = qs.filter(account_id=conta_filtro)
+        # Idem para o filtro de pasta.
+        pasta_filtro = (request.POST.get('pasta') or '').strip()
+        if pasta_filtro == 'none':
+            qs = qs.filter(account__pasta__isnull=True)
+        elif pasta_filtro:
+            qs = qs.filter(account__pasta_id=pasta_filtro)
     else:
         qs = ScheduledPost.objects.filter(id__in=request.POST.getlist('post_ids'),
                                           owner=request.user)

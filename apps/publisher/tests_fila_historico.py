@@ -117,3 +117,58 @@ class FiltroPorContaTest(TestCase):
         self.client.post(reverse('publisher:bulk_posts'),
                          {'acao': 'excluir', 'todos': '1', 'escopo': 'fila'})
         self.assertEqual(ScheduledPost.objects.filter(status='queued').count(), 0)
+
+
+class FilaPorDiaEPastaTest(TestCase):
+    """Fila agrupada por dia e filtro por pasta."""
+
+    def setUp(self):
+        from apps.instagram.models import Pasta
+        self.user = User.objects.create_user(username='dono', password='x', is_active=True)
+        self.client.force_login(self.user)
+        self.pasta = Pasta.objects.create(owner=self.user, name='P1')
+        self.a = InstagramAccount.objects.create(owner=self.user, ig_username='a', pasta=self.pasta)
+        self.b = InstagramAccount.objects.create(owner=self.user, ig_username='b')  # sem pasta
+        agora = timezone.now()
+        # a: hoje e amanhã; b: hoje
+        ScheduledPost.objects.create(owner=self.user, account=self.a, post_type='REELS',
+                                     status='queued', scheduled_for=agora + timezone.timedelta(minutes=10))
+        ScheduledPost.objects.create(owner=self.user, account=self.a, post_type='REELS',
+                                     status='queued', scheduled_for=agora + timezone.timedelta(days=1))
+        ScheduledPost.objects.create(owner=self.user, account=self.b, post_type='REELS',
+                                     status='queued', scheduled_for=agora + timezone.timedelta(minutes=20))
+
+    def test_agrupa_por_dia_hoje_amanha(self):
+        resp = self.client.get(reverse('publisher:queue'))
+        rotulos = [g['rotulo'] for g in resp.context['grupos_dia']]
+        self.assertIn('Hoje', rotulos)
+        self.assertIn('Amanhã', rotulos)
+        self.assertLess(rotulos.index('Hoje'), rotulos.index('Amanhã'))  # hoje antes
+
+    def test_filtra_fila_por_pasta(self):
+        resp = self.client.get(reverse('publisher:queue'), {'pasta': self.pasta.id})
+        contas = {p.account_id for p in resp.context['posts']}
+        self.assertEqual(contas, {self.a.id})  # só a conta da pasta
+
+    def test_excluir_todas_com_pasta_nao_toca_fora(self):
+        self.client.post(reverse('publisher:bulk_posts'),
+                         {'acao': 'excluir', 'todos': '1', 'escopo': 'fila',
+                          'pasta': str(self.pasta.id)})
+        self.assertEqual(ScheduledPost.objects.filter(account=self.a).count(), 0)
+        self.assertEqual(ScheduledPost.objects.filter(account=self.b).count(), 1)
+
+
+class ProximasHTMXTest(TestCase):
+    def test_endpoint_proximas_retorna_pendentes(self):
+        u = User.objects.create_user(username='dono', password='x', is_active=True)
+        self.client.force_login(u)
+        acc = InstagramAccount.objects.create(owner=u, ig_username='a')
+        agora = timezone.now()
+        ScheduledPost.objects.create(owner=u, account=acc, post_type='REELS',
+                                     status='queued', scheduled_for=agora)
+        ScheduledPost.objects.create(owner=u, account=acc, post_type='REELS',
+                                     status='published', scheduled_for=agora, published_at=agora)
+        resp = self.client.get(reverse('analytics:proximas'))
+        self.assertEqual(resp.status_code, 200)
+        # só o queued aparece (o published saiu da fila)
+        self.assertEqual(len(resp.context['recent_posts']), 1)

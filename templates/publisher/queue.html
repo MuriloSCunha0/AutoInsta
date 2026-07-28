@@ -25,6 +25,54 @@
 </div>
 {% endif %}
 
+{# Filtro por PASTA: organiza a fila pelo grupo de contas. #}
+<div class="card p-3 mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="text-white mb-0"><i class="bi bi-folder2 text-purple me-2"></i> Pasta</h6>
+        <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#novaPastaFilaModal">
+            <i class="bi bi-folder-plus"></i> Nova pasta
+        </button>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'publisher:queue' %}{% if status_atual %}?status={{ status_atual }}{% endif %}"
+           class="btn btn-sm {% if not pasta_atual %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
+        {% for p in pastas %}
+        <a href="?pasta={{ p.id }}{% if status_atual %}&status={{ status_atual }}{% endif %}"
+           class="btn btn-sm {% if pasta_atual == p.id|stringformat:'s' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-folder-fill"></i> {{ p.name }}
+        </a>
+        {% endfor %}
+        <a href="?pasta=none{% if status_atual %}&status={{ status_atual }}{% endif %}"
+           class="btn btn-sm {% if pasta_atual == 'none' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Sem pasta</a>
+    </div>
+</div>
+
+<!-- Nova pasta (a partir da fila) -->
+<div class="modal fade" id="novaPastaFilaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white"><i class="bi bi-folder-plus text-purple me-2"></i> Nova pasta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'instagram:criar_pasta' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <label class="form-label text-muted">Nome da pasta</label>
+                    <input type="text" name="name" required maxlength="80"
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                           placeholder="Ex: Clientes premium">
+                    <small class="text-muted">Depois vincule as contas à pasta na tela de Contas.</small>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar pasta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {# Filtro por conta: organiza a fila para ver e operar uma conta de cada vez. #}
 <div class="card p-3 mb-4">
     <div class="d-flex align-items-center justify-content-between mb-2">
@@ -106,6 +154,7 @@
     <input type="hidden" name="status" value="{{ status_atual }}">
     <input type="hidden" name="queue" value="{{ fila_atual }}">
     <input type="hidden" name="account" value="{{ conta_atual }}">
+    <input type="hidden" name="pasta" value="{{ pasta_atual }}">
     <input type="hidden" name="todos" id="todos-flag" value="0">
     {# "Selecionar todas" aqui nunca pode alcançar o histórico de publicados. #}
     <input type="hidden" name="escopo" value="fila">
@@ -163,7 +212,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for post in posts %}
+                    {% for grupo in grupos_dia %}
+                    <tr class="dia-header">
+                        <td colspan="7" class="border-0">
+                            <i class="bi bi-calendar-event me-1"></i> {{ grupo.rotulo }}
+                            <span class="text-muted">· {{ grupo.posts|length }}</span>
+                        </td>
+                    </tr>
+                    {% for post in grupo.posts %}
                     <tr>
                         <td class="border-0 ps-4">
                             <input type="checkbox" name="post_ids" value="{{ post.id }}" class="form-check-input row-check">
@@ -196,6 +252,7 @@
                                onclick="return confirm('Cancelar este post?')"><i class="bi bi-trash"></i></a>
                         </td>
                     </tr>
+                    {% endfor %}
                     {% endfor %}
                 </tbody>
             </table>

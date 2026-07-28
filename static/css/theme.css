@@ -3134,6 +3134,18 @@ input[type="file"].form-control:focus {
   .ranking-score { padding: 6px 10px; font-size: 0.78rem; }
 }
 
+/* ── Cabeçalho de dia na fila ────────────────────────────────────── */
+.dia-header td {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 16px !important;
+  border-top: 1px solid var(--border-subtle) !important;
+}
+
 /* ── Diretório de usuários (painel de gestão) ────────────────────── */
 .user-dir-card {
   display: flex;

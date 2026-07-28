@@ -115,6 +115,16 @@ def dashboard(request):
     return render(request, 'dashboard/index.html', context)
 
 @login_required
+def proximas_publicacoes(request):
+    """Só a lista de próximas publicações (HTMX recarrega o card sozinho)."""
+    recent_posts = (ScheduledPost.objects
+                    .filter(owner=request.user, status__in=ScheduledPost.STATUS_ATIVOS)
+                    .select_related('account')
+                    .order_by('scheduled_for')[:5])
+    return render(request, 'dashboard/_proximas.html', {'recent_posts': recent_posts})
+
+
+@login_required
 def performance(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
     followers_total = accounts.aggregate(Sum('followers_count'))['followers_count__sum'] or 0

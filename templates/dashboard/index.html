@@ -61,44 +61,10 @@
                     <i class="bi bi-check2-circle"></i> Ver publicados
                 </a>
             </div>
-            <div class="card-body p-0">
-                {% if recent_posts %}
-                <div class="p-3">
-                    <div class="ranking-list">
-                        {% for post in recent_posts %}
-                        <div class="ranking-row">
-                            <div class="ranking-user">
-                                <div class="ranking-avatar">
-                                    {% if post.account.profile_pic_url %}
-                                    <img src="{{ post.account.profile_pic_url }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                                    {% else %}{{ post.account.ig_username|make_list|first|upper }}{% endif %}
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="ranking-name">@{{ post.account.ig_username }}</div>
-                                    <div class="ranking-sub">
-                                        <i class="bi bi-clock"></i> {{ post.scheduled_for|date:"d/m/Y H:i" }}
-                                        <span class="ranking-dot">·</span>{{ post.get_post_type_display }}
-                                    </div>
-                                </div>
-                            </div>
-                            <span class="badge rounded-pill
-                                {% if post.status == 'queued' %}bg-warning bg-opacity-25 text-warning
-                                {% elif post.status == 'published' %}bg-success bg-opacity-25 text-success
-                                {% elif post.status == 'failed' %}bg-danger bg-opacity-25 text-danger
-                                {% elif post.status == 'processing' %}bg-info bg-opacity-25 text-info
-                                {% else %}bg-secondary bg-opacity-25 text-secondary{% endif %}">
-                                {{ post.get_status_display }}
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% else %}
-                <div class="empty-state text-center py-5">
-                    <i class="bi bi-journal-x text-muted mb-3" style="font-size: 2.5rem;"></i>
-                    <p class="text-muted mb-0">Nenhuma publicação pendente na fila.</p>
-                </div>
-                {% endif %}
+            {# Recarrega sozinho a cada 20s — o post que publicou some e entra o próximo. #}
+            <div class="card-body p-0" hx-get="{% url 'analytics:proximas' %}"
+                 hx-trigger="every 20s" hx-swap="innerHTML">
+                {% include 'dashboard/_proximas.html' %}
             </div>
         </div>
     </div>

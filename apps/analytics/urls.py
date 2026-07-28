@@ -5,6 +5,7 @@ app_name = 'analytics'
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    path('proximas/', views.proximas_publicacoes, name='proximas'),
     path('performance/', views.performance, name='performance'),
     path('top-posts/', views.top_posts, name='top_posts'),
     path('top-posts/sync/', views.sync_top_posts, name='sync_top_posts'),
