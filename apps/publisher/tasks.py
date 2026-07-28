@@ -160,6 +160,26 @@ def _e_rate_limit(msg):
         or 'rate limit' in m
     )
 
+
+def _e_app_invalido(msg):
+    """Erro de TOKEN/APP inválido (não é rate limit, não adianta retry).
+
+    O caso que derrubou tudo de madrugada: a Meta restringiu o app e passou a
+    responder 'cannot access the app till you log in to www.instagram.com'.
+    Cada retry é uma nova chamada a um app bloqueado — inútil e prejudicial
+    (satura o worker e agrava a restrição). Aqui a gente reconhece e para.
+    """
+    m = (msg or '').lower()
+    return (
+        'cannot access the app' in m
+        or 'error validating access token' in m
+        or "'code': 190" in m
+        or 'oauthexception' in m
+        or 'session has been invalidated' in m
+        or 'session has expired' in m
+    )
+
+
 @shared_task
 def publish_reel(post_id):
     """
@@ -345,7 +365,41 @@ def publish_reel(post_id):
     except Exception as e:
         msg = str(e)
 
-        if _e_rate_limit(msg):
+        if _e_app_invalido(msg):
+            # App/token restringido pela Meta (ex.: 190 "cannot access the app").
+            # Retry NÃO resolve e só piora — para de martelar: marca a conta como
+            # caída, põe um cooldown longo e reagenda o post para depois dele.
+            # Quando o app voltar (a sincronização confirma), a conta volta e a
+            # fila retoma sozinha.
+            cooldown = timezone.now() + timedelta(hours=2)
+            conta = post.account
+            conta.status = 'error'
+            conta.last_error = f'Meta: {msg[:200]}'
+            conta.rate_limited_until = cooldown
+            conta.save(update_fields=['status', 'last_error', 'rate_limited_until'])
+            post.status = 'queued'
+            post.scheduled_for = cooldown
+            post.error_message = ('App Meta indisponível/restringido — a conta precisa ser '
+                                  'reconectada (entre em instagram.com e siga as instruções). '
+                                  'Reagendado.')
+            post.save()
+            print(f"Post {post_id}: APP INVALIDO; @{conta.ig_username} -> erro, cooldown {cooldown}")
+            # Avisa o dono (1x por conta a cada hora).
+            try:
+                from apps.notifications.alertas import alertar
+                agora = timezone.now()
+                alertar(
+                    post.owner, 'conta_caiu',
+                    'Conta desconectada',
+                    f'@{conta.ig_username}: o app Meta está restringido/indisponível. '
+                    'Entre em instagram.com e siga as instruções para religar.',
+                    chave=f'appinv:{conta.id}:{agora:%Y%m%d%H}',
+                    nivel='error', account=conta,
+                )
+            except Exception:
+                pass
+
+        elif _e_rate_limit(msg):
             # Rate limit da Meta: NÃO conta como retry (a conta simplesmente
             # atingiu o teto de 24h). Coloca a conta em cooldown e reagenda o
             # post — assim paramos de martelar a API imediatamente.

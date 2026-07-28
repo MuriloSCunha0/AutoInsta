@@ -455,6 +455,9 @@ def _sync_meta_account(account):
 
     account.status = 'active'
     account.last_error = ''
+    # Se a sincronização passou, o token voltou a valer: limpa o cooldown que
+    # tinha sido posto por app inválido, para a fila retomar na hora.
+    account.rate_limited_until = None
     account.save()
     return True, 'ok'
 
