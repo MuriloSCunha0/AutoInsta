@@ -383,6 +383,11 @@ def _sync_meta_account(account):
     if not token:
         return False, 'Conta sem token Meta.'
 
+    # Guarda o estado ANTES: se a conta estava caída/em cooldown e a sincronização
+    # der certo, é porque o app voltou — aí retomamos a fila travada (ver o fim).
+    estava_caida = account.status != 'active' or bool(account.rate_limited_until)
+    cooldown_antigo = account.rate_limited_until
+
     base = f"https://graph.instagram.com/{IG_API_VERSION}/me"
 
     # Etapa 1 — identidade (campos presentes em qualquer token de IG Login).
@@ -459,6 +464,22 @@ def _sync_meta_account(account):
     # tinha sido posto por app inválido, para a fila retomar na hora.
     account.rate_limited_until = None
     account.save()
+
+    # Voltou da restrição: puxa os posts que ficaram travados de volta para
+    # AGORA, para publicarem já. Só os empurrados PELO cooldown (scheduled_for
+    # <= cooldown antigo) — os que o usuário agendou de propósito para depois
+    # do cooldown ficam intactos.
+    if estava_caida and cooldown_antigo:
+        try:
+            from django.utils import timezone as _tz
+            from apps.publisher.models import ScheduledPost
+            agora = _tz.now()
+            (ScheduledPost.objects.filter(account=account, status='queued',
+                                          scheduled_for__gt=agora,
+                                          scheduled_for__lte=cooldown_antigo)
+             .update(scheduled_for=agora))
+        except Exception:
+            pass
     return True, 'ok'
 
 
@@ -1040,3 +1061,46 @@ def bulk_edit(request):
 
     accounts = InstagramAccount.objects.filter(owner=request.user)
     return render(request, 'instagram/bulk_edit.html', {'accounts': accounts})
+
+
+@login_required
+def stories_ativos(request):
+    """Painel dos stories ATIVOS por conta (janela de 24h), pela API oficial.
+
+    A Meta expõe o edge /{ig-user-id}/stories, que devolve os stories ainda no
+    ar. Aqui juntamos por conta, com cache curto para não pesar (a página pode
+    recarregar via HTMX). Não dá para apagar story pela API — só abrir o
+    permalink e remover manualmente no Instagram.
+    """
+    contas = (InstagramAccount.objects.filter(owner=request.user, status='active')
+              .exclude(meta_access_token='').order_by('modelo', 'ig_username'))
+
+    linhas = []
+    total_stories = 0
+    for acc in contas:
+        cache_key = f'stories_ativos_{acc.id}'
+        stories = cache.get(cache_key)
+        if stories is None:
+            stories = []
+            if acc.ig_user_id:
+                try:
+                    r = requests.get(
+                        f'https://graph.instagram.com/{IG_API_VERSION}/{acc.ig_user_id}/stories',
+                        params={'fields': 'id,media_type,media_url,thumbnail_url,permalink,timestamp',
+                                'access_token': acc.get_meta_token()},
+                        timeout=12,
+                    ).json()
+                    if 'error' not in r:
+                        stories = r.get('data', [])
+                except Exception:
+                    stories = []
+            cache.set(cache_key, stories, 120)  # 2 min
+        if stories:
+            total_stories += len(stories)
+            linhas.append({'conta': acc, 'stories': stories})
+
+    return render(request, 'instagram/partials/stories_ativos.html', {
+        'linhas': linhas,
+        'total_stories': total_stories,
+        'total_contas': contas.count(),
+    })

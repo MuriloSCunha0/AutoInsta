@@ -18,6 +18,8 @@
 {% endblock %}
 
 {% block content %}
+<div class="row g-4">
+<div class="col-lg-8">
 <form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -108,6 +110,18 @@
     </ul>
 </nav>
 {% endif %}
+</div>
+
+{# Painel: stories ativos por conta (janela de 24h, API oficial). #}
+<div class="col-lg-4">
+    <div class="card p-3" id="stories-ativos-box"
+         hx-get="{% url 'instagram:stories_ativos' %}" hx-trigger="load, every 120s" hx-swap="innerHTML">
+        <div class="text-muted small py-4 text-center">
+            <i class="bi bi-arrow-repeat"></i> Carregando stories ativos…
+        </div>
+    </div>
+</div>
+</div>
 
 {% include 'publisher/partials/add_modal.html' %}
 

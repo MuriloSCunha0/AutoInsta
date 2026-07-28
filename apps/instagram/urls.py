@@ -16,6 +16,7 @@ urlpatterns = [
     path('pastas/criar/', views.criar_pasta, name='criar_pasta'),
     path('pastas/<int:pasta_id>/excluir/', views.delete_pasta, name='delete_pasta'),
     path('<int:account_id>/pasta/', views.set_pasta, name='set_pasta'),
+    path('stories-ativos/', views.stories_ativos, name='stories_ativos'),
     path('<int:account_id>/reativar/', views.reativar_conta, name='reativar_conta'),
     path('<int:account_id>/change-app/', views.change_account_app, name='change_app'),
     path('meta/sync-all/', views.sync_all_meta, name='sync_all_meta'),
