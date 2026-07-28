@@ -23,9 +23,10 @@ class RankingDoDiaTest(TestCase):
         agora = timezone.now()
         ontem = agora - timezone.timedelta(days=1)
 
-        # 3 contas, 40 views hoje cada = 120 no total.
+        # 3 contas ATIVAS, 40 views hoje cada = 120 no total.
         self.contas = [
             InstagramAccount.objects.create(owner=self.user, ig_username=f'c{i}',
+                                            status='active',
                                             views_today=40, views_total=1000,
                                             followers_count=10)
             for i in range(3)
@@ -68,7 +69,14 @@ class RankingDoDiaTest(TestCase):
     def test_card_de_contas_mostra_as_ativas_do_dia(self):
         resp = self.client.get(reverse('analytics:dashboard'))
         self.assertEqual(resp.context['contas_ativas_hoje'], 2)
+        # accounts_count = contas CONECTADAS (status active). As 3 são active.
         self.assertEqual(resp.context['accounts_count'], 3)
+
+    def test_conta_desconectada_sai_da_contagem_de_conectadas(self):
+        self.contas[0].status = 'error'  # caiu
+        self.contas[0].save()
+        resp = self.client.get(reverse('analytics:dashboard'))
+        self.assertEqual(resp.context['accounts_count'], 2)  # 3 - 1 caída
 
     def test_quem_nao_publicou_hoje_fica_fora_do_ranking(self):
         outro = User.objects.create_user(username='parado', password='x', is_active=True)
