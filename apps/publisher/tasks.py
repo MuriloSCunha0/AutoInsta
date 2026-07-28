@@ -73,7 +73,17 @@ def process_scheduled_posts():
     now = timezone.now()
     janela_24h = now - timedelta(hours=24)
 
-    from django.db.models import F
+    from django.db.models import F, Q
+
+    # Rede de segurança: posts presos em 'processing' há mais de 15 min (ex.:
+    # worker reiniciou e perdeu a tarefa em voo) voltam para a fila.
+    presos = (ScheduledPost.objects.filter(status='processing')
+              .filter(Q(processing_since__lt=now - timedelta(minutes=15))
+                      | Q(processing_since__isnull=True,
+                          scheduled_for__lt=now - timedelta(minutes=15))))
+    n_presos = presos.update(status='queued', processing_since=None)
+    if n_presos:
+        print(f"Dispatcher: {n_presos} post(s) presos em 'processing' devolvidos à fila.")
 
     due = (ScheduledPost.objects.filter(status='queued', scheduled_for__lte=now)
            .select_related('account', 'owner', 'queue')
@@ -137,7 +147,8 @@ def process_scheduled_posts():
                 continue
 
         post.status = 'processing'
-        post.save(update_fields=['status'])
+        post.processing_since = now
+        post.save(update_fields=['status', 'processing_since'])
         publish_reel.delay(post.id)
         despachadas.add(conta.id)
 

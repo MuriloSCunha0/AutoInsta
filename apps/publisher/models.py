@@ -95,6 +95,10 @@ class ScheduledPost(models.Model):
     error_message = models.TextField(blank=True)
     retry_count = models.IntegerField(default=0)
     max_retries = models.IntegerField(default=3)
+    # Momento em que o post entrou em 'processing' (foi despachado ao worker).
+    # Serve de rede de segurança: se o worker reiniciar/cair no meio, o post
+    # fica preso em 'processing'; o dispatcher devolve à fila os antigos.
+    processing_since = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

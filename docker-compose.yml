@@ -56,7 +56,11 @@ services:
   celery_worker:
     build: .
     restart: unless-stopped
-    command: celery -A config worker -l info --concurrency=4
+    # Pool de THREADS com alta concorrência: publicar é espera de rede
+    # (aguardando a Meta processar ~30-40s), quase não usa CPU. Com só 4
+    # processos, os posts empilhavam esperando slot. 24 threads paralelizam
+    # bem (RAM sobra) e o throughput sobe de ~5/min para ~30/min.
+    command: celery -A config worker -l info --pool=threads --concurrency=24
     volumes:
       - .:/app
       - media_data:/app/media
