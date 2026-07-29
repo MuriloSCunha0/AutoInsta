@@ -292,7 +292,16 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="admin@sandraoflow.com")
 # =============================================================================
 META_APP_ID = env("META_APP_ID", default="")
 META_APP_SECRET = env("META_APP_SECRET", default="")
-META_REDIRECT_URI = env("META_REDIRECT_URI", default="http://localhost:8000/instagram/oauth/callback/")
+# O redirect do OAuth PRECISA ser a URL pública do site — a Meta redireciona o
+# navegador do usuário para cá depois da autorização. Se ficar em localhost, o
+# callback nunca chega ao servidor e NENHUMA conta conecta por OAuth. Por isso
+# derivamos do SITE_URL (que já é a URL pública) quando não vier explícito no
+# .env. Lembrete: esta mesma URL precisa estar nos "Valid OAuth Redirect URIs"
+# do app na Meta, senão a Meta bloqueia com "redirect_uri não permitido".
+META_REDIRECT_URI = env(
+    "META_REDIRECT_URI",
+    default=f"{SITE_URL.rstrip('/')}/instagram/oauth/callback/",
+)
 # Segredo que assina o parâmetro `state` do OAuth (proteção anti-CSRF).
 # Se vazio, o fluxo usa a SECRET_KEY do Django como chave de assinatura.
 IG_STATE_SECRET = env("IG_STATE_SECRET", default="")
