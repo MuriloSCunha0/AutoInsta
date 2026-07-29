@@ -264,36 +264,32 @@ def add_account_meta(request):
     """
     Salva uma conta usando o Token da Meta Graph API (inserido manualmente).
     """
+    from django.utils.html import escape
+
     ig_username = request.POST.get('ig_username', '').strip().lower()
     meta_access_token = request.POST.get('meta_access_token', '').strip()
     ig_user_id = request.POST.get('ig_user_id', '').strip()
     profile_pic_url = (request.POST.get('profile_pic_url') or '').strip()
 
-    # App Meta escolhido para esta conta (cada conta pertence a um app).
+    if not meta_access_token:
+        return HttpResponse(
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> O Token do Instagram é obrigatório.</div>'
+        )
+
+    # App Meta é OPCIONAL: o token colado JÁ é a credencial usada para publicar
+    # (a publicação usa só o access_token). O app (id/secret) só serve para
+    # OAuth e para renovar o token automaticamente. Então quem só tem o token
+    # conecta normalmente; se o usuário escolher um app dele, vinculamos.
     meta_app = None
     meta_app_id = (request.POST.get('meta_app') or '').strip()
     if meta_app_id:
         from apps.accounts.models import MetaApp
         meta_app = MetaApp.objects.filter(id=meta_app_id, owner=request.user).first()
-    # Cada conta pertence a UM app. Com vários apps e nenhum escolhido, não
-    # adivinhamos: vincular ao app errado invalida o token e derruba a conta.
-    meta_app = _resolver_app(request.user, meta_app)
-    if meta_app is None:
-        return HttpResponse(
-            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> '
-            'Escolha o <strong>app Meta</strong> desta conta. Cada conta é conectada '
-            'por um app específico — o token só funciona no app que o gerou.</div>'
-        )
 
     # O @ é opcional no import por token: se não vier, usamos o ig_user_id
     # como identificador provisório (a sincronização com a Meta preenche depois).
     if not ig_username:
         ig_username = ig_user_id or f'conta_{meta_access_token[-6:]}' if meta_access_token else ''
-
-    if not meta_access_token:
-        return HttpResponse(
-            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> O Token do Instagram é obrigatório.</div>'
-        )
 
     # Cada conta do Instagram é única no sistema: se outro usuário já a
     # cadastrou, os dois publicariam nela ao mesmo tempo — cota da Meta
@@ -326,23 +322,34 @@ def add_account_meta(request):
         acc.status = 'active'
         acc.save()
 
-        # Sincroniza com a Meta para preencher user_id/@/seguidores/foto.
-        # ISOLADO: uma falha aqui NUNCA pode impedir o cadastro nem o render
-        # do card — a conta já está salva e pode ser re-sincronizada pelo botão.
+        # Valida o token na Meta (preenche user_id/@/seguidores/foto).
+        # Se falhar, o usuário PRECISA saber o motivo exato — mostramos a
+        # mensagem da Meta e não deixamos uma conta quebrada para trás
+        # (removemos a que acabamos de criar; se já existia, mantemos e o card
+        # cai depois pelo botão de sincronizar).
         try:
-            _sync_meta_account(acc)
+            ok, msg = _sync_meta_account(acc)
         except Exception as e:
-            acc.status = 'error'
-            acc.last_error = f'Conta salva, mas a sincronização falhou: {e}'
-            acc.save(update_fields=['status', 'last_error'])
+            ok, msg = False, str(e)
 
-        # Retorna o card (a conta sempre "sobe", mesmo se o sync falhar)
+        if not ok:
+            if _created:
+                acc.delete()
+            return HttpResponse(
+                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> '
+                f'Não foi possível validar o token: <strong>{escape(msg)}</strong>.<br>'
+                'Gere um token novo em <strong>Instagram → Gerar tokens de acesso</strong> '
+                '(ou no Graph API Explorer), confirme que a conta é profissional/Business '
+                'e que o token não expirou, e tente de novo.</div>'
+            )
+
+        # Token válido: sobe o card da conta conectada.
         return render(request, 'instagram/partials/account_card.html', {'account': acc})
 
     except Exception as e:
         logger.exception('add_account_meta falhou (username=%s, ig_user_id=%s)', ig_username, ig_user_id)
         return HttpResponse(
-            f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token: {str(e)}</div>'
+            f'<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Erro ao salvar Token: {escape(str(e))}</div>'
         )
 
 

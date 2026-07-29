@@ -111,9 +111,10 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label text-muted"><i class="bi bi-meta me-1"></i> App Meta desta conta</label>
+                                <label class="form-label text-muted"><i class="bi bi-meta me-1"></i> App Meta desta conta <span class="text-muted">(opcional)</span></label>
                                 {% if meta_apps %}
                                 <select name="meta_app" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                                    <option value="">Sem app (só o token)</option>
                                     {% for app in meta_apps %}
                                     {# Se o usuário está filtrando por um app, já vem esse — senão o ativo. #}
                                     <option value="{{ app.id }}"
@@ -122,11 +123,12 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <small class="text-muted">A conta ficará vinculada a este app. Confira antes de importar.</small>
+                                <small class="text-muted">Vincular a um app é opcional — serve só para renovar o token depois. O token sozinho já conecta e publica.</small>
                                 {% else %}
-                                <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-0">
-                                    <i class="bi bi-exclamation-triangle me-1"></i> Nenhum app Meta cadastrado.
-                                    <a href="{% url 'accounts:settings' %}" class="text-warning fw-bold text-decoration-underline">Cadastre um em Configurações</a>.
+                                <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i> Não precisa de app Meta: basta colar o token abaixo.
+                                    Se um dia quiser renovação automática do token, dá para cadastrar um app em
+                                    <a href="{% url 'accounts:settings' %}" class="text-info text-decoration-underline">Configurações</a>.
                                 </div>
                                 {% endif %}
                             </div>
