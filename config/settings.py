@@ -339,6 +339,8 @@ LOGGING = {
         "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
         "apps": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "engine": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # Fluxo de conexão de contas (prefixo [CONNECT] nas mensagens).
+        "connect": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 

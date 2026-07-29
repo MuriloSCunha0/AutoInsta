@@ -1,9 +1,12 @@
+import logging
 import time
 from celery import shared_task
 from django.core.cache import cache
 
 from engine.client import InstagramEngine
 from .models import InstagramAccount
+
+logger = logging.getLogger('connect')
 
 CODE_WAIT_S = 300
 
@@ -59,12 +62,21 @@ def web_login_account(account_id, login_gen=None):
     account.status = 'connecting'
     account.save(update_fields=['status'])
 
+    logger.info("[CONNECT acc=%s @%s] web_login_account: iniciando (gen=%s)",
+                account.id, account.ig_username, login_gen)
+
     engine = InstagramEngine(account, code_getter=lambda: _poll_redis_for_code(account_id, login_gen))
-    
+
     try:
         engine.login()
+        logger.info("[CONNECT acc=%s @%s] web_login_account: concluiu status=%s",
+                    account.id, account.ig_username, account.status)
     except Exception as e:
-        pass
+        # engine.login() já gravou status/last_error; aqui garantimos o rastro
+        # no log (o traceback já saiu dentro do engine para erros inesperados).
+        logger.warning("[CONNECT acc=%s @%s] web_login_account: terminou em erro status=%s last_error=%s",
+                       account.id, account.ig_username, account.status,
+                       (account.last_error or '')[:300])
 
 # A Meta guarda no máximo 2 anos de insights; pedir mais devolve
 # "since param is not valid". 729 dias é o maior intervalo aceito na prática.
@@ -193,10 +205,18 @@ def refresh_quotas():
 def connect_by_sessionid(account_id, sessionid):
     try:
         account = InstagramAccount.objects.get(id=account_id)
+    except InstagramAccount.DoesNotExist:
+        logger.warning("[CONNECT acc=%s] connect_by_sessionid: conta nao existe", account_id)
+        return
+    logger.info("[CONNECT acc=%s @%s] connect_by_sessionid: iniciando", account.id, account.ig_username)
+    try:
         engine = InstagramEngine(account)
         engine.login_by_session(sessionid)
+        logger.info("[CONNECT acc=%s @%s] connect_by_sessionid: concluiu status=%s",
+                    account.id, account.ig_username, account.status)
     except Exception as e:
-        pass
+        logger.warning("[CONNECT acc=%s @%s] connect_by_sessionid: erro status=%s last_error=%s",
+                       account.id, account.ig_username, account.status, (account.last_error or '')[:300])
 
 
 # =============================================================================

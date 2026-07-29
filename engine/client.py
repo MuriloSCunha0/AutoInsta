@@ -1,8 +1,14 @@
+import logging
+
 from instagrapi import Client as InstagrapiClient
 from instagrapi.exceptions import (
     LoginRequired, ChallengeRequired, TwoFactorRequired, BadPassword
 )
 from .session_manager import SessionManager
+
+# Logger dedicado ao fluxo de conexão. Prefixo [CONNECT] em todas as linhas
+# para facilitar o grep quando um usuário reclamar que "não conecta".
+logger = logging.getLogger('connect')
 
 class InstagramEngine:
     def __init__(self, account, code_getter=None):
@@ -33,6 +39,8 @@ class InstagramEngine:
             self.client.login(username, password, relogin=relogin)
 
     def login(self):
+        acc = self.account
+        tag = f"[CONNECT acc={acc.id} @{acc.ig_username}] login/senha"
         if self.account.proxy_url:
             self.client.set_proxy(self.account.proxy_url)
 
@@ -44,57 +52,70 @@ class InstagramEngine:
         password = self.account.get_ig_password()
 
         session_loaded = SessionManager.load_session(self.account, self.client)
+        logger.info("%s inicio | proxy=%s | senha_len=%s | sessao_salva=%s",
+                    tag, bool(self.account.proxy_url), len(password or ''), bool(session_loaded))
 
         try:
             if session_loaded:
                 try:
+                    logger.info("%s tentando com sessao salva", tag)
                     self._attempt_login(username, password)
                     self.client.get_timeline_feed()
                 except LoginRequired:
+                    logger.info("%s sessao invalida (LoginRequired) -> relogin limpo", tag)
                     old = self.client.get_settings()
                     self.client.set_settings({})
                     self.client.set_uuids(old.get('uuids', {}))
                     self._attempt_login(username, password, relogin=True)
             else:
+                logger.info("%s sem sessao -> device novo + login", tag)
                 SessionManager.ensure_device(self.account, self.client)
                 self._attempt_login(username, password)
 
             SessionManager.save_session(self.account, self.client)
             self.account.status = 'active'
             self._fetch_profile_info()
+            logger.info("%s OK -> conta ativa", tag)
             return True
 
         except ChallengeRequired:
             # If challenge_code_handler fails to return a valid code (e.g. timeout), it raises this.
+            logger.warning("%s ChallengeRequired (codigo nao informado/expirou)", tag)
             self.account.status = 'challenge_required'
             self.account.last_error = 'O tempo para inserir o código esgotou. Tente conectar novamente.'
             self.account.save()
             raise
-            
+
         except TwoFactorRequired as e:
+            logger.info("%s TwoFactorRequired -> aguardando codigo 2FA", tag)
             self.account.status = '2fa_required'
             self.account.last_error = ''
             self.account.save(update_fields=['status', 'last_error'])
-            
+
             if not self.code_getter:
+                logger.warning("%s 2FA sem code_getter -> aborta", tag)
                 raise
 
             # Block and wait for the code from Redis
             code = self.code_getter()
             if not code:
+                logger.warning("%s timeout aguardando codigo 2FA", tag)
                 self.account.last_error = 'O tempo para inserir o código 2FA esgotou. Tente novamente.'
                 self.account.save(update_fields=['last_error'])
                 raise Exception("Timeout aguardando 2FA")
-            
+
             # Submits the code natively using the same instagrapi client instance
+            logger.info("%s enviando codigo 2FA", tag)
             self.client.login(username, password, verification_code=code)
             SessionManager.save_session(self.account, self.client)
             self.account.status = 'active'
             self._fetch_profile_info()
+            logger.info("%s OK via 2FA -> conta ativa", tag)
             return True
-            
+
         except BadPassword:
             # This is the datacenter IP block.
+            logger.warning("%s BadPassword (provavel bloqueio de IP de datacenter)", tag)
             self.account.status = 'error'
             self.account.last_error = (
                 'O Instagram bloqueou a tentativa por segurança (IP de Datacenter). '
@@ -103,8 +124,11 @@ class InstagramEngine:
             )
             self.account.save()
             raise
-            
+
         except Exception as e:
+            # logger.exception grava o traceback completo — é o que revela o
+            # "erro real" pedido quando nenhuma das exceções conhecidas bate.
+            logger.exception("%s FALHOU (%s): %s", tag, type(e).__name__, e)
             self.account.status = 'error'
             self.account.last_error = str(e)
             self.account.save()
@@ -123,10 +147,14 @@ class InstagramEngine:
         self.account.save()
 
     def login_by_session(self, sessionid):
+        acc = self.account
+        tag = f"[CONNECT acc={acc.id} @{acc.ig_username}] sessionid"
         if self.account.proxy_url:
             self.client.set_proxy(self.account.proxy_url)
 
         sessionid = (sessionid or '').strip()
+        logger.info("%s inicio | proxy=%s | sessionid_len=%s",
+                    tag, bool(self.account.proxy_url), len(sessionid))
         if not sessionid:
             raise ValueError('sessionid vazio')
 
@@ -134,10 +162,12 @@ class InstagramEngine:
             self.client.login_by_sessionid(sessionid)
             logged_username = (self.client.username or '').lstrip('@').lower()
             expected = (self.account.ig_username or '').lstrip('@').lower()
+            logger.info("%s sessionid aceito | logado=@%s esperado=@%s", tag, logged_username, expected)
 
             if not expected:
                 self.account.ig_username = logged_username
             elif logged_username and logged_username != expected:
+                logger.warning("%s conta divergente (@%s != @%s)", tag, logged_username, expected)
                 self.account.status = 'error'
                 self.account.last_error = f'A sessão pertence a @{logged_username}, não a @{expected}.'
                 self.account.save()
@@ -150,11 +180,13 @@ class InstagramEngine:
                 pass
             self.account.status = 'active'
             self._fetch_profile_info()
+            logger.info("%s OK -> conta ativa", tag)
             return True
 
         except ValueError:
             raise
         except Exception as e:
+            logger.exception("%s FALHOU (%s): %s", tag, type(e).__name__, e)
             self.account.status = 'error'
             self.account.last_error = f'Não foi possível validar a sessão. Ela pode ter expirado. ({e})'
             self.account.save()

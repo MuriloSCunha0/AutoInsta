@@ -154,6 +154,8 @@ def add_account(request):
     # O login agora usa instagrapi (Android API) com Bypass de 2FA.
     # O servidor bloqueia esperando o código do Redis caso seja solicitado 2FA ou challenge.
     gen = claim_login_generation(account.id)
+    logger.info("[CONNECT acc=%s @%s] add_account (login/senha) por user=%s -> despachando web_login_account (gen=%s)",
+                account.id, username, request.user.username, gen)
     web_login_account.delay(account.id, gen)
 
     # Retornar o card da conta (HTMX injeta na lista)
@@ -271,6 +273,10 @@ def add_account_meta(request):
     ig_user_id = request.POST.get('ig_user_id', '').strip()
     profile_pic_url = (request.POST.get('profile_pic_url') or '').strip()
 
+    logger.info("[CONNECT @%s] add_account_meta por user=%s | token_len=%s | meta_app=%s | ig_user_id=%s | @=%s",
+                ig_username or '?', request.user.username, len(meta_access_token),
+                (request.POST.get('meta_app') or '') or '(nenhum)', ig_user_id or '(vazio)', ig_username or '(vazio)')
+
     if not meta_access_token:
         return HttpResponse(
             '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> O Token do Instagram é obrigatório.</div>'
@@ -331,6 +337,9 @@ def add_account_meta(request):
             ok, msg = _sync_meta_account(acc)
         except Exception as e:
             ok, msg = False, str(e)
+
+        logger.info("[CONNECT acc=%s @%s] add_account_meta sync -> ok=%s msg=%s status=%s",
+                    acc.id, acc.ig_username, ok, (msg or '')[:200], acc.status)
 
         if not ok:
             if _created:
@@ -858,6 +867,8 @@ def oauth_callback(request):
     chosen_app = _get_user_meta_app(request.user, chosen_app_pk)
     app_id, app_secret = _meta_credentials(request.user, chosen_app)
     redirect_uri = getattr(settings, 'META_REDIRECT_URI', '')
+    logger.info("[CONNECT] oauth_callback user=%s | app_id=%s | redirect_uri=%s | code_len=%s",
+                request.user.username, app_id or '(vazio)', redirect_uri, len(code or ''))
 
     # 1. Trocar código por short-lived token
     url = "https://api.instagram.com/oauth/access_token"
@@ -874,11 +885,14 @@ def oauth_callback(request):
         data = response.json()
 
         if 'access_token' not in data:
+            logger.warning("[CONNECT] oauth_callback FALHA troca de codigo (HTTP %s): %s",
+                           response.status_code, str(data)[:400])
             messages.error(request, f"Falha ao obter token (curto): {data.get('error_message', str(data))}")
             return redirect('instagram:list')
 
         short_token = data['access_token']
         user_id = str(data.get('user_id', ''))
+        logger.info("[CONNECT] oauth_callback short-token OK | user_id=%s", user_id or '(vazio)')
 
         # 2. Trocar short por long-lived
         ll_url = "https://graph.instagram.com/access_token"
@@ -945,9 +959,12 @@ def oauth_callback(request):
         account.save()
 
         via = f" (app: {account.meta_app.name})" if account.meta_app else ""
+        logger.info("[CONNECT acc=%s @%s] oauth_callback OK -> conta conectada%s",
+                    account.id, username, via)
         messages.success(request, f"Conta @{username} conectada com sucesso via Meta API!{via}")
 
     except Exception as e:
+        logger.exception("[CONNECT] oauth_callback ERRO interno user=%s: %s", request.user.username, e)
         messages.error(request, f"Erro interno na conexão OAuth: {str(e)}")
 
     return redirect('instagram:list')
