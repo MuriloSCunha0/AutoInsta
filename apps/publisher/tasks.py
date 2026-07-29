@@ -191,6 +191,21 @@ def _e_app_invalido(msg):
     )
 
 
+# Erros em que vale REVEZAR de API (Graph <-> engine). São falhas LIMPAS, de
+# autenticação/capacidade: a mídia NÃO foi publicada, então cair para a outra
+# API não duplica o post. Timeout e erros ambíguos ficam de fora de propósito
+# (poderiam ter publicado — revezar duplicaria).
+def _deve_revezar(msg):
+    m = (msg or '').lower()
+    gatilhos = (
+        'cannot access the app', 'error validating access token', 'invalid oauth access token',
+        "'code': 190", 'oauthexception', 'session has been invalidated', 'session has expired',
+        'unsupported request', 'application does not have permission', 'not authorized',
+        'permissions error', 'login_required', 'loginrequired', 'challenge_required',
+    )
+    return any(g in m for g in gatilhos)
+
+
 @shared_task
 def publish_reel(post_id):
     """
@@ -302,51 +317,73 @@ def publish_reel(post_id):
 
         # Posição da etiqueta de link no Story (x/y relativos do editor).
         link_pos = (getattr(post, 'story_link_x', 0.5), getattr(post, 'story_link_y', 0.82))
-
-        # Story COM LINK só é possível pela engine (a API oficial não expõe
-        # sticker de link). Se houver link, usamos o caminho da engine.
         story_link = (getattr(post, 'story_link', '') or '').strip()
 
-        if post.post_type == 'STORY' and story_link:
-            print(f"Publicando Story com link {post.id} via engine...")
-            media_info = engine.upload_story(publish_path, link_url=story_link, link_pos=link_pos)
-            post.ig_media_id = str(media_info.get('pk') or media_info.get('id') or '')
-
-        elif post.account.meta_access_token:
-            from django.conf import settings
+        # ── Publicação com REVEZAMENTO de API (Graph API <-> engine) ───────
+        # Tenta a API principal; se ela falhar de forma LIMPA (auth/capacidade,
+        # sem ter publicado), cai para a outra API disponível na conta. Assim,
+        # um app Meta restrito (190) ou um "unsupported request" não derruba o
+        # post quando a conta também tem sessão — e vice-versa.
+        def _via_graph():
+            from django.conf import settings as _s
             # SITE_URL precisa ser pública: a Meta baixa a mídia dessa URL.
-            site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000').rstrip('/')
-
-            # A URL precisa ir percent-encoded: nome com acento/espaço faz o
-            # downloader da Meta devolver status_code=ERROR (sem explicar).
+            site_url = getattr(_s, 'SITE_URL', 'http://localhost:8000').rstrip('/')
             from apps.core_utils import url_midia
             media_url = url_midia(site_url, dj_settings.MEDIA_URL, publish_relname)
-            # .url já sai percent-encoded pelo Django — não encodar de novo.
             cover_url = f"{site_url}{post.thumbnail.url}" if post.thumbnail else None
-
-            print(f"Publicando {post.id} ({post.post_type}) via Meta Graph API Oficial...")
-            media_info = engine.publish_meta_api(
-                media_url=media_url,
-                caption=final_caption,
-                post_type=post.post_type,
-                cover_url=cover_url,
-                share_to_feed=post.share_to_feed,
-                is_image=is_image,
+            mi = engine.publish_meta_api(
+                media_url=media_url, caption=final_caption, post_type=post.post_type,
+                cover_url=cover_url, share_to_feed=post.share_to_feed, is_image=is_image,
             )
-            post.ig_media_id = str(media_info.get('id', ''))
+            return mi, str(mi.get('id', ''))
 
-        else:
-            print(f"Publicando {post.id} via Automação (Session)...")
+        def _via_engine():
             if post.post_type == 'STORY':
-                media_info = engine.upload_story(publish_path, link_url=story_link or None, link_pos=link_pos)
-                post.ig_media_id = str(media_info.get('pk') or media_info.get('id') or '')
-            else:
-                media_info = engine.upload_reel(
-                    video_path=publish_path,
-                    caption=final_caption,
-                    thumbnail_path=post.thumbnail.path if post.thumbnail else None,
-                )
-                post.ig_media_id = str(media_info.get('id', ''))
+                mi = engine.upload_story(publish_path, link_url=story_link or None, link_pos=link_pos)
+                return mi, str(mi.get('pk') or mi.get('id') or '')
+            mi = engine.upload_reel(
+                video_path=publish_path, caption=final_caption,
+                thumbnail_path=post.thumbnail.path if post.thumbnail else None,
+            )
+            return mi, str(mi.get('id', ''))
+
+        tem_graph = bool(post.account.meta_access_token)
+        tem_sessao = getattr(post.account, 'tem_sessao_engine', False)
+
+        if post.post_type == 'STORY' and story_link:
+            # Story com link SÓ existe pela engine (a API oficial não tem sticker de link).
+            ordem = [('engine', _via_engine)]
+        elif tem_graph and tem_sessao:
+            # Tem as duas credenciais: Graph primeiro (oficial, não bloqueia), engine de reserva.
+            ordem = [('Graph API', _via_graph), ('engine', _via_engine)]
+        elif tem_graph:
+            ordem = [('Graph API', _via_graph)]
+        elif tem_sessao:
+            ordem = [('engine', _via_engine)]
+        else:
+            raise Exception('Conta sem token Meta e sem sessão — reconecte a conta para publicar.')
+
+        media_info = None
+        ultimo_erro = None
+        for i, (metodo, fn) in enumerate(ordem):
+            try:
+                print(f"Publicando {post.id} ({post.post_type}) via {metodo}...")
+                media_info, mid = fn()
+                post.ig_media_id = mid
+                if i > 0:
+                    print(f"Post {post.id}: publicado no REVEZAMENTO via {metodo} (a 1ª API falhou limpo).")
+                break
+            except Exception as e:
+                ultimo_erro = e
+                tem_proxima = i < len(ordem) - 1
+                # Só reveza em falha LIMPA de auth/capacidade; erro ambíguo sobe
+                # (o retry normal cuida, sem risco de post duplicado).
+                if tem_proxima and _deve_revezar(str(e)):
+                    print(f"Post {post.id}: {metodo} falhou limpo ({str(e)[:90]}); revezando para a próxima API...")
+                    continue
+                raise
+        if media_info is None:
+            raise ultimo_erro or Exception('Falha ao publicar em todas as APIs disponíveis')
 
         post.status = 'published'
         post.published_at = timezone.now()
