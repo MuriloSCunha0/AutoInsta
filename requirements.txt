@@ -6,6 +6,9 @@ django-celery-beat>=2.6
 channels>=4.0
 channels-redis>=4.2
 instagrapi>=2.1
+# instagrapi extrai a thumbnail do video (ex.: Story via engine) com MoviePy;
+# sem ele: "Could not generate video thumbnail... install MoviePy".
+moviepy>=2.1,<3
 cryptography>=42.0
 pywebpush>=2.0.0
 django-environ>=0.11

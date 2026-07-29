@@ -7,7 +7,7 @@ password = '#CardingCarding123'
 create_cmd = """
 cd /opt/sandraoflow
 git pull
-docker compose -f docker-compose.prod.yml build web
+docker compose -f docker-compose.prod.yml build web celery_worker celery_beat
 docker compose -f docker-compose.prod.yml up -d --no-deps web celery_worker celery_beat
 docker exec sandraoflow-web-1 python manage.py migrate
 """
