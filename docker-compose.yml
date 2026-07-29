@@ -37,6 +37,10 @@ services:
     build: .
     restart: unless-stopped
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
+    # Em dev geramos migracoes no boot (comodidade); em prod isso fica off
+    # para nao criar migrations untracked que travam o git pull.
+    environment:
+      AUTO_MAKEMIGRATIONS: "1"
     volumes:
       - .:/app
       - media_data:/app/media

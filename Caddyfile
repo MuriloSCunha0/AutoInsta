@@ -1,6 +1,11 @@
 sandraoflow.com, www.sandraoflow.com {
-    reverse_proxy web:8000
-    
+    # Retry no upstream: durante a troca do container web (deploy), o Caddy
+    # re-tenta por ate 30s em vez de devolver 502 ao usuario.
+    reverse_proxy web:8000 {
+        lb_try_duration 30s
+        lb_try_interval 250ms
+    }
+
     handle_path /static/* {
         root * /app/staticfiles
         file_server
