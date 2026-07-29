@@ -72,10 +72,12 @@
 {% endfor %}
 {% endif %}
 
-{# #account-list precisa existir SEMPRE — mesmo sem contas. Os formulários de
-   conexão (login/senha, sessão e token) fazem hx-target="#account-list"; se o
-   container só existir quando já há contas, o usuário NOVO cai em htmx:targetError
-   e a resposta (card OU erro) é descartada — parece que "nada acontece". #}
+{% comment %}
+#account-list precisa existir SEMPRE — mesmo sem contas. Os formulários de
+conexão (login/senha, sessão e token) fazem hx-target="#account-list"; se o
+container só existir quando já há contas, o usuário NOVO cai em htmx:targetError
+e a resposta (card OU erro) é descartada — parece que "nada acontece".
+{% endcomment %}
 <style>
   /* Some a mensagem de vazio assim que um card é injetado pelo HTMX. */
   #account-list:has(> .col) #empty-state,
