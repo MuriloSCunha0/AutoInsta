@@ -187,11 +187,8 @@
                     </label>
                 </div>
 
-                <div id="story-link-wrap" style="display: none;">
-                    <label class="form-label text-muted"><i class="bi bi-link-45deg me-1"></i> Link do Story <span class="text-muted">(opcional)</span></label>
-                    <input type="url" name="story_link" class="form-control text-white border-subtle mb-1"
-                           style="background: var(--bg-input);" placeholder="https://seu-link.com">
-                    <small class="text-muted d-block mb-4">Com link, o Story é publicado pela engine (a API oficial não permite sticker de link).</small>
+                <div id="story-link-wrap" style="display: none;" class="mb-4">
+                    {% include 'publisher/partials/story_editor.html' %}
                 </div>
 
                 <div id="grade-wrap">

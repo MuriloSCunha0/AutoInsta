@@ -1,0 +1,208 @@
+{% comment %}
+Editor visual de Story (fase 1 — preview no navegador).
+- Mostra a 1ª imagem escolhida no #video-upload num quadro 9:16.
+- Caixa de texto ARRASTÁVEL sobre a imagem, com cor e tamanho.
+- Marcador de LINK arrastável (onde a etiqueta do link vai ficar).
+- Guarda tudo em inputs hidden (story_text, cor, tamanho, posições e link)
+  para a próxima fase persistir e queimar o texto na imagem no publish.
+Reutilizável: incluído no Composer e na aba Stories.
+{% endcomment %}
+<div id="story-editor" class="story-editor">
+    <label class="form-label text-muted d-block mb-2">
+        <i class="bi bi-easel me-1"></i> Preview do Story <span class="text-muted">(arraste o texto e o link)</span>
+    </label>
+
+    <div class="story-editor-grid">
+        {# Quadro 9:16 com a imagem + overlays arrastáveis #}
+        <div class="story-frame" id="story-frame">
+            <div class="story-frame-empty" id="story-frame-empty">
+                <i class="bi bi-image"></i>
+                <span>Escolha uma foto acima<br>para ver o preview</span>
+            </div>
+            <div class="story-drag story-text-box" id="story-text-box" style="left:50%; top:45%;">
+                <span id="story-text-preview">Seu texto aqui</span>
+            </div>
+            <div class="story-drag story-link-chip" id="story-link-chip" style="left:50%; top:82%; display:none;">
+                <i class="bi bi-link-45deg"></i> <span id="story-link-chip-label">LINK</span>
+            </div>
+        </div>
+
+        {# Controles #}
+        <div class="story-controls">
+            <div class="mb-2">
+                <label class="form-label text-muted small mb-1">Texto do story</label>
+                <input type="text" id="story-text-input" maxlength="120"
+                       class="form-control form-control-sm text-white border-subtle"
+                       style="background: var(--bg-input);" placeholder="Ex: Promoção liberada hoje 🔥">
+            </div>
+
+            <div class="d-flex gap-2 mb-2">
+                <div class="flex-grow-1">
+                    <label class="form-label text-muted small mb-1">Cor do texto</label>
+                    <input type="color" id="story-text-color" value="#ffffff"
+                           class="form-control form-control-sm form-control-color" style="width:100%; height:32px;">
+                </div>
+                <div class="flex-grow-1">
+                    <label class="form-label text-muted small mb-1">Fundo do texto</label>
+                    <select id="story-text-bg" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input);">
+                        <option value="none">Sem fundo</option>
+                        <option value="dark" selected>Escuro</option>
+                        <option value="light">Claro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label text-muted small mb-1">Tamanho do texto: <span id="story-text-size-val">28</span>px</label>
+                <input type="range" id="story-text-size" min="14" max="64" value="28" class="form-range">
+            </div>
+
+            <div class="mb-1">
+                <label class="form-label text-muted small mb-1"><i class="bi bi-link-45deg"></i> Link do Story <span class="text-muted">(opcional)</span></label>
+                <input type="url" name="story_link" id="story-link-url"
+                       class="form-control form-control-sm text-white border-subtle"
+                       style="background: var(--bg-input);" placeholder="https://seu-link.com">
+                <small class="text-muted d-block mt-1">Com link, o Story vai pela engine (a API oficial não permite figurinha de link). Arraste o marcador <strong>LINK</strong> no preview para posicioná-lo.</small>
+            </div>
+        </div>
+    </div>
+
+    {# Campos que a próxima fase vai persistir/renderizar. x/y são relativos (0..1). #}
+    <input type="hidden" name="story_text" id="h-story-text" value="">
+    <input type="hidden" name="story_text_color" id="h-story-text-color" value="#ffffff">
+    <input type="hidden" name="story_text_bg" id="h-story-text-bg" value="dark">
+    <input type="hidden" name="story_text_size" id="h-story-text-size" value="28">
+    <input type="hidden" name="story_text_x" id="h-story-text-x" value="0.5">
+    <input type="hidden" name="story_text_y" id="h-story-text-y" value="0.45">
+    <input type="hidden" name="story_link_x" id="h-story-link-x" value="0.5">
+    <input type="hidden" name="story_link_y" id="h-story-link-y" value="0.82">
+</div>
+
+<style>
+.story-editor-grid { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 520px) { .story-editor-grid { grid-template-columns: 1fr; } }
+.story-frame {
+    position: relative; width: 190px; aspect-ratio: 9/16; border-radius: 14px; overflow: hidden;
+    background: #05070f center/cover no-repeat; border: 1px solid var(--border-subtle);
+    user-select: none; touch-action: none;
+}
+.story-frame-empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; color: var(--text-muted); font-size: .72rem; text-align: center;
+}
+.story-frame-empty i { font-size: 1.8rem; opacity: .5; }
+.story-drag { position: absolute; transform: translate(-50%, -50%); cursor: grab; max-width: 92%; }
+.story-drag:active { cursor: grabbing; }
+.story-text-box span {
+    display: inline-block; padding: 3px 8px; border-radius: 6px; font-weight: 700; line-height: 1.2;
+    word-break: break-word; text-align: center; white-space: pre-wrap;
+}
+.story-link-chip {
+    background: #fff; color: #111; font-weight: 700; font-size: .62rem; padding: 4px 9px;
+    border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.4); white-space: nowrap;
+}
+</style>
+
+<script>
+(function () {
+    var frame = document.getElementById('story-frame');
+    if (!frame || frame.dataset.ready) return;
+    frame.dataset.ready = '1';
+
+    var fileInput = document.getElementById('video-upload');
+    var empty = document.getElementById('story-frame-empty');
+    var textBox = document.getElementById('story-text-box');
+    var textSpan = document.getElementById('story-text-preview');
+    var linkChip = document.getElementById('story-link-chip');
+    var linkLabel = document.getElementById('story-link-chip-label');
+
+    var inText = document.getElementById('story-text-input');
+    var inColor = document.getElementById('story-text-color');
+    var inBg = document.getElementById('story-text-bg');
+    var inSize = document.getElementById('story-text-size');
+    var sizeVal = document.getElementById('story-text-size-val');
+    var inLink = document.getElementById('story-link-url');
+
+    var h = {
+        text: document.getElementById('h-story-text'),
+        color: document.getElementById('h-story-text-color'),
+        bg: document.getElementById('h-story-text-bg'),
+        size: document.getElementById('h-story-text-size'),
+        tx: document.getElementById('h-story-text-x'),
+        ty: document.getElementById('h-story-text-y'),
+        lx: document.getElementById('h-story-link-x'),
+        ly: document.getElementById('h-story-link-y'),
+    };
+
+    // Preview da imagem escolhida (1ª imagem do input)
+    if (fileInput) fileInput.addEventListener('change', function () {
+        var img = Array.prototype.find.call(fileInput.files || [], function (f) { return f.type.indexOf('image') === 0; });
+        if (!img) { frame.style.backgroundImage = ''; if (empty) empty.style.display = 'flex'; return; }
+        var r = new FileReader();
+        r.onload = function (e) { frame.style.backgroundImage = 'url(' + e.target.result + ')'; if (empty) empty.style.display = 'none'; };
+        r.readAsDataURL(img);
+    });
+
+    // Texto / cor / fundo / tamanho
+    function applyBg() {
+        var v = inBg.value;
+        if (v === 'none') { textSpan.style.background = 'transparent'; }
+        else if (v === 'light') { textSpan.style.background = 'rgba(255,255,255,.85)'; }
+        else { textSpan.style.background = 'rgba(0,0,0,.55)'; }
+        h.bg.value = v;
+    }
+    function applyText() {
+        var t = inText.value || 'Seu texto aqui';
+        textSpan.textContent = t;
+        h.text.value = inText.value || '';
+    }
+    inText && inText.addEventListener('input', applyText);
+    inColor && inColor.addEventListener('input', function () { textSpan.style.color = inColor.value; h.color.value = inColor.value; });
+    inBg && inBg.addEventListener('change', applyBg);
+    inSize && inSize.addEventListener('input', function () { textSpan.style.fontSize = inSize.value + 'px'; sizeVal.textContent = inSize.value; h.size.value = inSize.value; });
+    inLink && inLink.addEventListener('input', function () {
+        var has = inLink.value.trim().length > 0;
+        linkChip.style.display = has ? 'block' : 'none';
+        try { linkLabel.textContent = has ? (new URL(inLink.value).hostname || 'LINK').replace('www.', '') : 'LINK'; }
+        catch (e) { linkLabel.textContent = 'LINK'; }
+    });
+
+    // Estado inicial
+    textSpan.style.color = '#ffffff';
+    textSpan.style.fontSize = '28px';
+    applyBg();
+
+    // Arrastar um elemento dentro do quadro; grava x/y relativos (0..1)
+    function makeDraggable(el, hx, hy) {
+        function down(ev) {
+            ev.preventDefault();
+            var rect = frame.getBoundingClientRect();
+            function move(e) {
+                var p = e.touches ? e.touches[0] : e;
+                var x = (p.clientX - rect.left) / rect.width;
+                var y = (p.clientY - rect.top) / rect.height;
+                x = Math.max(0.02, Math.min(0.98, x));
+                y = Math.max(0.02, Math.min(0.98, y));
+                el.style.left = (x * 100) + '%';
+                el.style.top = (y * 100) + '%';
+                hx.value = x.toFixed(3);
+                hy.value = y.toFixed(3);
+            }
+            function up() {
+                document.removeEventListener('mousemove', move);
+                document.removeEventListener('mouseup', up);
+                document.removeEventListener('touchmove', move);
+                document.removeEventListener('touchend', up);
+            }
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up);
+            document.addEventListener('touchmove', move, { passive: false });
+            document.addEventListener('touchend', up);
+        }
+        el.addEventListener('mousedown', down);
+        el.addEventListener('touchstart', down, { passive: false });
+    }
+    makeDraggable(textBox, h.tx, h.ty);
+    makeDraggable(linkChip, h.lx, h.ly);
+})();
+</script>
