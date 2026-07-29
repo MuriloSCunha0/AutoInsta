@@ -109,7 +109,11 @@ Reutilizável: incluído no Composer e na aba Stories.
     if (!frame || frame.dataset.ready) return;
     frame.dataset.ready = '1';
 
-    var fileInput = document.getElementById('video-upload');
+    // Acha o input de arquivo do MESMO form (funciona no Composer e na aba
+    // Stories), com fallback para o id do composer.
+    var ownForm = frame.closest('form');
+    var fileInput = (ownForm && ownForm.querySelector('input[type="file"]'))
+        || document.getElementById('video-upload');
     var empty = document.getElementById('story-frame-empty');
     var textBox = document.getElementById('story-text-box');
     var textSpan = document.getElementById('story-text-preview');

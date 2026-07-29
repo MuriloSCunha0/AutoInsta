@@ -279,13 +279,37 @@ def publish_reel(post_id):
                 ).replace('\\', '/')
                 print(f"Post {post.id}: mídia processada (modo={clean_mode})")
 
+        # Story de IMAGEM com texto do editor visual: queima o texto na imagem
+        # (na posição/cor/tamanho escolhidos) antes de subir. Best-effort: se
+        # falhar, segue com a imagem original.
+        if (post.post_type == 'STORY' and is_image
+                and (getattr(post, 'story_text', '') or '').strip()):
+            from engine.story_render import bake_story_text
+            baked = bake_story_text(
+                publish_path,
+                text=post.story_text,
+                color=post.story_text_color,
+                bg=post.story_text_bg,
+                size_preview=post.story_text_size,
+                x=post.story_text_x, y=post.story_text_y,
+                dest_dir=os.path.join(dj_settings.MEDIA_ROOT, 'processed'),
+            )
+            if baked and baked != publish_path:
+                publish_path = baked
+                arquivo_temporario = baked
+                publish_relname = os.path.relpath(baked, dj_settings.MEDIA_ROOT).replace('\\', '/')
+                print(f"Post {post.id}: texto do story queimado na imagem")
+
+        # Posição da etiqueta de link no Story (x/y relativos do editor).
+        link_pos = (getattr(post, 'story_link_x', 0.5), getattr(post, 'story_link_y', 0.82))
+
         # Story COM LINK só é possível pela engine (a API oficial não expõe
         # sticker de link). Se houver link, usamos o caminho da engine.
         story_link = (getattr(post, 'story_link', '') or '').strip()
 
         if post.post_type == 'STORY' and story_link:
             print(f"Publicando Story com link {post.id} via engine...")
-            media_info = engine.upload_story(publish_path, link_url=story_link)
+            media_info = engine.upload_story(publish_path, link_url=story_link, link_pos=link_pos)
             post.ig_media_id = str(media_info.get('pk') or media_info.get('id') or '')
 
         elif post.account.meta_access_token:
@@ -314,7 +338,7 @@ def publish_reel(post_id):
         else:
             print(f"Publicando {post.id} via Automação (Session)...")
             if post.post_type == 'STORY':
-                media_info = engine.upload_story(publish_path, link_url=story_link or None)
+                media_info = engine.upload_story(publish_path, link_url=story_link or None, link_pos=link_pos)
                 post.ig_media_id = str(media_info.get('pk') or media_info.get('id') or '')
             else:
                 media_info = engine.upload_reel(

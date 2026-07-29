@@ -454,6 +454,23 @@ def _composer_submit(request):
     share_to_feed = request.POST.get('grade', 'grade') == 'grade'
     story_link = (request.POST.get('story_link') or '').strip()
 
+    # Editor visual de Story (texto queimado + posição do link).
+    def _f(nome, padrao):
+        try:
+            return float(request.POST.get(nome))
+        except (TypeError, ValueError):
+            return padrao
+    story_cfg = {
+        'story_text': (request.POST.get('story_text') or '').strip()[:200],
+        'story_text_color': (request.POST.get('story_text_color') or '#ffffff').strip()[:20],
+        'story_text_bg': (request.POST.get('story_text_bg') or 'dark').strip()[:10],
+        'story_text_size': max(8, min(int(_f('story_text_size', 28)), 200)),
+        'story_text_x': min(1.0, max(0.0, _f('story_text_x', 0.5))),
+        'story_text_y': min(1.0, max(0.0, _f('story_text_y', 0.45))),
+        'story_link_x': min(1.0, max(0.0, _f('story_link_x', 0.5))),
+        'story_link_y': min(1.0, max(0.0, _f('story_link_y', 0.82))),
+    }
+
     # Modo de limpeza/diversificação do arquivo (none/light/ultra).
     clean_mode = request.POST.get('clean_mode', 'light')
     if clean_mode not in ('none', 'light', 'ultra'):
@@ -621,6 +638,7 @@ def _composer_submit(request):
                 audio=audio,
                 status='queued',
                 scheduled_for=when_dt,
+                **(story_cfg if post_type == 'STORY' else {}),
             )
             post.video_file.name = vname
             if cover_name:

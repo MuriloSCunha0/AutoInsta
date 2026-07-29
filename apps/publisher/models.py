@@ -73,6 +73,18 @@ class ScheduledPost(models.Model):
     # preenchido a publicação vai pela engine (instagrapi).
     story_link = models.URLField(max_length=500, blank=True)
 
+    # Editor visual de Story: texto queimado na imagem + posição da etiqueta
+    # de link. x/y são relativos (0..1) ao quadro; story_text_size é em px de
+    # um preview de 190px de largura (escalado para a imagem real no publish).
+    story_text = models.TextField(blank=True, default='')
+    story_text_color = models.CharField(max_length=20, blank=True, default='#ffffff')
+    story_text_bg = models.CharField(max_length=10, blank=True, default='dark')
+    story_text_size = models.IntegerField(default=28)
+    story_text_x = models.FloatField(default=0.5)
+    story_text_y = models.FloatField(default=0.45)
+    story_link_x = models.FloatField(default=0.5)
+    story_link_y = models.FloatField(default=0.82)
+
     # Limpeza/diversificação do arquivo antes de publicar, para o Instagram
     # não correlacionar contas que enviam a mesma mídia.
     CLEAN_CHOICES = [

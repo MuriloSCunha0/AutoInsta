@@ -20,6 +20,60 @@
 {% block content %}
 <div class="row g-4">
 <div class="col-lg-8">
+
+{# Criar Story direto na aba — mesmo editor visual do Composer (reusa a view). #}
+<div class="card p-3 mb-4" id="criar-story-card">
+    <h5 class="text-white mb-3"><i class="bi bi-plus-circle text-purple me-2"></i> Criar Story</h5>
+    <form method="post" action="{% url 'publisher:composer' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="post_type" value="STORY">
+        <input type="hidden" name="schedule_mode" value="now" id="cs-sched-mode">
+
+        <label class="form-label text-muted small mb-1"><i class="bi bi-instagram me-1"></i> Contas</label>
+        <div class="border border-subtle rounded p-2 mb-3" style="max-height:150px; overflow-y:auto; background:var(--bg-input);">
+            {% for acc in accounts %}
+            <label class="d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+                <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input">
+                <span class="text-white small">@{{ acc.ig_username }}</span>
+                {% if acc.status != 'active' %}<span class="acct-tag warn ms-auto" style="font-size:.58rem;">TOKEN</span>{% endif %}
+            </label>
+            {% empty %}
+            <div class="text-muted small">Nenhuma conta conectada. <a href="{% url 'instagram:list' %}" class="text-info">Conectar</a>.</div>
+            {% endfor %}
+        </div>
+
+        <label class="form-label text-muted small mb-1"><i class="bi bi-image me-1"></i> Foto do story</label>
+        <input type="file" name="videos" accept="image/*,video/*"
+               class="form-control form-control-sm text-white border-subtle mb-3" style="background:var(--bg-input);">
+
+        {% include 'publisher/partials/story_editor.html' %}
+
+        <div class="d-flex align-items-center gap-3 mt-3 flex-wrap">
+            <label class="text-muted small mb-0" style="cursor:pointer;">
+                <input type="checkbox" id="cs-agendar" class="form-check-input me-1"> Agendar para depois
+            </label>
+            <input type="datetime-local" name="start" id="cs-start"
+                   class="form-control form-control-sm text-white border-subtle"
+                   style="display:none; width:auto; background:var(--bg-input);">
+            <button type="submit" class="btn btn-primary ms-auto">
+                <i class="bi bi-send me-1"></i> Postar / Agendar Story
+            </button>
+        </div>
+    </form>
+</div>
+<script>
+(function () {
+    var chk = document.getElementById('cs-agendar');
+    var start = document.getElementById('cs-start');
+    var mode = document.getElementById('cs-sched-mode');
+    if (!chk) return;
+    chk.addEventListener('change', function () {
+        start.style.display = chk.checked ? 'inline-block' : 'none';
+        if (mode) mode.value = chk.checked ? 'schedule' : 'now';
+    });
+})();
+</script>
+
 <form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ request.get_full_path }}">

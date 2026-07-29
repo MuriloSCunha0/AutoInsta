@@ -437,9 +437,13 @@ class InstagramEngine:
             cover_url=cover_url, share_to_feed=share_to_feed, is_image=False,
         )
 
-    def upload_story(self, media_path, link_url=None):
+    def upload_story(self, media_path, link_url=None, link_pos=None):
         """Publica um Story pela engine (instagrapi). Diferencial: permite
-        anexar LINK ao Story — a API oficial da Meta não expõe isso."""
+        anexar LINK ao Story — a API oficial da Meta não expõe isso.
+
+        link_pos: (x, y) relativos (0..1) de onde a etiqueta do link deve ficar,
+        vindos do editor visual. Se None, cai num rodapé padrão.
+        """
         self._prepare_client()
         path = str(media_path)
         is_image = path.lower().endswith(self.IMAGE_EXTS)
@@ -448,9 +452,21 @@ class InstagramEngine:
         if link_url:
             try:
                 from instagrapi.types import StoryLink
-                kwargs['links'] = [StoryLink(webUri=link_url)]
+                x, y = (link_pos or (0.5, 0.82))
+                # Clampa e garante que a etiqueta não saia do quadro.
+                x = min(0.9, max(0.1, float(x)))
+                y = min(0.95, max(0.05, float(y)))
+                kwargs['links'] = [StoryLink(
+                    webUri=link_url, x=x, y=y, width=0.5, height=0.08, rotation=0.0,
+                )]
             except Exception:
-                pass
+                # Fallback: link sem posição (algumas versões do instagrapi
+                # não aceitam x/y no StoryLink).
+                try:
+                    from instagrapi.types import StoryLink
+                    kwargs['links'] = [StoryLink(webUri=link_url)]
+                except Exception:
+                    pass
 
         if is_image:
             media = self.client.photo_upload_to_story(path, **kwargs)
