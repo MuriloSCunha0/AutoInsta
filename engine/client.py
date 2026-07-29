@@ -31,6 +31,20 @@ class InstagramEngine:
             
         self.client.challenge_code_handler = custom_challenge_code_handler
 
+    def _aplicar_proxy(self):
+        """Proxy para falar com o Instagram: o da CONTA; senão o proxy GLOBAL
+        de login (settings.IG_LOGIN_PROXY). O IP da VPS costuma cair na
+        blacklist do IG ('change your IP address...') — um proxy residencial/
+        móvel resolve login por senha e validação de sessão. Retorna o proxy
+        aplicado (ou '')."""
+        from django.conf import settings
+        proxy = (getattr(self.account, 'proxy_url', '') or '').strip()
+        if not proxy:
+            proxy = (getattr(settings, 'IG_LOGIN_PROXY', '') or '').strip()
+        if proxy:
+            self.client.set_proxy(proxy)
+        return proxy
+
     def _attempt_login(self, username, password, relogin=False):
         try:
             self.client.login(username, password, relogin=relogin)
@@ -41,8 +55,7 @@ class InstagramEngine:
     def login(self):
         acc = self.account
         tag = f"[CONNECT acc={acc.id} @{acc.ig_username}] login/senha"
-        if self.account.proxy_url:
-            self.client.set_proxy(self.account.proxy_url)
+        proxy_usado = self._aplicar_proxy()
 
         # Trick 1: Spoofing de versão moderna do app para evitar bloqueio direto
         self.client.device_settings["app_version"] = "361.0.0.39.109"
@@ -53,7 +66,7 @@ class InstagramEngine:
 
         session_loaded = SessionManager.load_session(self.account, self.client)
         logger.info("%s inicio | proxy=%s | senha_len=%s | sessao_salva=%s",
-                    tag, bool(self.account.proxy_url), len(password or ''), bool(session_loaded))
+                    tag, proxy_usado or 'NENHUM', len(password or ''), bool(session_loaded))
 
         try:
             if session_loaded:
@@ -114,14 +127,24 @@ class InstagramEngine:
             return True
 
         except BadPassword:
-            # This is the datacenter IP block.
-            logger.warning("%s BadPassword (provavel bloqueio de IP de datacenter)", tag)
+            # O Instagram devolve "bad_password" com a mensagem real: o IP do
+            # servidor está na blacklist ("change your IP address"). Não é a
+            # senha nem a versão — é o IP. Sem proxy, login por senha não passa.
+            logger.warning("%s BadPassword (IP na blacklist do IG; proxy_usado=%s)", tag, proxy_usado or 'NENHUM')
             self.account.status = 'error'
-            self.account.last_error = (
-                'O Instagram bloqueou a tentativa por segurança (IP de Datacenter). '
-                'Para resolver instantaneamente: vá no seu aplicativo, ative a '
-                'Autenticação de Dois Fatores (2FA) e tente conectar novamente aqui.'
-            )
+            if proxy_usado:
+                self.account.last_error = (
+                    'O Instagram recusou o login mesmo com proxy. Tente outro proxy '
+                    '(residencial/móvel) ou conecte por SESSÃO (aba Avançado): faça login '
+                    'no navegador e cole o sessionid.'
+                )
+            else:
+                self.account.last_error = (
+                    'O Instagram bloqueou o login: o IP do servidor está na blacklist dele. '
+                    'Login por usuário/senha só funciona com um PROXY residencial/móvel. '
+                    'Alternativa que funciona agora: conecte por SESSÃO (aba Avançado) — '
+                    'faça login no seu navegador e cole o sessionid; ou por TOKEN da Meta.'
+                )
             self.account.save()
             raise
 
@@ -149,12 +172,11 @@ class InstagramEngine:
     def login_by_session(self, sessionid):
         acc = self.account
         tag = f"[CONNECT acc={acc.id} @{acc.ig_username}] sessionid"
-        if self.account.proxy_url:
-            self.client.set_proxy(self.account.proxy_url)
+        proxy_usado = self._aplicar_proxy()
 
         sessionid = (sessionid or '').strip()
         logger.info("%s inicio | proxy=%s | sessionid_len=%s",
-                    tag, bool(self.account.proxy_url), len(sessionid))
+                    tag, proxy_usado or 'NENHUM', len(sessionid))
         if not sessionid:
             raise ValueError('sessionid vazio')
 
@@ -194,8 +216,7 @@ class InstagramEngine:
 
     def _prepare_client(self):
         """Garante um client logado via sessão salva (para ações fora do upload)."""
-        if self.account.proxy_url:
-            self.client.set_proxy(self.account.proxy_url)
+        self._aplicar_proxy()
         SessionManager.load_session(self.account, self.client)
         self.client.login(self.account.ig_username, self.account.get_ig_password())
 

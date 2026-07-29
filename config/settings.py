@@ -292,6 +292,14 @@ VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="admin@sandraoflow.com")
 # =============================================================================
 META_APP_ID = env("META_APP_ID", default="")
 META_APP_SECRET = env("META_APP_SECRET", default="")
+
+# Proxy GLOBAL de login (instagrapi). O IP da VPS entra na blacklist do
+# Instagram ("change your IP address...") e o login por usuário/senha e a
+# validação de sessão passam a falhar para TODAS as contas. Definindo um proxy
+# residencial/móvel aqui, todo login/sessão que não tenha proxy próprio da
+# conta passa por esse IP e volta a funcionar. Formato:
+#   http://user:pass@host:porta  (ou socks5://user:pass@host:porta)
+IG_LOGIN_PROXY = env("IG_LOGIN_PROXY", default="")
 # O redirect do OAuth PRECISA ser a URL pública do site — a Meta redireciona o
 # navegador do usuário para cá depois da autorização. Se ficar em localhost, o
 # callback nunca chega ao servidor e NENHUMA conta conecta por OAuth. Por isso
