@@ -243,6 +243,15 @@ def publish_reel(post_id):
         for key, value in spintax_map.items():
             final_caption = final_caption.replace(key, value)
 
+        # VARIAÇÃO AUTOMÁTICA por conta: o IG remove o texto de posts que
+        # parecem coordenados (mesma legenda em massa). Aqui cada conta gera uma
+        # versão única (spintax {a|b|c} + caracteres invisíveis), determinística
+        # por conta+post (retry gera a MESMA legenda). Ligado por padrão.
+        from django.conf import settings as _cfg_var
+        if final_caption and getattr(_cfg_var, 'VARIAR_LEGENDAS', True):
+            from apps.publisher.caption_utils import variar_legenda
+            final_caption = variar_legenda(final_caption, seed=f"{post.account_id}-{post.id}")
+
         # Detecta imagem x vídeo pela extensão do arquivo.
         IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
         is_image = (post.video_file.name or '').lower().endswith(IMAGE_EXTS)

@@ -274,6 +274,11 @@ TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 # publish_reel). A grade quase sempre dá "sim"; ligue só para auditar.
 VERIFICAR_GRADE = env.bool("VERIFICAR_GRADE", default=False)
 
+# Variação automática de legenda por conta: cada conta posta uma versão única
+# do texto (spintax {a|b|c} + caracteres invisíveis) para o Instagram não tirar
+# a legenda por parecer conteúdo coordenado/duplicado em massa. Ligado.
+VARIAR_LEGENDAS = env.bool("VARIAR_LEGENDAS", default=True)
+
 # Espera (segundos) entre cada consulta de status ao publicar. A 1ª é longa de
 # propósito: o Reel quase sempre já terminou de processar nela, então gastamos
 # 1 consulta em vez de 8. É o principal corte de chamadas ao app Meta.

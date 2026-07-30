@@ -78,7 +78,10 @@
                 <h6 class="text-white mb-3"><i class="bi bi-chat-quote text-purple me-2"></i> Legenda</h6>
                 <textarea name="caption" rows="4" maxlength="2200" id="caption-input"
                           class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);"
-                          placeholder="Escreva a legenda. Use variáveis: {nome_conta}, {dia_semana}, {data_hoje}"></textarea>
+                          placeholder="Escreva a legenda. Variáveis: {nome_conta}, {dia_semana}, {data_hoje}. Variação: {oi|olá|e aí}"></textarea>
+                <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-2" style="line-height:1.5">
+                    <i class="bi bi-shuffle me-1"></i> <strong>Legenda variada automaticamente por conta</strong> — cada conta posta uma versão única (o Instagram remove o texto de posts idênticos em massa). Para variar de verdade, use <code>{oi|olá|e aí}</code> que cada conta escolhe uma opção.
+                </div>
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         {% if caption_sets %}
