@@ -149,6 +149,11 @@ def add_account(request):
     account.owner = request.user
     account.ig_username = username
     account.set_ig_password(form.cleaned_data['ig_password'])
+    # Chave 2FA (TOTP) opcional: com ela o login gera o código sozinho e passa
+    # do 2FA a partir da VPS (o IG aceita login por senha em conta com 2FA).
+    seed = (request.POST.get('totp_seed') or '').strip()
+    if seed:
+        account.set_totp_seed(seed)
     account.save()
 
     # O login agora usa instagrapi (Android API) com Bypass de 2FA.

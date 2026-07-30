@@ -110,7 +110,11 @@
         {% elif account.status == 'error' %}
         <div class="status-banner banner-erro mb-3">
             <i class="bi bi-exclamation-octagon-fill"></i>
-            <div><strong>Conta caiu</strong><div class="small">Token inválido/expirado. Reconecte para voltar a publicar.</div></div>
+            <div><strong>Conta caiu</strong><div class="small">
+                {% if account.meta_access_token %}Token inválido/expirado. Reconecte para voltar a publicar.
+                {% elif account.last_error %}{{ account.last_error|truncatechars:120 }}
+                {% else %}Falha ao conectar. Tente reconectar.{% endif %}
+            </div></div>
         </div>
         {% elif account.status == 'session_expired' %}
         <div class="status-banner banner-erro mb-3">

@@ -49,6 +49,16 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label text-muted">Chave 2FA <span class="text-success">(recomendado)</span></label>
+                                <input type="text" name="totp_seed" class="form-control" placeholder="Ex: 54N FF4Y R2TP ZC73 ..." autocomplete="off">
+                                <small class="text-muted" style="font-size: 0.75rem;">
+                                    Ative a Autenticação de 2 Fatores por <strong>app autenticador</strong> no Instagram
+                                    (Configurações → Central de contas → Senha e segurança → 2FA → App de autenticação)
+                                    e cole aqui a <strong>chave</strong> mostrada. Com ela o login conecta sozinho, mesmo pelo servidor.
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label text-muted">Proxy (Opcional)</label>
                                 <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
                                 <small class="text-muted" style="font-size: 0.75rem;">Só para muitas contas. Deixe em branco para usar o servidor.</small>

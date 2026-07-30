@@ -100,7 +100,25 @@ class InstagramEngine:
             raise
 
         except TwoFactorRequired as e:
-            logger.info("%s TwoFactorRequired -> aguardando codigo 2FA", tag)
+            # A senha foi ACEITA (chegou no 2FA) — prova que o IP não bloqueou.
+            # Se a conta tem o seed do TOTP salvo, geramos o código sozinhos e
+            # concluímos o login SEM digitação (funciona em re-login/agendado).
+            seed = self.account.get_totp_seed()
+            if seed:
+                try:
+                    code = self.client.totp_generate_code(seed)
+                    logger.info("%s TwoFactorRequired -> código TOTP gerado do seed", tag)
+                    self.client.login(username, password, verification_code=code)
+                    SessionManager.save_session(self.account, self.client)
+                    self.account.status = 'active'
+                    self.account.last_error = ''
+                    self._fetch_profile_info()
+                    logger.info("%s OK via 2FA automático (seed) -> conta ativa", tag)
+                    return True
+                except Exception as e2:
+                    logger.warning("%s 2FA automático (seed) falhou: %s — caindo para código manual", tag, str(e2)[:120])
+
+            logger.info("%s TwoFactorRequired -> aguardando codigo 2FA (manual)", tag)
             self.account.status = '2fa_required'
             self.account.last_error = ''
             self.account.save(update_fields=['status', 'last_error'])

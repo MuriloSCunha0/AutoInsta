@@ -64,6 +64,10 @@ class InstagramAccount(models.Model):
     # separar visualmente no painel e no composer. Vazio = "Sem modelo".
     modelo = models.CharField(max_length=60, blank=True, db_index=True)
     ig_password = models.TextField()
+    # Seed do 2FA (TOTP), criptografado. Com ele, o login gera o código de 6
+    # dígitos SOZINHO — sem digitação — e passa do 2FA a partir da VPS (o IG
+    # aceita login por senha quando a conta tem 2FA). Vazio = sem 2FA salvo.
+    totp_seed_enc = models.TextField(blank=True, default='')
     proxy_url = models.CharField(max_length=255, blank=True, help_text="Ex: http://user:pass@ip:port")
     ig_user_id = models.BigIntegerField(null=True, blank=True)
     # URLs de foto do CDN do Instagram passam de 300-800 chars; o default do
@@ -132,6 +136,20 @@ class InstagramAccount(models.Model):
 
     def get_ig_password(self):
         return _get_fernet().decrypt(self.ig_password.encode()).decode()
+
+    def set_totp_seed(self, raw_seed):
+        """Guarda o seed do 2FA (TOTP), criptografado. Normaliza (tira espaços
+        e deixa maiúsculo — o IG mostra em grupos tipo 'ABCD EFGH ...')."""
+        seed = (raw_seed or '').replace(' ', '').strip().upper()
+        self.totp_seed_enc = _get_fernet().encrypt(seed.encode()).decode() if seed else ''
+
+    def get_totp_seed(self):
+        if not self.totp_seed_enc:
+            return ''
+        try:
+            return _get_fernet().decrypt(self.totp_seed_enc.encode()).decode()
+        except Exception:
+            return ''
 
     def set_meta_token(self, raw_token):
         """Criptografa e guarda o token da Meta Graph API (mesmo cofre da senha)."""
