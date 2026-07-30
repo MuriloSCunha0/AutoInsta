@@ -29,6 +29,14 @@ Reutilizável: incluído no Composer e na aba Stories.
 
         {# Controles #}
         <div class="story-controls">
+            {# Tipo do Story: normal (API oficial, sem login) x com link (engine/sessão). #}
+            <div class="btn-group btn-group-sm w-100 mb-3" role="group">
+                <input type="radio" class="btn-check" name="story_mode" id="sm-normal" value="normal" checked autocomplete="off">
+                <label class="btn btn-outline-secondary" for="sm-normal"><i class="bi bi-camera me-1"></i> Normal <span class="d-none d-sm-inline">(API oficial)</span></label>
+                <input type="radio" class="btn-check" name="story_mode" id="sm-link" value="link" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="sm-link"><i class="bi bi-link-45deg me-1"></i> Com link</label>
+            </div>
+
             <div class="mb-2">
                 <label class="form-label text-muted small mb-1">Texto do story</label>
                 <input type="text" id="story-text-input" maxlength="120"
@@ -57,12 +65,15 @@ Reutilizável: incluído no Composer e na aba Stories.
                 <input type="range" id="story-text-size" min="14" max="64" value="28" class="form-range">
             </div>
 
-            <div class="mb-1">
-                <label class="form-label text-muted small mb-1"><i class="bi bi-link-45deg"></i> Link do Story <span class="text-muted">(opcional)</span></label>
+            <div class="mb-1" id="story-link-block" style="display:none;">
+                <label class="form-label text-muted small mb-1"><i class="bi bi-link-45deg"></i> Link do Story</label>
                 <input type="url" name="story_link" id="story-link-url"
                        class="form-control form-control-sm text-white border-subtle"
                        style="background: var(--bg-input);" placeholder="https://seu-link.com">
-                <small class="text-muted d-block mt-1">Com link, o Story vai pela engine (a API oficial não permite figurinha de link). Arraste o marcador <strong>LINK</strong> no preview para posicioná-lo.</small>
+                <small class="text-muted d-block mt-1">Com link, o Story vai pela <strong>engine</strong> (exige a conta conectada por login/senha com 2FA — a API oficial não tem figurinha de link). Arraste o marcador <strong>LINK</strong> no preview para posicioná-lo.</small>
+            </div>
+            <div class="mb-1" id="story-normal-note">
+                <small class="text-muted d-block"><i class="bi bi-check-circle text-success me-1"></i> Story normal publicado pela <strong>API oficial</strong> (Graph) — sem login, sem bloqueio de IP.</small>
             </div>
         </div>
     </div>
@@ -175,6 +186,25 @@ Reutilizável: incluído no Composer e na aba Stories.
     textSpan.style.color = '#ffffff';
     textSpan.style.fontSize = '28px';
     applyBg();
+
+    // Seletor Normal x Com link: mostra/esconde o campo de link e o marcador.
+    var linkBlock = document.getElementById('story-link-block');
+    var normalNote = document.getElementById('story-normal-note');
+    function aplicarModo() {
+        var comLink = (ownForm && ownForm.querySelector('input[name="story_mode"]:checked') || {}).value === 'link';
+        if (linkBlock) linkBlock.style.display = comLink ? 'block' : 'none';
+        if (normalNote) normalNote.style.display = comLink ? 'none' : 'block';
+        if (!comLink) {                        // Normal: garante link vazio e some o marcador
+            if (inLink) inLink.value = '';
+            if (linkChip) linkChip.style.display = 'none';
+        } else if (inLink && inLink.value.trim()) {
+            if (linkChip) linkChip.style.display = 'block';
+        }
+    }
+    if (ownForm) ownForm.querySelectorAll('input[name="story_mode"]').forEach(function (r) {
+        r.addEventListener('change', aplicarModo);
+    });
+    aplicarModo();
 
     // Arrastar um elemento dentro do quadro; grava x/y relativos (0..1)
     function makeDraggable(el, hx, hy) {
