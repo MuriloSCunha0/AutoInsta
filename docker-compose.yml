@@ -64,7 +64,7 @@ services:
     # (aguardando a Meta processar ~30-40s), quase não usa CPU. Com só 4
     # processos, os posts empilhavam esperando slot. 24 threads paralelizam
     # bem (RAM sobra) e o throughput sobe de ~5/min para ~30/min.
-    command: celery -A config worker -l info --pool=threads --concurrency=24
+    command: celery -A config worker -l info --pool=threads --concurrency=${CELERY_CONCURRENCY:-24} -Q ${CELERY_QUEUES:-celery,publisher}
     volumes:
       - .:/app
       - media_data:/app/media

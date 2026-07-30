@@ -1,0 +1,69 @@
+# =============================================================================
+# BRAÇO (Máquina B) — servidor dedicado OVH com IP limpo.
+#
+# Roda SÓ o worker da engine/instagrapi (fila 'publisher'): login por senha,
+# publicação, story-link, aquecimento e o downloader. TODA a autenticação de
+# conta e o upload saem pelo IP desta máquina — isolando o Instagram do painel.
+#
+# NÃO sobe banco/redis/web/beat: eles ficam no painel (Máquina A). O worker
+# conecta no painel pelo túnel WireGuard via variáveis de ambiente no .env:
+#
+#   DATABASE_URL=postgres://USER:PASS@10.8.0.1:5432/DB     # IP WireGuard do painel
+#   REDIS_URL=redis://10.8.0.1:6379/0                      # IP WireGuard do painel
+#   CELERY_QUEUES=publisher                                # este worker só a engine
+#   CELERY_CONCURRENCY=24
+#   FERNET_KEY=...            # MESMA chave do painel (pra decifrar senha/seed)
+#   SECRET_KEY=...            # mesma do painel
+#   SITE_URL=https://<url-publica-do-braco>   # p/ o path Graph servir mídia daqui
+#   DEBUG=False
+#
+# Subir:  docker compose -f docker-compose.braco.yml up -d --build
+# =============================================================================
+
+services:
+  celery_worker:
+    build: .
+    restart: unless-stopped
+    # Só a fila da engine. A concorrência é I/O-bound (espera de rede do IG),
+    # então threads alta paraleliza bem sem estourar CPU.
+    command: celery -A config worker -l info --pool=threads --concurrency=${CELERY_CONCURRENCY:-24} -Q ${CELERY_QUEUES:-publisher}
+    # Drenagem graciosa: termina o que está publicando antes de sair no deploy.
+    stop_grace_period: 330s
+    env_file:
+      - .env
+    volumes:
+      # Mídia LOCAL do braço: aqui ele grava os arquivos processados (limpeza
+      # ultra) e os downloads. O vídeo-fonte é baixado do painel sob demanda
+      # (garantir_midia_local), então não precisa compartilhar o volume do painel.
+      - braco_media:/app/media
+    networks:
+      - braco_net
+
+  # ---------------------------------------------------------------------------
+  # OPCIONAL — servir a mídia do braço publicamente (necessário só p/ o caminho
+  # GRAPH API rodando aqui: a Meta baixa a mídia por URL). Para o caminho ENGINE
+  # (instagrapi, que é o foco) NÃO é preciso — os bytes sobem direto.
+  # Descomente e ajuste o Caddyfile.braco (domínio/TLS) na hora do provisioning.
+  # ---------------------------------------------------------------------------
+  # caddy_media:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile.braco:/etc/caddy/Caddyfile
+  #     - braco_media:/srv/media:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   networks:
+  #     - braco_net
+
+volumes:
+  braco_media:
+  # caddy_data:
+  # caddy_config:
+
+networks:
+  braco_net:
+    driver: bridge

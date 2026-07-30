@@ -261,19 +261,29 @@ def publish_reel(post_id):
         # diferente, para o Instagram não correlacionar as contas.
         import os
         from django.conf import settings as dj_settings
+        from apps.core_utils import garantir_midia_local
 
-        publish_path = post.video_file.path
+        # Garante o arquivo LOCAL. No painel/máquina única é no-op (já está no
+        # disco); no braço (que não tem o volume de mídia) baixa da URL pública.
+        publish_path, src_temp = garantir_midia_local(post.video_file)
+        # Guarda o caminho do fonte baixado ANTES de publish_path ser trocado
+        # por versões processadas (áudio/limpeza), para poder removê-lo no fim.
+        fonte_baixada = publish_path if src_temp else None
         publish_relname = post.video_file.name
         arquivo_temporario = None
         temp_audio = None
+        audio_src_temp = None
+        thumb_path = None
+        thumb_temp = None
 
         # ── Trilha da aba Áudios (substitui o som do vídeo) ────────────────
         # Feito ANTES da limpeza, para o fingerprint valer sobre o arquivo final.
         if post.audio_id and not is_image:
             from engine.media_cleaner import aplicar_audio
+            audio_local, audio_src_temp = garantir_midia_local(post.audio.file)
             com_audio = aplicar_audio(
                 publish_path,
-                post.audio.file.path,
+                audio_local,
                 dest_dir=os.path.join(dj_settings.MEDIA_ROOT, 'processed'),
             )
             if com_audio and com_audio != publish_path:
@@ -328,6 +338,10 @@ def publish_reel(post_id):
         link_pos = (getattr(post, 'story_link_x', 0.5), getattr(post, 'story_link_y', 0.82))
         story_link = (getattr(post, 'story_link', '') or '').strip()
 
+        # Thumbnail local (a engine sobe o arquivo; no braço, baixa da URL).
+        if post.thumbnail:
+            thumb_path, thumb_temp = garantir_midia_local(post.thumbnail)
+
         # ── Publicação com REVEZAMENTO de API (Graph API <-> engine) ───────
         # Tenta a API principal; se ela falhar de forma LIMPA (auth/capacidade,
         # sem ter publicado), cai para a outra API disponível na conta. Assim,
@@ -352,7 +366,7 @@ def publish_reel(post_id):
                 return mi, str(mi.get('pk') or mi.get('id') or '')
             mi = engine.upload_reel(
                 video_path=publish_path, caption=final_caption,
-                thumbnail_path=post.thumbnail.path if post.thumbnail else None,
+                thumbnail_path=thumb_path,
             )
             return mi, str(mi.get('id', ''))
 
@@ -436,7 +450,9 @@ def publish_reel(post_id):
             post.account.save(update_fields=['rate_limited_until'])
 
         # Remove as cópias temporárias: já publicadas, não precisam ocupar disco.
-        for temporario in (arquivo_temporario, temp_audio):
+        # Inclui os arquivos baixados no braço (fonte/áudio/thumb), quando houve.
+        for temporario in (arquivo_temporario, temp_audio, fonte_baixada,
+                           audio_src_temp, thumb_temp):
             if temporario:
                 try:
                     os.remove(temporario)

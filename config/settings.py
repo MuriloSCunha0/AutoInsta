@@ -235,6 +235,26 @@ CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
 
+# ── Roteamento de filas: isolamento painel × braço ───────────────────────────
+# O "braço" (servidor dedicado com IP limpo) roda SÓ as tarefas de
+# engine/instagrapi — login, publicação, story-link, aquecimento e o downloader
+# — consumindo a fila 'publisher'. O painel roda as tarefas leves (dispatchers
+# do beat, métricas da Meta por token, notificações) na fila padrão 'celery'.
+#
+# RETROCOMPATÍVEL: enquanto tudo roda numa máquina só, o worker consome as DUAS
+# filas (ver command dos compose: -Q ${CELERY_QUEUES:-celery,publisher}), então
+# nada muda. Na virada, o braço sobe com CELERY_QUEUES=publisher e o painel com
+# CELERY_QUEUES=celery — sem tocar no código, só variável de ambiente.
+CELERY_TASK_DEFAULT_QUEUE = "celery"
+CELERY_TASK_ROUTES = {
+    "apps.publisher.tasks.publish_reel": {"queue": "publisher"},
+    "apps.instagram.tasks.web_login_account": {"queue": "publisher"},
+    "apps.instagram.tasks.connect_by_sessionid": {"queue": "publisher"},
+    "apps.instagram.tasks.run_account_warmup": {"queue": "publisher"},
+    "apps.instagram.tasks.bulk_edit_profiles": {"queue": "publisher"},
+    "apps.library.tasks.run_profile_download": {"queue": "publisher"},
+}
+
 # =============================================================================
 # Django Channels — WebSocket
 # =============================================================================

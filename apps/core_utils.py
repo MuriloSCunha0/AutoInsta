@@ -13,13 +13,17 @@ Por isso existem duas defesas independentes aqui:
   1. `nome_seguro`  — na gravação, para o problema não nascer;
   2. `url_segura`   — no envio, para os arquivos que já estão no disco.
 """
+import logging
 import os
 import posixpath
 import re
+import tempfile
 import unicodedata
 from urllib.parse import quote, urlsplit, urlunsplit
 
 from django.core.files.storage import FileSystemStorage
+
+logger = logging.getLogger('engine')
 
 
 def nome_seguro(filename):
@@ -46,6 +50,57 @@ def url_segura(url):
 def url_midia(site_url, media_url, relname):
     """Monta a URL pública de uma mídia, já percent-encodada."""
     return url_segura(f"{(site_url or '').rstrip('/')}{media_url}{relname}")
+
+
+def garantir_midia_local(fieldfile):
+    """Devolve (caminho_local, eh_temporario) para o arquivo de um FileField.
+
+    Numa máquina única (ou no painel), o arquivo já está no disco: devolve o
+    próprio path e eh_temporario=False — ZERO custo, comportamento idêntico ao
+    de antes.
+
+    No "braço" (servidor dedicado de publicação, que NÃO tem o volume de mídia
+    do painel), o arquivo não existe localmente. Aí baixamos da URL pública do
+    painel para um temporário e devolvemos (tmp, True) — a engine/instagrapi
+    precisa de um caminho local para subir os bytes. Quem chama deve apagar o
+    temporário no fim.
+    """
+    from django.conf import settings
+
+    if not fieldfile:
+        return None, False
+
+    # 1) Já está local? (painel / máquina única)
+    try:
+        local = fieldfile.path
+        if local and os.path.exists(local):
+            return local, False
+    except (NotImplementedError, ValueError, AttributeError):
+        pass
+
+    # 2) Não está local (braço): baixa da URL pública do painel.
+    import requests
+
+    url = fieldfile.url
+    if url.startswith('/'):
+        site = (getattr(settings, 'SITE_URL', '') or '').rstrip('/')
+        url = f"{site}{url}"
+    url = url_segura(url)
+
+    destino_dir = os.path.join(settings.MEDIA_ROOT, 'processed')
+    os.makedirs(destino_dir, exist_ok=True)
+    ext = os.path.splitext(fieldfile.name or '')[1] or ''
+    fd, tmp = tempfile.mkstemp(suffix=ext, dir=destino_dir)
+    os.close(fd)
+
+    with requests.get(url, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        with open(tmp, 'wb') as fh:
+            for chunk in r.iter_content(chunk_size=1024 * 256):
+                if chunk:
+                    fh.write(chunk)
+    logger.info('garantir_midia_local: baixou %s -> %s', fieldfile.name, os.path.basename(tmp))
+    return tmp, True
 
 
 class MidiaStorage(FileSystemStorage):
