@@ -83,6 +83,75 @@ e a resposta (card OU erro) é descartada — parece que "nada acontece".
   #account-list:has(> .col) #empty-state,
   #account-list:has(.modelo-grupo) #empty-state { display: none; }
 </style>
+
+{% if accounts %}
+{# Ações em massa: selecionar todas / ativar / pausar / remover selecionadas. #}
+<div class="d-flex align-items-center gap-2 flex-wrap mb-3 p-2 rounded" id="bulk-toolbar"
+     style="background: var(--bg-card-hover); border: 1px solid var(--border-subtle);">
+    <label class="text-white small mb-0 d-flex align-items-center gap-1" style="cursor:pointer;">
+        <input type="checkbox" id="bulk-select-all" class="form-check-input mt-0"> Selecionar todas
+    </label>
+    <span class="text-muted small"><span id="bulk-count">0</span> selecionada(s)</span>
+    <div class="ms-auto d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-success" data-bulk-acao="ativar" disabled>
+            <i class="bi bi-play-fill"></i> Ativar
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-warning" data-bulk-acao="pausar" disabled>
+            <i class="bi bi-pause-fill"></i> Pausar
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-bulk-acao="remover" disabled>
+            <i class="bi bi-trash"></i> Remover
+        </button>
+    </div>
+</div>
+<form id="bulk-accounts-form" method="post" action="{% url 'instagram:bulk_accounts' %}" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="acao" id="bulk-acao">
+    <div id="bulk-ids"></div>
+</form>
+<script>
+(function () {
+    var form = document.getElementById('bulk-accounts-form');
+    if (!form) return;
+    var selectAll = document.getElementById('bulk-select-all');
+    var countEl = document.getElementById('bulk-count');
+    var btns = document.querySelectorAll('#bulk-toolbar [data-bulk-acao]');
+    var checked = function () { return document.querySelectorAll('.acc-bulk-check:checked'); };
+    function refresh() {
+        var n = checked().length;
+        if (countEl) countEl.textContent = n;
+        btns.forEach(function (b) { b.disabled = n === 0; });
+    }
+    // 'change' delegado no document: pega checkboxes recriados pelo HTMX.
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('acc-bulk-check')) refresh();
+    });
+    if (selectAll) selectAll.addEventListener('change', function () {
+        document.querySelectorAll('.acc-bulk-check').forEach(function (c) { c.checked = selectAll.checked; });
+        refresh();
+    });
+    btns.forEach(function (b) {
+        b.addEventListener('click', function () {
+            var ids = Array.prototype.map.call(checked(), function (c) { return c.value; });
+            if (!ids.length) return;
+            var acao = b.getAttribute('data-bulk-acao');
+            if (acao === 'remover' && !confirm('Remover ' + ids.length + ' conta(s)? Isso apaga do painel.')) return;
+            if (acao === 'pausar' && !confirm('Pausar a fila de ' + ids.length + ' conta(s)?')) return;
+            document.getElementById('bulk-acao').value = acao;
+            var box = document.getElementById('bulk-ids');
+            box.innerHTML = '';
+            ids.forEach(function (id) {
+                var i = document.createElement('input');
+                i.type = 'hidden'; i.name = 'account_ids'; i.value = id; box.appendChild(i);
+            });
+            form.submit();
+        });
+    });
+    refresh();
+})();
+</script>
+{% endif %}
+
 <div id="account-list">
     {% for grupo in grupos_modelo %}
     <div class="modelo-grupo mb-4">

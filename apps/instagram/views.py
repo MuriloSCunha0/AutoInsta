@@ -592,6 +592,40 @@ def reativar_conta(request, account_id):
 
 @login_required
 @require_POST
+def bulk_accounts(request):
+    """Ações em massa nas contas SELECIONADAS: ativar (reativa + sobe a fila),
+    pausar ou remover. Uma única ação para várias contas de uma vez."""
+    ids = request.POST.getlist('account_ids')
+    acao = (request.POST.get('acao') or '').strip()
+    qs = InstagramAccount.objects.filter(owner=request.user, id__in=ids)
+    n = qs.count()
+    if not n:
+        messages.error(request, 'Nenhuma conta selecionada.')
+        return redirect('instagram:list')
+
+    if acao == 'ativar':
+        for a in qs:
+            a.pausada = False
+            a.rate_limited_until = None
+            a.save(update_fields=['pausada', 'rate_limited_until'])
+            try:
+                _subir_fila_agora(a)
+            except Exception:
+                pass
+        messages.success(request, f'{n} conta(s) ativadas e fila liberada.')
+    elif acao == 'pausar':
+        qs.update(pausada=True)
+        messages.success(request, f'{n} conta(s) pausadas.')
+    elif acao == 'remover':
+        qs.delete()
+        messages.success(request, f'{n} conta(s) removidas.')
+    else:
+        messages.error(request, 'Ação inválida.')
+    return redirect('instagram:list')
+
+
+@login_required
+@require_POST
 def criar_pasta(request):
     """Cria uma pasta para organizar as contas."""
     from .models import Pasta

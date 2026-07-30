@@ -7,6 +7,11 @@
          hx-swap="outerHTML"
          {% endif %}>
          
+        {# Seleção para ações em massa (selecionar todas / ativar / remover). #}
+        <input type="checkbox" class="form-check-input acc-bulk-check position-absolute"
+               value="{{ account.id }}" title="Selecionar esta conta"
+               style="top:10px; left:10px; z-index:4; cursor:pointer;">
+
         <div class="d-flex align-items-center mb-3">
             <div class="account-avatar me-3">
                 {% if account.profile_pic_url %}
