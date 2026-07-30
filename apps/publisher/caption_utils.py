@@ -24,9 +24,6 @@ import re
 # conflita com variáveis como {nome_conta} (que já foram resolvidas antes).
 _SPINTAX = re.compile(r'\{([^{}]*\|[^{}]*)\}')
 
-# Caracteres invisíveis (largura zero) usados para tornar a legenda única.
-_ZW = ['​', '‌', '⁠']
-
 
 def _rng(seed):
     h = hashlib.md5((seed or '').encode('utf-8')).hexdigest()
@@ -46,34 +43,16 @@ def expandir_spintax(texto, rng):
     return texto
 
 
-def _neutra(palavra):
-    """Palavra 'neutra' onde é seguro colar um caractere invisível no fim
-    (não é hashtag, menção nem link)."""
-    return bool(palavra) and not palavra.startswith(('#', '@', 'http'))
-
-
 def variar_legenda(caption, seed):
-    """Devolve uma versão ÚNICA por conta/post da legenda.
+    """Devolve a legenda com o spintax `{a|b|c}` resolvido (variação REAL de
+    texto, determinística por conta+post).
 
-    - Expande spintax `{a|b|c}`.
-    - Insere 1-3 caracteres invisíveis em palavras neutras.
-    - Varia as quebras de linha no final (0-2).
-    Se a legenda for vazia, devolve como está.
+    NÃO usamos mais truque de caractere invisível: testes mostraram que o
+    Instagram remove o texto por CONFIANÇA da conta, não pelo texto ser único
+    (uma legenda única também some numa conta flagrada; uma conta confiável
+    mantém legenda repetida). Invisível não descflagra e pode ser sinal ruim.
+    A variação que ajuda de verdade é usar textos DIFERENTES por conta (spintax).
     """
     if not caption or not caption.strip():
         return caption
-
-    rng = _rng(seed)
-    txt = expandir_spintax(caption, rng)
-
-    palavras = txt.split(' ')
-    candidatos = [i for i, w in enumerate(palavras) if _neutra(w) and len(w) > 1]
-    if candidatos:
-        qtd = min(len(candidatos), rng.randint(1, 3))
-        for i in rng.sample(candidatos, qtd):
-            palavras[i] = palavras[i] + rng.choice(_ZW)
-    txt = ' '.join(palavras)
-
-    # Variação sutil no final (algumas contas com 0, outras com 1-2 quebras).
-    txt = txt.rstrip() + ('\n' * rng.randint(0, 2))
-    return txt
+    return expandir_spintax(caption, _rng(seed))
