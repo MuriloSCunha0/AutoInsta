@@ -90,6 +90,9 @@
                 <a href="{% url 'library:audios' %}" class="{% if request.resolver_match.url_name == 'audios' %}active{% endif %}">
                     <i class="bi bi-music-note-beamed"></i> <span class="nav-text">Áudios</span>
                 </a>
+                <a href="{% url 'library:downloader' %}" class="{% if request.resolver_match.url_name == 'downloader' %}active{% endif %}">
+                    <i class="bi bi-cloud-arrow-down-fill"></i> <span class="nav-text">Downloader</span>
+                </a>
 
                 <div class="nav-category">Análise</div>
                 <a href="{% url 'analytics:performance' %}" class="{% if request.resolver_match.url_name == 'performance' %}active{% endif %}">

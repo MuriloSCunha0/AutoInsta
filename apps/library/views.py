@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.conf import settings
-from .models import CaptionSet, Caption, Audio, MediaFolder, MediaAsset
+from .models import CaptionSet, Caption, Audio, MediaFolder, MediaAsset, ProfileDownload
 
 @login_required
 def captions_list(request):
@@ -207,3 +207,111 @@ def delete_media(request, asset_id):
 def _media_url():
     from django.urls import reverse
     return reverse('library:media')
+
+
+# =============================================================================
+# Downloader — baixa o conteúdo de um perfil do Instagram e entrega em ZIP
+# =============================================================================
+import re as _re
+
+
+def _extrair_username(valor):
+    """Aceita URL do perfil (instagram.com/perfil/), @perfil ou só o nome, e
+    devolve o username limpo."""
+    v = (valor or '').strip()
+    if not v:
+        return ''
+    # Se veio uma URL, pega o primeiro segmento do caminho.
+    m = _re.search(r'instagram\.com/([^/?#]+)', v, _re.IGNORECASE)
+    if m:
+        v = m.group(1)
+    v = v.lstrip('@').strip().strip('/')
+    # Username do IG: letras, números, ponto e underline.
+    v = _re.sub(r'[^A-Za-z0-9_.]', '', v)
+    return v.lower()
+
+
+@login_required
+def downloader(request):
+    from apps.instagram.models import InstagramAccount
+    contas = [
+        c for c in InstagramAccount.objects.filter(owner=request.user).order_by('ig_username')
+        if c.tem_sessao_engine
+    ]
+    jobs = list(ProfileDownload.objects.filter(owner=request.user)[:30])
+    return render(request, 'library/downloader.html', {
+        'contas': contas,
+        'jobs': jobs,
+        'has_active': any(j.status in ('queued', 'running') for j in jobs),
+    })
+
+
+@login_required
+@require_POST
+def start_download(request):
+    from apps.instagram.models import InstagramAccount
+
+    username = _extrair_username(request.POST.get('profile', ''))
+    if not username:
+        messages.error(request, 'Informe a URL ou o @ do perfil.')
+        return redirect('library:downloader')
+
+    conta = InstagramAccount.objects.filter(
+        id=request.POST.get('account'), owner=request.user
+    ).first()
+    if not conta or not conta.tem_sessao_engine:
+        messages.error(request, 'Escolha uma conta conectada por sessão/senha para fazer a leitura.')
+        return redirect('library:downloader')
+
+    # Ao menos um tipo de conteúdo precisa estar marcado.
+    quer_feed = request.POST.get('feed') == 'on'
+    quer_reels = request.POST.get('reels') == 'on'
+    quer_stories = request.POST.get('stories') == 'on'
+    quer_highlights = request.POST.get('highlights') == 'on'
+    if not any([quer_feed, quer_reels, quer_stories, quer_highlights]):
+        messages.error(request, 'Marque pelo menos um tipo de conteúdo para baixar.')
+        return redirect('library:downloader')
+
+    try:
+        amount = int(request.POST.get('amount') or 0)
+    except ValueError:
+        amount = 0
+    amount = max(0, amount)
+
+    job = ProfileDownload.objects.create(
+        owner=request.user,
+        account=conta,
+        target_username=username,
+        target_url=f'https://www.instagram.com/{username}/',
+        want_feed=quer_feed,
+        want_reels=quer_reels,
+        want_stories=quer_stories,
+        want_highlights=quer_highlights,
+        amount=amount,
+        progress_msg='Na fila…',
+    )
+
+    from .tasks import run_profile_download
+    run_profile_download.delay(job.id)
+
+    messages.success(request, f'Download de @{username} iniciado. Acompanhe o progresso abaixo.')
+    return redirect('library:downloader')
+
+
+@login_required
+def downloads_status(request):
+    """Só a lista de jobs — o HTMX recarrega isto sozinho para mostrar o progresso."""
+    jobs = list(ProfileDownload.objects.filter(owner=request.user)[:30])
+    return render(request, 'library/partials/_downloads.html', {
+        'jobs': jobs,
+        'has_active': any(j.status in ('queued', 'running') for j in jobs),
+    })
+
+
+@login_required
+def delete_download(request, job_id):
+    job = get_object_or_404(ProfileDownload, id=job_id, owner=request.user)
+    if job.zip_file:
+        job.zip_file.delete(save=False)
+    job.delete()
+    return redirect('library:downloader')

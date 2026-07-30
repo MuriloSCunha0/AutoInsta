@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Downloader | SandraoFlow{% endblock %}
+{% block page_title %}Downloader de Perfil{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card p-3 p-md-4">
+            <h5 class="text-white mb-1"><i class="bi bi-cloud-arrow-down text-purple me-2"></i>Baixar conteúdo de um perfil</h5>
+            <p class="text-muted small mb-3">
+                Cole a URL (ou o @) de um perfil e baixe o conteúdo dele em um ZIP,
+                com as legendas juntas — pronto pra repostar e manter conteúdo constante.
+            </p>
+
+            {% if not contas %}
+            <div class="alert alert-warning small mb-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Você precisa de pelo menos uma conta conectada por <strong>sessão ou senha</strong>
+                para fazer a leitura. Contas só com token da Meta não conseguem ler perfis de terceiros.
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'library:start_download' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label text-muted">URL ou @ do perfil</label>
+                    <input type="text" name="profile" required
+                           class="form-control text-white border-subtle" style="background: var(--bg-input);"
+                           placeholder="instagram.com/perfil  ·  @perfil  ·  perfil">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted">Conta que faz a leitura</label>
+                    <select name="account" required class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                        {% for c in contas %}
+                        <option value="{{ c.id }}">@{{ c.ig_username }}{% if c.full_name %} — {{ c.full_name }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Dica: use uma conta de baixo valor — ler muitos perfis pode sinalizar a conta usada.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted d-block">O que baixar</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="checkbox" name="feed" class="form-check-input me-1" checked> Feed</label>
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="checkbox" name="reels" class="form-check-input me-1" checked> Reels</label>
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="checkbox" name="stories" class="form-check-input me-1" checked> Stories (24h)</label>
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="checkbox" name="highlights" class="form-check-input me-1" checked> Destaques</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted d-block">Quantidade (feed/reels)</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="radio" name="amount" value="0" class="form-check-input me-1" checked> Perfil inteiro</label>
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="radio" name="amount" value="30" class="form-check-input me-1"> Últimos 30</label>
+                        <label class="text-white small mb-0" style="cursor:pointer;">
+                            <input type="radio" name="amount" value="100" class="form-check-input me-1"> Últimos 100</label>
+                    </div>
+                    <small class="text-muted">Perfil inteiro é mais lento e usa mais a conta de leitura.</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100" {% if not contas %}disabled{% endif %}>
+                    <i class="bi bi-download me-1"></i> Iniciar download
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <h6 class="text-muted text-uppercase small mb-2">Downloads recentes</h6>
+        {% include 'library/partials/_downloads.html' %}
+    </div>
+</div>
+{% endblock %}

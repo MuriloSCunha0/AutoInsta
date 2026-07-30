@@ -63,3 +63,57 @@ class MediaAsset(models.Model):
 
     def __str__(self):
         return self.original_name or self.file.name
+
+
+class ProfileDownload(models.Model):
+    """Downloader: baixa o conteúdo de um perfil do Instagram e empacota num ZIP.
+
+    Serve para manter um banco de conteúdo constante — pega feed, reels, stories
+    atuais e destaques de um perfil (público, ou que a conta usada já siga) via
+    instagrapi (a API oficial não lê perfil de terceiros). Roda numa task Celery
+    porque perfil inteiro demora; a tela acompanha o progresso por HTMX.
+    """
+    STATUS_CHOICES = [
+        ('queued', 'Na fila'),
+        ('running', 'Baixando...'),
+        ('done', 'Pronto ✅'),
+        ('failed', 'Falhou ❌'),
+    ]
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='downloads')
+    # Conta que faz a LEITURA do perfil-alvo (sessão instagrapi). Se a conta for
+    # removida, o job histórico continua existindo.
+    account = models.ForeignKey(
+        'instagram.InstagramAccount', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='downloads',
+    )
+    target_username = models.CharField(max_length=150)
+    target_url = models.CharField(max_length=300, blank=True)
+
+    # O que baixar (o usuário marca no formulário).
+    want_feed = models.BooleanField(default=True)
+    want_reels = models.BooleanField(default=True)
+    want_stories = models.BooleanField(default=True)
+    want_highlights = models.BooleanField(default=True)
+    # Teto de posts do feed/reels. 0 = perfil inteiro.
+    amount = models.IntegerField(default=0)
+
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='queued')
+    progress_msg = models.CharField(max_length=255, blank=True)
+    media_count = models.IntegerField(default=0)   # itens já baixados
+    zip_file = models.FileField(upload_to='downloads/', max_length=500, blank=True)
+    size_bytes = models.BigIntegerField(default=0)
+    error = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"@{self.target_username} ({self.get_status_display()})"
+
+    @property
+    def size_mb(self):
+        return round((self.size_bytes or 0) / (1024 * 1024), 1)

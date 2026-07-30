@@ -1,0 +1,60 @@
+{% comment %}
+Lista de downloads. Enquanto houver job na fila/baixando, este bloco se recarrega
+sozinho a cada 4s (hx-swap outerHTML) para mostrar o progresso. Quando nada está
+ativo, o hx-trigger some e o polling para.
+{% endcomment %}
+<div id="downloads"
+     {% if has_active %}hx-get="{% url 'library:downloads_status' %}" hx-trigger="load delay:4s" hx-swap="outerHTML"{% endif %}>
+{% if jobs %}
+    <div class="d-flex flex-column gap-2">
+    {% for job in jobs %}
+        <div class="card p-3 d-flex flex-row align-items-center gap-3 flex-wrap">
+            <div class="flex-shrink-0">
+                {% if job.status == 'done' %}
+                    <i class="bi bi-check-circle-fill text-success" style="font-size:1.6rem;"></i>
+                {% elif job.status == 'failed' %}
+                    <i class="bi bi-x-circle-fill text-danger" style="font-size:1.6rem;"></i>
+                {% elif job.status == 'running' %}
+                    <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+                {% else %}
+                    <i class="bi bi-hourglass-split text-warning" style="font-size:1.6rem;"></i>
+                {% endif %}
+            </div>
+            <div style="min-width:0; flex:1 1 220px;">
+                <div class="text-white text-truncate">
+                    <i class="bi bi-instagram me-1"></i>@{{ job.target_username }}
+                    <span class="text-muted small ms-2">
+                        {% if job.want_feed %}feed {% endif %}{% if job.want_reels %}reels {% endif %}{% if job.want_stories %}stories {% endif %}{% if job.want_highlights %}destaques{% endif %}
+                    </span>
+                </div>
+                <div class="small {% if job.status == 'failed' %}text-danger{% else %}text-muted{% endif %} text-truncate">
+                    {% if job.status == 'failed' %}
+                        {{ job.error|default:"Falhou." }}
+                    {% elif job.status == 'done' %}
+                        {{ job.media_count }} itens · {{ job.size_mb }} MB
+                    {% else %}
+                        {{ job.progress_msg|default:"Processando…" }}{% if job.media_count %} · {{ job.media_count }} itens{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex-shrink-0 d-flex align-items-center gap-2">
+                {% if job.status == 'done' and job.zip_file %}
+                    <a href="{{ job.zip_file.url }}" class="btn btn-sm btn-primary" download>
+                        <i class="bi bi-download"></i> Baixar ZIP
+                    </a>
+                {% endif %}
+                <a href="{% url 'library:delete_download' job.id %}"
+                   class="btn btn-sm btn-outline-secondary text-danger"
+                   onclick="return confirm('Excluir este download? O ZIP também será apagado.')"
+                   title="Excluir"><i class="bi bi-trash"></i></a>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state text-center py-4">
+        <i class="bi bi-cloud-arrow-down text-muted mb-2" style="font-size:2.5rem;"></i>
+        <p class="text-muted mb-0">Nenhum download ainda. Cole a URL de um perfil acima para começar.</p>
+    </div>
+{% endif %}
+</div>

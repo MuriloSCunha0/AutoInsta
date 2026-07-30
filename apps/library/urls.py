@@ -18,4 +18,9 @@ urlpatterns = [
     path('media/upload/', views.upload_media, name='upload_media'),
     path('media/bulk/', views.bulk_media, name='bulk_media'),
     path('media/delete/<int:asset_id>/', views.delete_media, name='delete_media'),
+    # Downloader de perfil
+    path('downloader/', views.downloader, name='downloader'),
+    path('downloader/start/', views.start_download, name='start_download'),
+    path('downloader/status/', views.downloads_status, name='downloads_status'),
+    path('downloader/<int:job_id>/delete/', views.delete_download, name='delete_download'),
 ]
