@@ -32,6 +32,16 @@ def dashboard(request):
     # só volta quando for realmente reconectada.
     contas_conectadas = accounts.filter(status='active').count()
 
+    # Contas que PRECISAM DE ATENÇÃO: caíram/deslogaram do nosso painel e não
+    # publicam até reconectar. Surgir isso na dashboard evita conta parada em
+    # silêncio (token caído, sessão expirada, challenge/2FA pendente, banida).
+    STATUS_ATENCAO = ['error', 'banned', 'session_expired', 'challenge_required', '2fa_required']
+    contas_atencao = list(
+        accounts.filter(status__in=STATUS_ATENCAO)
+        .only('id', 'ig_username', 'status', 'last_error', 'profile_pic_url', 'meta_access_token', 'full_name')
+        .order_by('ig_username')
+    )
+
     # Contas que realmente postaram HOJE (o card mostrava só o total conectado).
     contas_ativas_hoje = (ScheduledPost.objects
                           .filter(owner=request.user, status='published',
@@ -111,6 +121,8 @@ def dashboard(request):
         'recent_posts': recent_posts,
         'accounts': accounts,
         'ranking_list': ranking_list,
+        'contas_atencao': contas_atencao,
+        'contas_atencao_count': len(contas_atencao),
     }
     return render(request, 'dashboard/index.html', context)
 
