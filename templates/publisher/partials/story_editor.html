@@ -23,7 +23,7 @@ Reutilizável: incluído no Composer e na aba Stories.
                 <span id="story-text-preview">Seu texto aqui</span>
             </div>
             <div class="story-drag story-link-chip" id="story-link-chip" style="left:50%; top:82%; display:none;">
-                <i class="bi bi-link-45deg"></i> <span id="story-link-chip-label">LINK</span>
+                <i class="bi bi-link-45deg"></i> <span id="story-link-chip-label">CLIQUE AQUI</span>
             </div>
         </div>
 
@@ -68,9 +68,13 @@ Reutilizável: incluído no Composer e na aba Stories.
             <div class="mb-1" id="story-link-block" style="display:none;">
                 <label class="form-label text-muted small mb-1"><i class="bi bi-link-45deg"></i> Link do Story</label>
                 <input type="url" name="story_link" id="story-link-url"
-                       class="form-control form-control-sm text-white border-subtle"
+                       class="form-control form-control-sm text-white border-subtle mb-2"
                        style="background: var(--bg-input);" placeholder="https://seu-link.com">
-                <small class="text-muted d-block mt-1">Com link, o Story vai pela <strong>engine</strong> (exige a conta conectada por login/senha com 2FA — a API oficial não tem figurinha de link). Arraste o marcador <strong>LINK</strong> no preview para posicioná-lo.</small>
+                <label class="form-label text-muted small mb-1">Texto do botão</label>
+                <input type="text" name="story_link_label" id="story-link-label" maxlength="40"
+                       class="form-control form-control-sm text-white border-subtle"
+                       style="background: var(--bg-input);" placeholder="CLIQUE AQUI" value="CLIQUE AQUI">
+                <small class="text-muted d-block mt-1">O sticker mostra esse texto e leva pro link. Vai pela <strong>engine</strong> (conta conectada por sessão/login — a API oficial não tem figurinha de link). Arraste o botão no preview para posicioná-lo.</small>
             </div>
             <div class="mb-1" id="story-normal-note">
                 <small class="text-muted d-block"><i class="bi bi-check-circle text-success me-1"></i> Story normal publicado pela <strong>API oficial</strong> (Graph) — sem login, sem bloqueio de IP.</small>
@@ -146,6 +150,7 @@ Reutilizável: incluído no Composer e na aba Stories.
     var inSize = document.getElementById('story-text-size');
     var sizeVal = document.getElementById('story-text-size-val');
     var inLink = document.getElementById('story-link-url');
+    var inLinkLabel = document.getElementById('story-link-label');
 
     var h = {
         text: document.getElementById('h-story-text'),
@@ -184,12 +189,14 @@ Reutilizável: incluído no Composer e na aba Stories.
     inColor && inColor.addEventListener('input', function () { textSpan.style.color = inColor.value; h.color.value = inColor.value; });
     inBg && inBg.addEventListener('change', applyBg);
     inSize && inSize.addEventListener('input', function () { textSpan.style.fontSize = inSize.value + 'px'; sizeVal.textContent = inSize.value; h.size.value = inSize.value; });
-    inLink && inLink.addEventListener('input', function () {
-        var has = inLink.value.trim().length > 0;
+    function textoBotao() { return ((inLinkLabel && inLinkLabel.value.trim()) || 'CLIQUE AQUI').toUpperCase(); }
+    function atualizarChip() {
+        var has = inLink && inLink.value.trim().length > 0;
         linkChip.style.display = has ? 'block' : 'none';
-        try { linkLabel.textContent = has ? (new URL(inLink.value).hostname || 'LINK').replace('www.', '') : 'LINK'; }
-        catch (e) { linkLabel.textContent = 'LINK'; }
-    });
+        linkLabel.textContent = textoBotao();
+    }
+    inLink && inLink.addEventListener('input', atualizarChip);
+    inLinkLabel && inLinkLabel.addEventListener('input', atualizarChip);
 
     // Estado inicial
     textSpan.style.color = '#ffffff';

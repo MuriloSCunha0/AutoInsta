@@ -22,6 +22,13 @@ import sys
 
 import paramiko
 
+# Saída do Docker tem caracteres unicode (✔, ⠿...) que quebram o stdout cp1252
+# do Windows. Força utf-8 tolerante para o deploy não morrer no meio.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 KEY = os.path.expanduser(os.environ.get("OVH_SSH_KEY", "~/.ssh/sandraoflow_ovh"))
 USER = "ubuntu"
 PANEL = "148.113.167.188"

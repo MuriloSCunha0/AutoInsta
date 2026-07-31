@@ -362,7 +362,10 @@ def publish_reel(post_id):
 
         def _via_engine():
             if post.post_type == 'STORY':
-                mi = engine.upload_story(publish_path, link_url=story_link or None, link_pos=link_pos)
+                mi = engine.upload_story(
+                    publish_path, link_url=story_link or None, link_pos=link_pos,
+                    link_label=(getattr(post, 'story_link_label', '') or 'CLIQUE AQUI'),
+                )
                 return mi, str(mi.get('pk') or mi.get('id') or '')
             mi = engine.upload_reel(
                 video_path=publish_path, caption=final_caption,

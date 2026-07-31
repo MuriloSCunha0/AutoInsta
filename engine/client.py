@@ -476,12 +476,14 @@ class InstagramEngine:
             cover_url=cover_url, share_to_feed=share_to_feed, is_image=False,
         )
 
-    def upload_story(self, media_path, link_url=None, link_pos=None):
+    def upload_story(self, media_path, link_url=None, link_pos=None, link_label=None):
         """Publica um Story pela engine (instagrapi). Diferencial: permite
         anexar LINK ao Story — a API oficial da Meta não expõe isso.
 
-        link_pos: (x, y) relativos (0..1) de onde a etiqueta do link deve ficar,
+        link_pos: (x, y) relativos (0..1) de onde o sticker de link deve ficar,
         vindos do editor visual. Se None, cai num rodapé padrão.
+        link_label: texto exibido no sticker (ex.: "CLIQUE AQUI"). O sticker de
+        link do IG mostra esse texto e leva pro link.
         """
         self._prepare_client()
         path = str(media_path)
@@ -489,23 +491,51 @@ class InstagramEngine:
 
         kwargs = {}
         if link_url:
+            x, y = (link_pos or (0.5, 0.82))
+            # Clampa e garante que o sticker não saia do quadro.
+            x = min(0.9, max(0.1, float(x)))
+            y = min(0.95, max(0.05, float(y)))
+            titulo = (link_label or 'CLIQUE AQUI').strip()[:40]
             try:
-                from instagrapi.types import StoryLink
-                x, y = (link_pos or (0.5, 0.82))
-                # Clampa e garante que a etiqueta não saia do quadro.
-                x = min(0.9, max(0.1, float(x)))
-                y = min(0.95, max(0.05, float(y)))
-                kwargs['links'] = [StoryLink(
-                    webUri=link_url, x=x, y=y, width=0.5, height=0.08, rotation=0.0,
-                )]
-            except Exception:
-                # Fallback: link sem posição (algumas versões do instagrapi
-                # não aceitam x/y no StoryLink).
+                from instagrapi.types import StorySticker
+                # Valida a URL do link (mesmo passo que o caminho links= faz por
+                # dentro) — sem isso o IG pode recusar o sticker.
                 try:
-                    from instagrapi.types import StoryLink
-                    kwargs['links'] = [StoryLink(webUri=link_url)]
+                    self.client.private_request("media/validate_reel_url/", {
+                        "url": str(link_url),
+                        "_uid": str(self.client.user_id),
+                        "_uuid": str(self.client.uuid),
+                    })
                 except Exception:
                     pass
+                # Sticker de link COM texto customizado. Espelha o que o instagrapi
+                # monta no caminho links= e adiciona o título (link_title/custom_title).
+                sticker = StorySticker(
+                    id="link_sticker_default",
+                    type="story_link",
+                    x=x, y=y, z=1000005, width=0.60, height=0.10, rotation=0.0,
+                    extra=dict(
+                        link_type="web",
+                        url=str(link_url),
+                        tap_state_str_id="link_sticker_default",
+                        link_title=titulo,
+                        custom_title=titulo,
+                    ),
+                )
+                kwargs['stickers'] = [sticker]
+            except Exception:
+                # Fallback: sticker de link padrão do instagrapi (mostra o domínio).
+                try:
+                    from instagrapi.types import StoryLink
+                    kwargs['links'] = [StoryLink(
+                        webUri=link_url, x=x, y=y, width=0.5, height=0.08, rotation=0.0,
+                    )]
+                except Exception:
+                    try:
+                        from instagrapi.types import StoryLink
+                        kwargs['links'] = [StoryLink(webUri=link_url)]
+                    except Exception:
+                        pass
 
         if is_image:
             media = self.client.photo_upload_to_story(path, **kwargs)

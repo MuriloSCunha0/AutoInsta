@@ -15,7 +15,7 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-session" type="button">
-                            <i class="bi bi-shield-lock me-1"></i> Avançado (sessão)
+                            <i class="bi bi-shield-lock me-1"></i> Sessão <span class="badge bg-success ms-1" style="font-size:.6rem;">recomendado</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -34,8 +34,11 @@
                           hx-swap="afterbegin">
                         {% csrf_token %}
                         <div class="modal-body pt-0">
-                            <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3">
+                            <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-2">
                                 <i class="bi bi-shield-check me-1"></i> Fazemos o login na tela <strong>real</strong> do Instagram para você. Se pedir código de verificação, a gente avisa aqui mesmo.
+                            </div>
+                            <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3" style="line-height:1.5">
+                                <i class="bi bi-exclamation-triangle me-1"></i> <strong>Conta nova?</strong> O Instagram costuma barrar o 1º login por senha vindo de servidor (defesa dele, não dá pra evitar 100% no código). Se der erro de senha, use a aba <strong>Sessão</strong> — é o caminho confiável.
                             </div>
 
                             <div class="mb-3">
@@ -75,35 +78,57 @@
                     </form>
                 </div>
 
-                <!-- ABA AVANÇADA: colar sessionid (fallback, sem senha) -->
+                <!-- ABA SESSÃO: colar cookies/sessionid (caminho confiável, sem senha) -->
                 <div class="tab-pane fade" id="tab-session">
                     <form hx-post="{% url 'instagram:add_session' %}"
                           hx-target="#account-list"
                           hx-swap="afterbegin">
                         {% csrf_token %}
                         <div class="modal-body pt-0">
-                            <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-3" style="line-height:1.6">
-                                Para quem prefere não informar a senha: faça login em <a href="https://www.instagram.com" target="_blank" rel="noopener" class="text-info">instagram.com</a>, pegue o cookie <code class="text-info">sessionid</code> (F12 → Application → Cookies) e cole abaixo.
+                            <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3" style="line-height:1.6">
+                                <i class="bi bi-shield-check me-1"></i> <strong>Caminho mais confiável.</strong> Reaproveita um login que o Instagram <strong>já confia</strong> — pula o login novo, que é o passo mais bloqueado. Ideal para contas novas.
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label text-muted">sessionid</label>
-                                <input type="text" name="sessionid" class="form-control" placeholder="cole o sessionid" required autocomplete="off">
+                            <div class="mb-2">
+                                <label class="form-label text-muted">Cookies do Instagram <span class="text-muted">(ou só o sessionid)</span></label>
+                                <textarea name="sessionid" rows="3" class="form-control" required autocomplete="off"
+                                          placeholder="sessionid=12345678901%3AAbCdEf...%3A25%3AAY...; csrftoken=...; ds_user_id=..."></textarea>
+                                <small class="text-muted" style="font-size:.75rem;">
+                                    🍪 Cole <strong>todos os cookies</strong> do instagram.com de uma vez (mais confiável) ou só o valor do <code class="text-info">sessionid</code>. A gente extrai o que precisa.
+                                </small>
                             </div>
 
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Nome de Usuário <span class="text-muted">(opcional)</span></label>
-                                <input type="text" name="ig_username" class="form-control" placeholder="@usuario">
-                            </div>
+                            <details class="mb-3" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px;">
+                                <summary class="text-info small" style="cursor:pointer;"><i class="bi bi-question-circle me-1"></i> Como pegar isso? (passo a passo)</summary>
+                                <div class="text-muted small mt-2" style="line-height:1.7">
+                                    <strong class="text-white">No computador (Chrome/Edge) — mais confiável:</strong>
+                                    <ol class="ps-3 mb-2">
+                                        <li>Abra <code class="text-info">instagram.com</code> e faça login com <strong>essa conta</strong>.</li>
+                                        <li>Aperte <kbd>F12</kbd> (ou botão direito → <em>Inspecionar</em>).</li>
+                                        <li>Vá na aba <strong>Application</strong> (ou "Aplicativo").</li>
+                                        <li>No menu à esquerda: <strong>Cookies</strong> → clique em <code class="text-info">https://www.instagram.com</code>.</li>
+                                        <li>Ache a linha <code class="text-info">sessionid</code> e copie o valor da coluna <strong>Value</strong>.</li>
+                                        <li>Cole aqui. (Colar <strong>todos</strong> os cookies é ainda mais confiável.)</li>
+                                    </ol>
+                                    <strong class="text-white">Mais fácil (extensão):</strong> instale a extensão <strong>Cookie-Editor</strong>, abra no instagram.com logado, clique em <em>Export</em> e cole aqui.
+                                    <div class="mt-2"><i class="bi bi-phone me-1"></i> <strong>No celular:</strong> o navegador não mostra cookies direto. Use um PC, ou o <strong>Kiwi Browser</strong> (Android) com a extensão Cookie-Editor.</div>
+                                </div>
+                            </details>
 
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Proxy (Opcional)</label>
-                                <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Nome de Usuário <span class="text-muted">(opcional)</span></label>
+                                    <input type="text" name="ig_username" class="form-control" placeholder="@usuario">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Proxy <span class="text-muted">(opcional)</span></label>
+                                    <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
+                                </div>
                             </div>
                         </div>
                         <div class="modal-footer border-0">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-primary">Importar Sessão</button>
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-shield-check me-1"></i> Importar Sessão</button>
                         </div>
                     </form>
                 </div>

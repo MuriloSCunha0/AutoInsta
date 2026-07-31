@@ -72,6 +72,9 @@ class ScheduledPost(models.Model):
     # Link do Story. A API oficial não permite sticker de link, então quando
     # preenchido a publicação vai pela engine (instagrapi).
     story_link = models.URLField(max_length=500, blank=True)
+    # Texto exibido no sticker de link (ex.: "CLIQUE AQUI"). O sticker leva o
+    # link e mostra esse texto — como o botão de link do próprio Instagram.
+    story_link_label = models.CharField(max_length=40, blank=True, default='CLIQUE AQUI')
 
     # Editor visual de Story: texto queimado na imagem + posição da etiqueta
     # de link. x/y são relativos (0..1) ao quadro; story_text_size é em px de

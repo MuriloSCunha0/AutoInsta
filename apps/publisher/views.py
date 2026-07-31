@@ -469,6 +469,7 @@ def _composer_submit(request):
         'story_text_y': min(1.0, max(0.0, _f('story_text_y', 0.45))),
         'story_link_x': min(1.0, max(0.0, _f('story_link_x', 0.5))),
         'story_link_y': min(1.0, max(0.0, _f('story_link_y', 0.82))),
+        'story_link_label': (request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40],
     }
 
     # Modo de limpeza/diversificação do arquivo (none/light/ultra).
