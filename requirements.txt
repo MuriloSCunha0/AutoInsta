@@ -5,7 +5,10 @@ celery>=5.3
 django-celery-beat>=2.6
 channels>=4.0
 channels-redis>=4.2
-instagrapi>=2.1
+# Fixado na versão mais recente e mantida (linha 2.x). O >=2.1 antigo ficava
+# preso na 2.1.5 (não força upgrade) — versão de 2023 com login/story antigos.
+# Bump deliberado quando for testar uma release nova.
+instagrapi==2.18.12
 # instagrapi extrai a thumbnail do video (ex.: Story via engine) com MoviePy;
 # sem ele: "Could not generate video thumbnail... install MoviePy".
 moviepy>=2.1,<3
