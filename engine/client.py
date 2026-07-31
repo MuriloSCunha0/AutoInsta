@@ -234,10 +234,54 @@ class InstagramEngine:
             raise
 
     def _prepare_client(self):
-        """Garante um client logado via sessão salva (para ações fora do upload)."""
+        """Deixa o client pronto para uma ação da engine (upload, story, etc.).
+
+        Prioriza a SESSÃO salva: se ela valida, usa direto — SEM re-login por
+        senha. Isso é essencial para contas conectadas por sessionid, cuja
+        "senha" é só um placeholder `__session_login__`; tentar logar com ela
+        fazia o IG devolver "We can't find an account..." e derrubava o post.
+
+        Só cai para login por senha se a sessão falhar E houver uma senha real
+        (com 2FA automático pelo seed, quando houver). Se a sessão de uma conta
+        SÓ-sessão expira, marca `session_expired` com mensagem clara (a conta
+        passa a aparecer em "contas que precisam de atenção" no painel).
+        """
+        acc = self.account
         self._aplicar_proxy()
-        SessionManager.load_session(self.account, self.client)
-        self.client.login(self.account.ig_username, self.account.get_ig_password())
+
+        tinha_sessao = SessionManager.load_session(acc, self.client)
+        if tinha_sessao:
+            try:
+                self.client.get_timeline_feed()   # valida a sessão salva
+                return
+            except Exception:
+                pass  # sessão inválida/expirada — tenta senha abaixo
+
+        senha = ''
+        try:
+            senha = acc.get_ig_password()
+        except Exception:
+            senha = ''
+
+        if senha and senha != '__session_login__':
+            SessionManager.ensure_device(acc, self.client)
+            try:
+                self.client.login(acc.ig_username, senha)
+            except TwoFactorRequired:
+                seed = acc.get_totp_seed()
+                if not seed:
+                    raise
+                code = self.client.totp_generate_code(seed)
+                self.client.login(acc.ig_username, senha, verification_code=code)
+            SessionManager.save_session(acc, self.client)
+            return
+
+        # Conta SÓ-sessão e a sessão caiu → status claro + erro limpo.
+        acc.status = 'session_expired'
+        acc.last_error = ('Sessão expirada. Reconecte a conta pela aba "Sessão" '
+                          '(cole o cookie do Instagram de novo).')
+        acc.save(update_fields=['status', 'last_error'])
+        raise Exception('Sessão expirada — reconecte a conta pela aba Sessão.')
 
     def edit_profile(self, full_name=None, biography=None, external_url=None):
         """Edita bio/nome/link do perfil (via engine cinza — funciona em contas
@@ -304,8 +348,7 @@ class InstagramEngine:
         return done
 
     def upload_reel(self, video_path, caption, thumbnail_path=None):
-        SessionManager.load_session(self.account, self.client)
-        self.client.login(self.account.ig_username, self.account.get_ig_password())
+        self._prepare_client()
 
         # instagrapi 2.18 não gera thumbnail sozinho (MoviePy incompatível).
         # Geramos via ffmpeg quando não veio uma capa.

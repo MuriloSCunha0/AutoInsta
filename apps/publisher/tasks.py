@@ -114,6 +114,11 @@ def process_scheduled_posts():
         if conta.pausada:
             continue
 
+        # Conta caída que exige RECONEXÃO (sessão expirada / 2FA / challenge):
+        # não publica até religar — evita martelar com posts que só vão falhar.
+        if conta.status in ('session_expired', 'challenge_required', '2fa_required'):
+            continue
+
         if conta.id in despachadas:
             continue  # já mandamos um post desta conta nesta rodada
 
