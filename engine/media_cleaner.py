@@ -168,6 +168,32 @@ def aplicar_audio(video_path, audio_path, dest_dir=None):
         return video_path
 
 
+def extrair_thumbnail(video_path, dest_dir=None):
+    """Extrai um frame do vídeo como thumbnail .jpg via ffmpeg.
+
+    Substitui a geração de thumbnail por MoviePy do instagrapi — a partir do
+    instagrapi 2.18 o MoviePy virou incompatível (exige Pillow<12, e a lib pede
+    Pillow>=12.2). Como já dependemos do ffmpeg, geramos a thumbnail aqui e
+    passamos pronta para o upload. Best-effort: retorna None se falhar.
+    """
+    if not video_path or not os.path.exists(video_path):
+        return None
+    if not ffmpeg_disponivel():
+        logger.warning('extrair_thumbnail: ffmpeg indisponível')
+        return None
+    base = dest_dir or os.path.join(os.path.dirname(video_path), 'processed')
+    os.makedirs(base, exist_ok=True)
+    dst = os.path.join(base, f"thumb_{uuid.uuid4().hex[:12]}.jpg")
+    for args in (['-ss', '0.5', '-i', video_path], ['-i', video_path]):  # 0.5s; fallback 1º frame
+        try:
+            _rodar([FFMPEG, '-y', *args, '-vframes', '1', '-q:v', '3', dst])
+            if os.path.exists(dst) and os.path.getsize(dst) > 0:
+                return dst
+        except Exception as e:
+            logger.warning('extrair_thumbnail falhou (%s): %s', args[0], e)
+    return None
+
+
 def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
     """Gera uma cópia processada do vídeo.
 

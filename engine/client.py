@@ -1,4 +1,5 @@
 import logging
+import os
 
 from instagrapi import Client as InstagrapiClient
 from instagrapi.exceptions import (
@@ -305,13 +306,27 @@ class InstagramEngine:
     def upload_reel(self, video_path, caption, thumbnail_path=None):
         SessionManager.load_session(self.account, self.client)
         self.client.login(self.account.ig_username, self.account.get_ig_password())
-        
-        media = self.client.clip_upload(
-            path=video_path,
-            caption=caption,
-            thumbnail=thumbnail_path
-        )
-        return media.dict()
+
+        # instagrapi 2.18 não gera thumbnail sozinho (MoviePy incompatível).
+        # Geramos via ffmpeg quando não veio uma capa.
+        thumb_tmp = None
+        if not thumbnail_path:
+            from engine.media_cleaner import extrair_thumbnail
+            thumb_tmp = extrair_thumbnail(video_path)
+            thumbnail_path = thumb_tmp
+        try:
+            media = self.client.clip_upload(
+                path=video_path,
+                caption=caption,
+                thumbnail=thumbnail_path,
+            )
+            return media.dict()
+        finally:
+            if thumb_tmp and os.path.exists(thumb_tmp):
+                try:
+                    os.remove(thumb_tmp)
+                except Exception:
+                    pass
 
     IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
 
@@ -539,7 +554,22 @@ class InstagramEngine:
 
         if is_image:
             media = self.client.photo_upload_to_story(path, **kwargs)
-        else:
+            return media.dict()
+
+        # Vídeo: gera a thumbnail via ffmpeg (instagrapi 2.18 não gera sozinho).
+        thumb_tmp = None
+        if 'thumbnail' not in kwargs:
+            from engine.media_cleaner import extrair_thumbnail
+            thumb_tmp = extrair_thumbnail(path)
+            if thumb_tmp:
+                kwargs['thumbnail'] = thumb_tmp
+        try:
             media = self.client.video_upload_to_story(path, **kwargs)
-        return media.dict()
+            return media.dict()
+        finally:
+            if thumb_tmp and os.path.exists(thumb_tmp):
+                try:
+                    os.remove(thumb_tmp)
+                except Exception:
+                    pass
 
