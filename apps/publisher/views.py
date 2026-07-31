@@ -704,7 +704,73 @@ def campanha_ok(request):
 
 @login_required
 def schedule(request):
-    return render(request, 'publisher/schedule.html')
+    from .models import AgendaSemanal
+    agendas = (AgendaSemanal.objects.filter(owner=request.user)
+               .prefetch_related('accounts').order_by('hora'))
+    return render(request, 'publisher/schedule.html', {
+        'agendas': agendas,
+        'accounts': InstagramAccount.objects.filter(owner=request.user).order_by('ig_username'),
+        'dias': AgendaSemanal.DIAS,
+    })
+
+
+@login_required
+@require_POST
+def criar_agenda(request):
+    """Cria um plano semanal recorrente (conteúdo + contas + dias + horário)."""
+    from .models import AgendaSemanal
+    from apps.core_utils import nome_seguro
+
+    accounts_ids = request.POST.getlist('accounts')
+    weekdays = [d for d in request.POST.getlist('weekdays') if d in '0123456']
+    hora = (request.POST.get('hora') or '').strip()
+    media = request.FILES.get('media')
+
+    if not (accounts_ids and weekdays and hora and media):
+        messages.error(request, 'Escolha ao menos 1 conta, 1 dia, o horário e a mídia.')
+        return redirect('publisher:schedule')
+
+    try:
+        espac = max(1, int(request.POST.get('espacamento_min') or 20))
+    except ValueError:
+        espac = 20
+
+    media.name = nome_seguro(media.name)
+    ag = AgendaSemanal.objects.create(
+        owner=request.user,
+        name=(request.POST.get('name') or '').strip()[:80],
+        weekdays=','.join(weekdays),
+        hora=hora,
+        post_type=(request.POST.get('post_type') or 'STORY'),
+        video_file=media,
+        caption=(request.POST.get('caption') or '').strip(),
+        share_to_feed=request.POST.get('grade', 'grade') == 'grade',
+        clean_mode=(request.POST.get('clean_mode') or 'light'),
+        story_link=(request.POST.get('story_link') or '').strip(),
+        story_link_label=(request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40],
+        espacamento_min=espac,
+    )
+    ag.accounts.set(InstagramAccount.objects.filter(id__in=accounts_ids, owner=request.user))
+    messages.success(request, f'Plano recorrente criado ({ag.accounts.count()} conta(s), {ag.dias_label}).')
+    return redirect('publisher:schedule')
+
+
+@login_required
+def toggle_agenda(request, agenda_id):
+    from .models import AgendaSemanal
+    ag = get_object_or_404(AgendaSemanal, id=agenda_id, owner=request.user)
+    ag.active = not ag.active
+    ag.save(update_fields=['active'])
+    return redirect('publisher:schedule')
+
+
+@login_required
+def excluir_agenda(request, agenda_id):
+    from .models import AgendaSemanal
+    ag = get_object_or_404(AgendaSemanal, id=agenda_id, owner=request.user)
+    ag.delete()
+    messages.success(request, 'Plano recorrente removido.')
+    return redirect('publisher:schedule')
 
 @login_required
 def api_events(request):

@@ -546,3 +546,51 @@ def publish_reel(post_id):
                 )
             except Exception:
                 pass
+
+
+@shared_task
+def process_agenda_semanal():
+    """Beat: dispara os planos semanais recorrentes cujo dia/hora chegou, criando
+    os posts reais (ScheduledPost) ESPAÇADOS entre as contas (anti-queda). Marca
+    last_run no dia para não duplicar."""
+    from .models import AgendaSemanal
+    now = timezone.localtime()
+    hoje = now.date()
+    wd = now.weekday()          # 0=segunda .. 6=domingo
+    base = timezone.now()
+    total = 0
+
+    for ag in AgendaSemanal.objects.filter(active=True).prefetch_related('accounts'):
+        if wd not in ag.weekdays_list:
+            continue
+        if ag.last_run == hoje:          # já disparou hoje
+            continue
+        if now.time() < ag.hora:         # ainda não chegou a hora
+            continue
+        if not ag.video_file:
+            continue
+
+        contas = [c for c in ag.accounts.all() if not c.pausada and not c.banned_by_admin]
+        espac = max(1, ag.espacamento_min)
+        for i, acc in enumerate(contas):
+            when = base + timedelta(minutes=i * espac)   # espaça 1 conta por vez
+            post = ScheduledPost(
+                owner=ag.owner, account=acc, post_type=ag.post_type,
+                caption=ag.caption, share_to_feed=ag.share_to_feed,
+                clean_mode=ag.clean_mode,
+                story_link=ag.story_link if ag.post_type == 'STORY' else '',
+                story_link_label=ag.story_link_label or 'CLIQUE AQUI',
+                status='queued', scheduled_for=when,
+            )
+            post.video_file.name = ag.video_file.name    # reaproveita a mídia salva
+            if ag.thumbnail:
+                post.thumbnail.name = ag.thumbnail.name
+            post.save()
+            total += 1
+
+        ag.last_run = hoje
+        ag.save(update_fields=['last_run'])
+
+    if total:
+        print(f"Agenda semanal: {total} post(s) criados nesta rodada.")
+    return total

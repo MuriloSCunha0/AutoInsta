@@ -173,3 +173,54 @@ class PostLoop(models.Model):
         if not self.folder:
             return []
         return list(self.folder.assets.order_by('id'))
+
+
+class AgendaSemanal(models.Model):
+    """Plano recorrente semanal: em certos dias da semana, num horário, posta um
+    conteúdo em VÁRIAS contas — repetindo toda semana. O beat cria os posts reais
+    (ScheduledPost) espaçados entre as contas, para não cair por volume.
+
+    Ex.: "Segunda 09:00, story X nas contas A,B,C"; "Terça 18:00, reel Y em A,D".
+    """
+    DIAS = [(0, 'Seg'), (1, 'Ter'), (2, 'Qua'), (3, 'Qui'), (4, 'Sex'), (5, 'Sáb'), (6, 'Dom')]
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='agendas')
+    name = models.CharField(max_length=80, blank=True)
+    accounts = models.ManyToManyField(InstagramAccount, related_name='agendas')
+
+    # Dias da semana em que roda: dígitos 0=Seg .. 6=Dom, separados por vírgula.
+    weekdays = models.CharField(max_length=20, default='')
+    hora = models.TimeField()
+
+    post_type = models.CharField(max_length=10, choices=ScheduledPost.TYPE_CHOICES, default='STORY')
+    video_file = models.FileField(upload_to='agenda/', max_length=500)
+    thumbnail = models.FileField(upload_to='agenda/', max_length=500, null=True, blank=True)
+    caption = models.TextField(blank=True)
+    share_to_feed = models.BooleanField(default=True)
+    clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='light')
+
+    # Story com link (quando post_type=STORY).
+    story_link = models.URLField(max_length=500, blank=True)
+    story_link_label = models.CharField(max_length=40, blank=True, default='CLIQUE AQUI')
+
+    # Minutos entre uma conta e a próxima quando dispara — espaça para não cair.
+    espacamento_min = models.IntegerField(default=20)
+
+    active = models.BooleanField(default=True)
+    last_run = models.DateField(null=True, blank=True)  # último dia que disparou
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['hora', 'id']
+
+    def __str__(self):
+        return self.name or f"Agenda #{self.pk}"
+
+    @property
+    def weekdays_list(self):
+        return [int(d) for d in self.weekdays.split(',') if d.strip() != '']
+
+    @property
+    def dias_label(self):
+        mapa = dict(self.DIAS)
+        return ', '.join(mapa[d] for d in self.weekdays_list) or '—'

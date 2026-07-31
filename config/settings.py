@@ -213,6 +213,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.publisher.tasks.process_loops",
         "schedule": 60.0,
     },
+    # Agenda semanal recorrente: cria os posts do plano quando o dia/hora chega.
+    "process-agenda-semanal": {
+        "task": "apps.publisher.tasks.process_agenda_semanal",
+        "schedule": 900.0,  # a cada 15 min
+    },
     # Atualiza cota/seguidores/views (Meta) de cada conta. A cada 3h: antes
     # era 30min, o que gerava ~192 chamadas por conta/dia num único app Meta —
     # peso desnecessário no volume que a Meta usa para marcar o app como abuso.

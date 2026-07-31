@@ -1,29 +1,193 @@
 {% extends 'base.html' %}
 {% block title %}Agendamentos - SandraoFlow{% endblock %}
-{% block page_title %}Calendário de Agendamentos{% endblock %}
+{% block page_title %}Agendamentos{% endblock %}
 
 {% block top_actions %}
-<a href="{% url 'publisher:composer' %}" class="btn btn-primary">
-    <i class="bi bi-plus-lg"></i> Nova postagem
+<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#novoPlanoModal">
+    <i class="bi bi-calendar-plus me-1"></i> Novo plano recorrente
+</button>
+<a href="{% url 'publisher:composer' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-plus-lg"></i> Postagem avulsa
 </a>
 {% endblock %}
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
+<style>
+  .semana-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
+  @media (max-width: 900px){ .semana-grid{ grid-template-columns:repeat(2,1fr);} }
+  .dia-col { background:var(--bg-card-hover); border:1px solid var(--border-subtle); border-radius:12px; padding:10px; min-height:90px; }
+  .dia-col h6 { font-size:.72rem; letter-spacing:.5px; text-transform:uppercase; color:var(--text-muted); }
+  .plano-chip { background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:10px; padding:8px; margin-bottom:8px; }
+  .plano-chip.off { opacity:.45; }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="card p-4">
-    <div id="calendar"></div>
 
-    <div class="cal-legend">
+{# ── PLANO SEMANAL RECORRENTE ─────────────────────────────────────────── #}
+<div class="card p-3 p-md-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="text-white mb-0"><i class="bi bi-arrow-repeat text-purple me-2"></i>Plano semanal recorrente</h5>
+        <span class="text-muted small">Toda semana, nos dias marcados, o conteúdo sai sozinho nas contas — espaçado pra não cair.</span>
+    </div>
+
+    {% if agendas %}
+    <div class="semana-grid">
+        {% for dia in dias %}
+        <div class="dia-col">
+            <h6 class="mb-2">{{ dia.1 }}</h6>
+            {% for a in agendas %}
+            {% if dia.0 in a.weekdays_list %}
+            <div class="plano-chip {% if not a.active %}off{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <span class="badge rounded-pill
+                        {% if a.post_type == 'STORY' %}bg-warning bg-opacity-25 text-warning
+                        {% elif a.post_type == 'REELS' %}bg-purple bg-opacity-25 text-purple
+                        {% else %}bg-info bg-opacity-25 text-info{% endif %}" style="font-size:.6rem;">{{ a.get_post_type_display }}</span>
+                    <span class="text-white small fw-semibold">{{ a.hora|time:"H:i" }}</span>
+                </div>
+                {% if a.name %}<div class="text-white small text-truncate mt-1">{{ a.name }}</div>{% endif %}
+                <div class="text-muted" style="font-size:.68rem;">
+                    <i class="bi bi-instagram"></i> {{ a.accounts.count }} conta(s)
+                    {% if a.story_link %}· <i class="bi bi-link-45deg"></i>{% endif %}
+                </div>
+                <div class="d-flex gap-2 mt-1">
+                    <a href="{% url 'publisher:toggle_agenda' a.id %}" class="small {% if a.active %}text-warning{% else %}text-success{% endif %}" title="{% if a.active %}Pausar{% else %}Ativar{% endif %}">
+                        <i class="bi {% if a.active %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
+                    </a>
+                    <a href="{% url 'publisher:excluir_agenda' a.id %}" class="small text-danger" onclick="return confirm('Excluir este plano recorrente?')" title="Excluir"><i class="bi bi-trash"></i></a>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-4">
+        <i class="bi bi-calendar-week text-muted mb-2" style="font-size:2.5rem;"></i>
+        <p class="text-muted mb-2">Nenhum plano recorrente ainda.</p>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#novoPlanoModal">
+            <i class="bi bi-calendar-plus me-1"></i> Criar meu primeiro plano
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+{# ── CALENDÁRIO (o que está agendado de fato) ─────────────────────────── #}
+<div class="card p-4">
+    <h6 class="text-muted text-uppercase small mb-3">Calendário — o que já está na fila</h6>
+    <div id="calendar"></div>
+    <div class="cal-legend mt-2">
         <span class="text-muted small fw-semibold me-1">Status:</span>
         <span class="leg"><span class="dot" style="background:#a855f7"></span> Na fila</span>
         <span class="leg"><span class="dot" style="background:#f59e0b"></span> Processando</span>
         <span class="leg"><span class="dot" style="background:#22c55e"></span> Publicado</span>
         <span class="leg"><span class="dot" style="background:#ef4444"></span> Falhou</span>
-        <span class="leg ms-auto"><i class="bi bi-info-circle"></i> Clique num evento para abrir a fila</span>
     </div>
+</div>
+
+{# ── MODAL: novo plano recorrente ─────────────────────────────────────── #}
+<div class="modal fade" id="novoPlanoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content glass-modal">
+      <div class="modal-header border-0">
+        <h5 class="modal-title text-white"><i class="bi bi-calendar-plus text-purple me-2"></i>Novo plano recorrente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'publisher:criar_agenda' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted small">Nome <span class="text-muted">(opcional)</span></label>
+              <input type="text" name="name" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="Ex: Promo da segunda">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Horário</label>
+              <input type="time" name="hora" required class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" value="09:00">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Tipo</label>
+              <select name="post_type" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
+                <option value="STORY">Story</option>
+                <option value="REELS">Reels</option>
+                <option value="FEED">Feed</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label text-muted small">Dias da semana</label>
+              <div class="d-flex flex-wrap gap-2">
+                {% for dia in dias %}
+                <label class="btn btn-sm btn-outline-secondary" style="cursor:pointer;">
+                  <input type="checkbox" name="weekdays" value="{{ dia.0 }}" class="d-none" onchange="this.closest('label').classList.toggle('btn-primary', this.checked); this.closest('label').classList.toggle('btn-outline-secondary', !this.checked);">
+                  {{ dia.1 }}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label text-muted small"><i class="bi bi-instagram me-1"></i>Contas</label>
+              <div class="border border-subtle rounded p-2" style="max-height:140px; overflow-y:auto; background:var(--bg-input);">
+                {% for acc in accounts %}
+                <label class="d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+                  <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input">
+                  <span class="text-white small">@{{ acc.ig_username }}</span>
+                  {% if acc.status != 'active' %}<span class="text-warning ms-auto" style="font-size:.6rem;">{{ acc.get_status_display }}</span>{% endif %}
+                </label>
+                {% empty %}
+                <div class="text-muted small">Nenhuma conta conectada. <a href="{% url 'instagram:list' %}" class="text-info">Conectar</a>.</div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label text-muted small"><i class="bi bi-image me-1"></i>Mídia (foto/vídeo)</label>
+              <input type="file" name="media" required accept="image/*,video/*" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label text-muted small">Legenda <span class="text-muted">(spintax {a|b} varia por conta)</span></label>
+              <textarea name="caption" rows="2" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="Escreva a legenda…"></textarea>
+            </div>
+
+            <div class="col-md-6 story-only">
+              <label class="form-label text-muted small"><i class="bi bi-link-45deg"></i> Link do Story <span class="text-muted">(opcional)</span></label>
+              <input type="url" name="story_link" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="https://…">
+            </div>
+            <div class="col-md-3 story-only">
+              <label class="form-label text-muted small">Texto do botão</label>
+              <input type="text" name="story_link_label" maxlength="40" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" value="CLIQUE AQUI">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Espaço entre contas</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="espacamento_min" min="1" value="20" class="form-control text-white border-subtle" style="background:var(--bg-input);">
+                <span class="input-group-text">min</span>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label text-muted small">Limpeza do vídeo</label>
+              <select name="clean_mode" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
+                <option value="light" selected>Leve (rápido, hash diferente por conta)</option>
+                <option value="ultra">Ultra (recodifica — evita correlação, mais lento)</option>
+                <option value="none">Sem limpeza</option>
+              </select>
+              <small class="text-muted">Postar o mesmo conteúdo em várias contas? Ultra evita que o Instagram ligue as contas.</small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Criar plano</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -33,41 +197,27 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var el = document.getElementById('calendar');
-    if (!el) return;
-
-    var calendar = new FullCalendar.Calendar(el, {
-        locale: 'pt-br',
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        buttonText: {
-            today: 'Hoje',
-            month: 'Mês',
-            week: 'Semana',
-            day: 'Dia'
-        },
-        events: '/publisher/api/events/',
-        eventColor: '#a855f7',
-        height: 720,
-        dayMaxEvents: 3,
-        moreLinkText: function (n) { return '+' + n + ' mais'; },
-        nowIndicator: true,
-        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-        // Tooltip nativo com status e legenda
-        eventDidMount: function (info) {
-            var p = info.event.extendedProps || {};
-            var bits = [info.event.title];
-            if (p.status) bits.push('Status: ' + p.status);
-            if (p.caption) bits.push(p.caption);
-            info.el.setAttribute('title', bits.join('\n'));
-        },
-        noEventsText: 'Nenhum agendamento no período'
-    });
-
-    calendar.render();
+    if (el) {
+        var calendar = new FullCalendar.Calendar(el, {
+            locale: 'pt-br', initialView: 'dayGridMonth',
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+            buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia' },
+            events: '/publisher/api/events/', eventColor: '#a855f7', height: 640,
+            dayMaxEvents: 3, moreLinkText: function (n) { return '+' + n + ' mais'; },
+            nowIndicator: true, eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+            noEventsText: 'Nenhum agendamento no período'
+        });
+        calendar.render();
+    }
+    // Mostra/esconde os campos de link conforme o tipo escolhido.
+    var tipo = document.querySelector('#novoPlanoModal select[name="post_type"]');
+    function aplicarTipo() {
+        var story = tipo && tipo.value === 'STORY';
+        document.querySelectorAll('#novoPlanoModal .story-only').forEach(function (e) {
+            e.style.display = story ? '' : 'none';
+        });
+    }
+    if (tipo) { tipo.addEventListener('change', aplicarTipo); aplicarTipo(); }
 });
 </script>
 {% endblock %}
