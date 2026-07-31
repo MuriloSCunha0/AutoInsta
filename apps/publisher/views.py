@@ -205,8 +205,12 @@ def bulk_posts(request):
         # Sem isto, um "excluir todas" na fila levaria junto o histórico
         # inteiro de publicados — que a tela nem exibia.
         escopo = (request.POST.get('escopo') or 'fila').strip()
-        if escopo == 'historico':
+        if escopo in ('historico', 'publicados'):
             qs = qs.filter(status='published')
+        elif escopo == 'falhas':
+            qs = qs.filter(status='failed')
+        elif escopo == 'fila':
+            qs = qs.filter(status__in=['draft', 'queued', 'processing'])
         else:
             qs = qs.filter(status__in=ScheduledPost.STATUS_ATIVOS)
 
@@ -390,12 +394,26 @@ def delete_loop(request, loop_id):
 @login_required
 def stories(request):
     from django.core.paginator import Paginator
+    from django.db.models import Count, Q
 
-    # Stories também é fila: o que já publicou sai daqui e vai para o histórico.
-    # Mais próximas primeiro.
-    base = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY',
-                                         status__in=ScheduledPost.STATUS_ATIVOS)
-            .select_related('account').order_by('scheduled_for'))
+    todos = (ScheduledPost.objects.filter(owner=request.user, post_type='STORY')
+             .select_related('account'))
+    # Contadores das abas (Na fila / Publicados / Falhas).
+    counts = todos.aggregate(
+        fila=Count('id', filter=Q(status__in=['draft', 'queued', 'processing'])),
+        publicados=Count('id', filter=Q(status='published')),
+        falhas=Count('id', filter=Q(status='failed')),
+    )
+
+    tab = (request.GET.get('tab') or 'fila').strip()
+    if tab == 'publicados':
+        base = todos.filter(status='published').order_by('-published_at')
+    elif tab == 'falhas':
+        base = todos.filter(status='failed').order_by('-created_at')
+    else:
+        tab = 'fila'
+        base = todos.filter(status__in=['draft', 'queued', 'processing']).order_by('scheduled_for')
+
     paginator = Paginator(base, 60)
     page = paginator.get_page(request.GET.get('page'))
 
@@ -407,6 +425,8 @@ def stories(request):
         'total_filtrado': paginator.count,
         'form': form,
         'accounts': InstagramAccount.objects.filter(owner=request.user),
+        'tab': tab,
+        'counts': counts,
     })
 
 @login_required

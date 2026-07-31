@@ -322,3 +322,54 @@ def bulk_edit_profiles(account_ids, full_name, biography, external_url, picture_
         except Exception as e:
             account.last_error = f"Falha ao editar perfil: {str(e)[:200]}"
             account.save(update_fields=['last_error'])
+
+
+# =============================================================================
+# Keep-alive das sessões (mantém o cookie vivo -> conta de sessionid cai menos)
+# =============================================================================
+@shared_task
+def keepalive_sessions():
+    """Dispatcher (Celery Beat): despacha um keepalive por conta ATIVA que tem
+    sessão salva. Validar/renovar a sessão de leve periodicamente adia MUITO a
+    expiração do cookie — é o que reduz as quedas de contas conectadas por
+    sessionid. O trabalho de rede vai para a fila `publisher` (IP limpo)."""
+    ids = list(
+        InstagramAccount.objects.filter(status='active', session_blob__isnull=False)
+        .values_list('id', flat=True)
+    )
+    for aid in ids:
+        keepalive_account.delay(aid)
+    return f"keepalive despachado para {len(ids)} conta(s)"
+
+
+@shared_task(soft_time_limit=120, time_limit=140)
+def keepalive_account(account_id):
+    """Valida a sessão salva de UMA conta e a re-salva (renova/estende). Se a
+    sessão morreu e a conta é só-sessão, marca `session_expired` para aparecer
+    em 'contas que precisam de atenção'."""
+    from engine.session_manager import SessionManager
+    acc = InstagramAccount.objects.filter(id=account_id).first()
+    if not acc or not acc.session_blob:
+        return
+    eng = InstagramEngine(acc)
+    try:
+        eng._aplicar_proxy()
+        SessionManager.load_session(acc, eng.client)
+        eng.client.get_timeline_feed()          # valida a sessão
+        SessionManager.save_session(acc, eng.client)  # re-salva (renova)
+        if acc.status != 'active':
+            acc.status = 'active'
+            acc.last_error = ''
+            acc.save(update_fields=['status', 'last_error'])
+    except Exception as e:
+        logger.info("[KEEPALIVE] @%s sessão não validou: %s", acc.ig_username, str(e)[:120])
+        try:
+            senha = acc.get_ig_password()
+        except Exception:
+            senha = ''
+        # Só marca expirada quando NÃO há senha real para religar sozinho.
+        if senha in ('', '__session_login__'):
+            acc.status = 'session_expired'
+            acc.last_error = ('Sessão expirada (keep-alive). Reconecte pela aba '
+                              '"Sessão" — cole o cookie do Instagram de novo.')
+            acc.save(update_fields=['status', 'last_error'])

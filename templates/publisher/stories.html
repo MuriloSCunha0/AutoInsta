@@ -74,17 +74,30 @@
 })();
 </script>
 
+{# Abas: Na fila · Publicados · Falhas — controle do que saiu e do que falhou. #}
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="?tab=fila" class="btn btn-sm {% if tab == 'fila' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-hourglass-split"></i> Na fila <span class="badge bg-dark bg-opacity-25 ms-1">{{ counts.fila }}</span>
+    </a>
+    <a href="?tab=publicados" class="btn btn-sm {% if tab == 'publicados' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-check2-circle"></i> Publicados <span class="badge bg-dark bg-opacity-25 ms-1">{{ counts.publicados }}</span>
+    </a>
+    <a href="?tab=falhas" class="btn btn-sm {% if tab == 'falhas' %}btn-danger{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-exclamation-triangle"></i> Falhas <span class="badge bg-dark bg-opacity-25 ms-1">{{ counts.falhas }}</span>
+    </a>
+</div>
+
 <form method="post" action="{% url 'publisher:bulk_posts' %}" id="bulk-form">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
     <input type="hidden" name="post_type" value="STORY">
     <input type="hidden" name="todos" id="todos-flag" value="0">
-    {# "Selecionar todos" aqui não pode alcançar o histórico de publicados. #}
-    <input type="hidden" name="escopo" value="fila">
+    <input type="hidden" name="escopo" value="{{ tab }}">
 
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
         <h5 class="text-white mb-0">
-            <i class="bi bi-play-btn text-warning me-2"></i> Meus Stories Agendados
+            <i class="bi bi-play-btn text-warning me-2"></i>
+            {% if tab == 'publicados' %}Stories publicados{% elif tab == 'falhas' %}Stories que falharam{% else %}Stories na fila{% endif %}
             <span class="text-muted small ms-1">({{ total_filtrado }})</span>
         </h5>
         {% if posts %}
@@ -134,8 +147,19 @@
                     </div>
                     <h6 class="text-white mb-1 fs-6">@{{ post.account.ig_username }}</h6>
                     <p class="text-muted mb-0" style="font-size: 0.8rem;">
-                        <i class="bi bi-clock"></i> {{ post.scheduled_for|date:"d/m/Y H:i" }}
+                        <i class="bi bi-clock"></i>
+                        {% if post.status == 'published' and post.published_at %}{{ post.published_at|date:"d/m/Y H:i" }}{% else %}{{ post.scheduled_for|date:"d/m/Y H:i" }}{% endif %}
                     </p>
+                    {% if post.story_link %}
+                    <p class="text-info mb-0 mt-1 text-truncate" style="font-size:.72rem;" title="{{ post.story_link }}">
+                        <i class="bi bi-link-45deg"></i> {{ post.story_link_label|default:"link" }}
+                    </p>
+                    {% endif %}
+                    {% if post.status == 'failed' and post.error_message %}
+                    <p class="text-danger mb-0 mt-1" style="font-size:.72rem; line-height:1.3;" title="{{ post.error_message }}">
+                        <i class="bi bi-exclamation-circle"></i> {{ post.error_message|truncatechars:80 }}
+                    </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -155,11 +179,11 @@
 <nav class="mt-3 d-flex justify-content-center">
     <ul class="pagination pagination-sm mb-0">
         {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+        <li class="page-item"><a class="page-link" href="?tab={{ tab }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
         {% endif %}
         <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
         {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a></li>
+        <li class="page-item"><a class="page-link" href="?tab={{ tab }}&page={{ page_obj.next_page_number }}">Próxima</a></li>
         {% endif %}
     </ul>
 </nav>

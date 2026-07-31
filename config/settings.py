@@ -220,6 +220,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.instagram.tasks.refresh_quotas",
         "schedule": 10800.0,  # a cada 3 horas
     },
+    # Keep-alive das sessões: valida/renova o cookie das contas de sessionid a
+    # cada 8h para não expirar (reduz muito as quedas). Vai para a fila publisher.
+    "keepalive-sessions": {
+        "task": "apps.instagram.tasks.keepalive_sessions",
+        "schedule": 28800.0,  # a cada 8 horas
+    },
     # Alertas: conta caiu, limite atingido, meta de views batida.
     "checar-alertas": {
         "task": "apps.notifications.tasks.checar_alertas",
@@ -252,6 +258,7 @@ CELERY_TASK_ROUTES = {
     "apps.instagram.tasks.connect_by_sessionid": {"queue": "publisher"},
     "apps.instagram.tasks.run_account_warmup": {"queue": "publisher"},
     "apps.instagram.tasks.bulk_edit_profiles": {"queue": "publisher"},
+    "apps.instagram.tasks.keepalive_account": {"queue": "publisher"},
     "apps.library.tasks.run_profile_download": {"queue": "publisher"},
 }
 
