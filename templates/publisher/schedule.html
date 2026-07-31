@@ -49,10 +49,17 @@
                 </div>
                 {% if a.name %}<div class="text-white small text-truncate mt-1">{{ a.name }}</div>{% endif %}
                 <div class="text-muted" style="font-size:.68rem;">
-                    <i class="bi bi-instagram"></i> {{ a.accounts.count }} conta(s)
+                    <i class="bi bi-instagram"></i> {{ a.accounts.count }} conta(s) · <span class="text-info">{{ a.posts_por_semana }}/sem</span>
                     {% if a.story_link %}· <i class="bi bi-link-45deg"></i>{% endif %}
                 </div>
                 <div class="d-flex gap-2 mt-1">
+                    <a href="#" class="small text-info edit-plano" title="Editar"
+                       data-id="{{ a.id }}" data-name="{{ a.name }}" data-weekdays="{{ a.weekdays }}"
+                       data-hora="{{ a.hora|time:'H:i' }}" data-type="{{ a.post_type }}" data-caption="{{ a.caption }}"
+                       data-link="{{ a.story_link }}" data-label="{{ a.story_link_label }}" data-clean="{{ a.clean_mode }}"
+                       data-espac="{{ a.espacamento_min }}" data-accounts="{{ a.account_ids_csv }}" data-grade="{{ a.share_to_feed|yesno:'1,0' }}">
+                        <i class="bi bi-pencil"></i>
+                    </a>
                     <a href="{% url 'publisher:toggle_agenda' a.id %}" class="small {% if a.active %}text-warning{% else %}text-success{% endif %}" title="{% if a.active %}Pausar{% else %}Ativar{% endif %}">
                         <i class="bi {% if a.active %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
                     </a>
@@ -88,29 +95,31 @@
     </div>
 </div>
 
-{# ── MODAL: novo plano recorrente ─────────────────────────────────────── #}
+{# ── MODAL: criar / editar plano recorrente ──────────────────────────── #}
 <div class="modal fade" id="novoPlanoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content glass-modal">
       <div class="modal-header border-0">
-        <h5 class="modal-title text-white"><i class="bi bi-calendar-plus text-purple me-2"></i>Novo plano recorrente</h5>
+        <h5 class="modal-title text-white" id="pm-title"><i class="bi bi-calendar-plus text-purple me-2"></i>Novo plano recorrente</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="{% url 'publisher:criar_agenda' %}" enctype="multipart/form-data">
+      <form method="post" id="pm-form" action="{% url 'publisher:criar_agenda' %}" enctype="multipart/form-data"
+            data-create-url="{% url 'publisher:criar_agenda' %}" data-edit-url="{% url 'publisher:editar_agenda' %}">
         {% csrf_token %}
+        <input type="hidden" name="agenda_id" id="pm-agenda-id" value="">
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label text-muted small">Nome <span class="text-muted">(opcional)</span></label>
-              <input type="text" name="name" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="Ex: Promo da segunda">
+              <input type="text" name="name" id="pm-name" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="Ex: Promo da segunda">
             </div>
             <div class="col-md-3">
               <label class="form-label text-muted small">Horário</label>
-              <input type="time" name="hora" required class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" value="09:00">
+              <input type="time" name="hora" id="pm-hora" required class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" value="09:00">
             </div>
             <div class="col-md-3">
               <label class="form-label text-muted small">Tipo</label>
-              <select name="post_type" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
+              <select name="post_type" id="pm-type" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
                 <option value="STORY">Story</option>
                 <option value="REELS">Reels</option>
                 <option value="FEED">Feed</option>
@@ -119,10 +128,10 @@
 
             <div class="col-12">
               <label class="form-label text-muted small">Dias da semana</label>
-              <div class="d-flex flex-wrap gap-2">
+              <div class="d-flex flex-wrap gap-2" id="pm-weekdays">
                 {% for dia in dias %}
                 <label class="btn btn-sm btn-outline-secondary" style="cursor:pointer;">
-                  <input type="checkbox" name="weekdays" value="{{ dia.0 }}" class="d-none" onchange="this.closest('label').classList.toggle('btn-primary', this.checked); this.closest('label').classList.toggle('btn-outline-secondary', !this.checked);">
+                  <input type="checkbox" name="weekdays" value="{{ dia.0 }}" class="d-none pm-weekday">
                   {{ dia.1 }}
                 </label>
                 {% endfor %}
@@ -134,7 +143,7 @@
               <div class="border border-subtle rounded p-2" style="max-height:140px; overflow-y:auto; background:var(--bg-input);">
                 {% for acc in accounts %}
                 <label class="d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
-                  <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input">
+                  <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input pm-account">
                   <span class="text-white small">@{{ acc.ig_username }}</span>
                   {% if acc.status != 'active' %}<span class="text-warning ms-auto" style="font-size:.6rem;">{{ acc.get_status_display }}</span>{% endif %}
                 </label>
@@ -146,33 +155,34 @@
 
             <div class="col-12">
               <label class="form-label text-muted small"><i class="bi bi-image me-1"></i>Mídia (foto/vídeo)</label>
-              <input type="file" name="media" required accept="image/*,video/*" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);">
+              <input type="file" name="media" id="pm-media" accept="image/*,video/*" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);">
+              <small class="text-muted" id="pm-media-note"></small>
             </div>
 
             <div class="col-12">
               <label class="form-label text-muted small">Legenda <span class="text-muted">(spintax {a|b} varia por conta)</span></label>
-              <textarea name="caption" rows="2" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="Escreva a legenda…"></textarea>
+              <textarea name="caption" id="pm-caption" rows="2" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="Escreva a legenda…"></textarea>
             </div>
 
             <div class="col-md-6 story-only">
               <label class="form-label text-muted small"><i class="bi bi-link-45deg"></i> Link do Story <span class="text-muted">(opcional)</span></label>
-              <input type="url" name="story_link" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="https://…">
+              <input type="url" name="story_link" id="pm-link" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" placeholder="https://…">
             </div>
             <div class="col-md-3 story-only">
               <label class="form-label text-muted small">Texto do botão</label>
-              <input type="text" name="story_link_label" maxlength="40" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" value="CLIQUE AQUI">
+              <input type="text" name="story_link_label" id="pm-label" maxlength="40" class="form-control form-control-sm text-white border-subtle" style="background:var(--bg-input);" value="CLIQUE AQUI">
             </div>
             <div class="col-md-3">
               <label class="form-label text-muted small">Espaço entre contas</label>
               <div class="input-group input-group-sm">
-                <input type="number" name="espacamento_min" min="1" value="20" class="form-control text-white border-subtle" style="background:var(--bg-input);">
+                <input type="number" name="espacamento_min" id="pm-espac" min="1" value="20" class="form-control text-white border-subtle" style="background:var(--bg-input);">
                 <span class="input-group-text">min</span>
               </div>
             </div>
 
             <div class="col-12">
               <label class="form-label text-muted small">Limpeza do vídeo</label>
-              <select name="clean_mode" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
+              <select name="clean_mode" id="pm-clean" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
                 <option value="light" selected>Leve (rápido, hash diferente por conta)</option>
                 <option value="ultra">Ultra (recodifica — evita correlação, mais lento)</option>
                 <option value="none">Sem limpeza</option>
@@ -181,9 +191,12 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Criar plano</button>
+        <div class="modal-footer border-0 justify-content-between">
+          <span class="text-muted small" id="pm-preview">—</span>
+          <div>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="pm-submit"><i class="bi bi-check2-circle me-1"></i>Criar plano</button>
+          </div>
         </div>
       </form>
     </div>
@@ -209,15 +222,80 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         calendar.render();
     }
-    // Mostra/esconde os campos de link conforme o tipo escolhido.
-    var tipo = document.querySelector('#novoPlanoModal select[name="post_type"]');
-    function aplicarTipo() {
-        var story = tipo && tipo.value === 'STORY';
-        document.querySelectorAll('#novoPlanoModal .story-only').forEach(function (e) {
-            e.style.display = story ? '' : 'none';
-        });
+
+    var form = document.getElementById('pm-form');
+    if (!form) return;
+    var byId = function (i) { return document.getElementById(i); };
+    var tipo = byId('pm-type');
+
+    function marcarDia(box) {
+        var lbl = box.closest('label');
+        lbl.classList.toggle('btn-primary', box.checked);
+        lbl.classList.toggle('btn-outline-secondary', !box.checked);
     }
-    if (tipo) { tipo.addEventListener('change', aplicarTipo); aplicarTipo(); }
+    function aplicarTipo() {
+        var story = tipo.value === 'STORY';
+        form.querySelectorAll('.story-only').forEach(function (e) { e.style.display = story ? '' : 'none'; });
+    }
+    function preview() {
+        var nd = form.querySelectorAll('.pm-weekday:checked').length;
+        var nc = form.querySelectorAll('.pm-account:checked').length;
+        var t = nd * nc;
+        byId('pm-preview').textContent = t ? ('≈ ' + t + ' posts/semana (' + nc + ' contas × ' + nd + ' dias)') : 'Escolha contas e dias';
+    }
+    tipo.addEventListener('change', aplicarTipo);
+    form.addEventListener('change', function (e) {
+        if (e.target.classList.contains('pm-weekday')) marcarDia(e.target);
+        preview();
+    });
+
+    // Abrir em modo CRIAR (limpa tudo).
+    function modoCriar() {
+        form.action = form.dataset.createUrl;
+        byId('pm-title').innerHTML = '<i class="bi bi-calendar-plus text-purple me-2"></i>Novo plano recorrente';
+        byId('pm-submit').innerHTML = '<i class="bi bi-check2-circle me-1"></i>Criar plano';
+        byId('pm-agenda-id').value = '';
+        byId('pm-name').value = ''; byId('pm-hora').value = '09:00'; tipo.value = 'STORY';
+        byId('pm-caption').value = ''; byId('pm-link').value = ''; byId('pm-label').value = 'CLIQUE AQUI';
+        byId('pm-espac').value = '20'; byId('pm-clean').value = 'light';
+        byId('pm-media').required = true; byId('pm-media-note').textContent = '';
+        form.querySelectorAll('.pm-weekday').forEach(function (b) { b.checked = false; marcarDia(b); });
+        form.querySelectorAll('.pm-account').forEach(function (b) { b.checked = false; });
+        aplicarTipo(); preview();
+    }
+    document.querySelectorAll('[data-bs-target="#novoPlanoModal"]').forEach(function (btn) {
+        btn.addEventListener('click', modoCriar);
+    });
+
+    // Abrir em modo EDITAR (preenche do plano clicado).
+    document.querySelectorAll('.edit-plano').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var d = link.dataset;
+            form.action = form.dataset.editUrl;
+            byId('pm-title').innerHTML = '<i class="bi bi-pencil text-purple me-2"></i>Editar plano';
+            byId('pm-submit').innerHTML = '<i class="bi bi-check2-circle me-1"></i>Salvar alterações';
+            byId('pm-agenda-id').value = d.id;
+            byId('pm-name').value = d.name || '';
+            byId('pm-hora').value = d.hora || '09:00';
+            tipo.value = d.type || 'STORY';
+            byId('pm-caption').value = d.caption || '';
+            byId('pm-link').value = d.link || '';
+            byId('pm-label').value = d.label || 'CLIQUE AQUI';
+            byId('pm-espac').value = d.espac || '20';
+            byId('pm-clean').value = d.clean || 'light';
+            byId('pm-media').required = false;
+            byId('pm-media-note').textContent = 'Deixe vazio para manter a mídia atual.';
+            var dias = (d.weekdays || '').split(',');
+            form.querySelectorAll('.pm-weekday').forEach(function (b) { b.checked = dias.indexOf(b.value) !== -1; marcarDia(b); });
+            var contas = (d.accounts || '').split(',');
+            form.querySelectorAll('.pm-account').forEach(function (b) { b.checked = contas.indexOf(b.value) !== -1; });
+            aplicarTipo(); preview();
+            new bootstrap.Modal(document.getElementById('novoPlanoModal')).show();
+        });
+    });
+
+    aplicarTipo(); preview();
 });
 </script>
 {% endblock %}

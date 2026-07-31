@@ -20,6 +20,7 @@ urlpatterns = [
     path('stories/', views.stories, name='stories'),
     path('schedule/', views.schedule, name='schedule'),
     path('agenda/criar/', views.criar_agenda, name='criar_agenda'),
+    path('agenda/editar/', views.editar_agenda, name='editar_agenda'),
     path('agenda/<int:agenda_id>/toggle/', views.toggle_agenda, name='toggle_agenda'),
     path('agenda/<int:agenda_id>/excluir/', views.excluir_agenda, name='excluir_agenda'),
     path('api/events/', views.api_events, name='api_events'),

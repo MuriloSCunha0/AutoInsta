@@ -224,3 +224,12 @@ class AgendaSemanal(models.Model):
     def dias_label(self):
         mapa = dict(self.DIAS)
         return ', '.join(mapa[d] for d in self.weekdays_list) or '—'
+
+    @property
+    def posts_por_semana(self):
+        """Prévia: quantos posts o plano gera por semana (contas × dias)."""
+        return self.accounts.count() * max(0, len(self.weekdays_list))
+
+    @property
+    def account_ids_csv(self):
+        return ','.join(str(i) for i in self.accounts.values_list('id', flat=True))

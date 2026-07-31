@@ -772,6 +772,44 @@ def excluir_agenda(request, agenda_id):
     messages.success(request, 'Plano recorrente removido.')
     return redirect('publisher:schedule')
 
+
+@login_required
+@require_POST
+def editar_agenda(request):
+    """Edita um plano recorrente. A mídia é opcional (vazio = mantém a atual)."""
+    from .models import AgendaSemanal
+    from apps.core_utils import nome_seguro
+
+    ag = get_object_or_404(AgendaSemanal, id=request.POST.get('agenda_id'), owner=request.user)
+    accounts_ids = request.POST.getlist('accounts')
+    weekdays = [d for d in request.POST.getlist('weekdays') if d in '0123456']
+    hora = (request.POST.get('hora') or '').strip()
+    if not (accounts_ids and weekdays and hora):
+        messages.error(request, 'Escolha ao menos 1 conta, 1 dia e o horário.')
+        return redirect('publisher:schedule')
+
+    ag.name = (request.POST.get('name') or '').strip()[:80]
+    ag.weekdays = ','.join(weekdays)
+    ag.hora = hora
+    ag.post_type = request.POST.get('post_type') or 'STORY'
+    ag.caption = (request.POST.get('caption') or '').strip()
+    ag.share_to_feed = request.POST.get('grade', 'grade') == 'grade'
+    ag.clean_mode = request.POST.get('clean_mode') or 'light'
+    ag.story_link = (request.POST.get('story_link') or '').strip()
+    ag.story_link_label = (request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40]
+    try:
+        ag.espacamento_min = max(1, int(request.POST.get('espacamento_min') or 20))
+    except ValueError:
+        pass
+    media = request.FILES.get('media')
+    if media:
+        media.name = nome_seguro(media.name)
+        ag.video_file = media
+    ag.save()
+    ag.accounts.set(InstagramAccount.objects.filter(id__in=accounts_ids, owner=request.user))
+    messages.success(request, 'Plano atualizado.')
+    return redirect('publisher:schedule')
+
 @login_required
 def api_events(request):
     start = request.GET.get('start')
