@@ -90,10 +90,19 @@ Reutilizável: incluído no Composer e na aba Stories.
 </div>
 
 <style>
-.story-editor-grid { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: start; }
+/* container-type: o editor se adapta à LARGURA DELE, não da tela — então
+   empilha na coluna estreita do Composer e fica lado-a-lado na aba Stories. */
+.story-editor { container-type: inline-size; }
+.story-editor-grid { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; align-items: start; }
+/* Container estreito (Composer): empilha, preview centralizado em cima. */
+@container (max-width: 400px) {
+    .story-editor-grid { grid-template-columns: 1fr; }
+    .story-frame { margin-inline: auto; }
+}
+/* Fallback p/ navegadores sem container queries: empilha em tela estreita. */
 @media (max-width: 520px) { .story-editor-grid { grid-template-columns: 1fr; } }
 .story-frame {
-    position: relative; width: 190px; aspect-ratio: 9/16; border-radius: 14px; overflow: hidden;
+    position: relative; width: 170px; aspect-ratio: 9/16; border-radius: 14px; overflow: hidden;
     background: #05070f center/cover no-repeat; border: 1px solid var(--border-subtle);
     user-select: none; touch-action: none;
 }
