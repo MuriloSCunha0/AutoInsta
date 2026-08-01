@@ -106,10 +106,16 @@
                             </div>
                         </div>
                         <div class="small text-muted">
-                            <div>App ID: <code class="text-white">{{ app.meta_app_id|default:"—" }}</code></div>
+                            <div>App ID (Facebook): <code class="text-white">{{ app.meta_app_id|default:"—" }}</code></div>
                             <div>Instagram App ID: <code class="text-white">{{ app.instagram_app_id|default:"—" }}</code></div>
-                            {% if not app.is_complete %}
-                            <div class="text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Falta um par completo. Para <strong>OAuth</strong>, preencha <strong>Instagram App ID + Secret</strong>.</div>
+                            <div>Instagram App Secret:
+                                {% if app.instagram_app_secret_enc %}<span class="text-success">configurado ✓</span>
+                                {% else %}<span class="text-warning">não configurado</span>{% endif %}
+                            </div>
+                            {% if app.is_complete %}
+                            <div class="text-success mt-1"><i class="bi bi-check-circle"></i> Pronto para OAuth.</div>
+                            {% else %}
+                            <div class="text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Para <strong>OAuth</strong>, preencha <strong>Instagram App ID + Secret</strong>.</div>
                             {% endif %}
                         </div>
 
