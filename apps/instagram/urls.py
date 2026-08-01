@@ -25,6 +25,10 @@ urlpatterns = [
     path('meta/sync-all/', views.sync_all_meta, name='sync_all_meta'),
     path('oauth/url/', views.oauth_url, name='oauth_url'),
     path('oauth/callback/', views.oauth_callback, name='oauth_callback'),
+    # Campos EXIGIDOS pela Meta em "Configurações do login da empresa" (sem eles
+    # o Salvar fica travado): desautorização + exclusão de dados.
+    path('deauthorize/', views.meta_deauthorize, name='meta_deauthorize'),
+    path('data-deletion/', views.meta_data_deletion, name='meta_data_deletion'),
     path('connect-extension/', views.connect_extension, name='connect_extension'),
     path('extension-token/regenerate/', views.regenerate_extension_token, name='regenerate_token'),
     path('status/<int:account_id>/', views.account_status_partial, name='status'),

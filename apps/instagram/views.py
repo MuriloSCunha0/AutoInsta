@@ -1082,6 +1082,34 @@ def oauth_callback(request):
     return redirect('instagram:list')
 
 
+@csrf_exempt
+def meta_deauthorize(request):
+    """URL de retorno de desautorização (Business login settings da Meta).
+    A Meta chama aqui quando o usuário remove o app. É um dos campos EXIGIDOS
+    pra salvar as configurações de login — sem ele o botão Salvar fica travado.
+    Confirmamos 200 (a Meta aceita resposta livre aqui)."""
+    return HttpResponse('ok')
+
+
+@csrf_exempt
+def meta_data_deletion(request):
+    """URL de solicitação de exclusão de dados (Business login settings da Meta).
+    Também EXIGIDA pra salvar. No POST, a Meta espera um JSON com {url,
+    confirmation_code}; no GET (quando o usuário abre o link de status), mostra
+    uma confirmação simples."""
+    from django.conf import settings as _s
+    site = (getattr(_s, 'SITE_URL', '') or 'https://sandraoflow.com').rstrip('/')
+    if request.method == 'GET':
+        return HttpResponse('Solicitação de exclusão de dados recebida. '
+                            'Os dados desta conta serão removidos.')
+    import time
+    code = 'del%d' % int(time.time())
+    return JsonResponse({
+        'url': f'{site}/instagram/data-deletion/?code={code}',
+        'confirmation_code': code,
+    })
+
+
 @login_required
 def profile(request):
     account = InstagramAccount.objects.filter(owner=request.user).first()
