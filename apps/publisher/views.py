@@ -10,8 +10,35 @@ from .models import ScheduledPost, PostLoop, PostQueue
 from .forms import ScheduledPostForm
 from apps.instagram.models import InstagramAccount
 from apps.library.models import MediaAsset, CaptionSet, Audio
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+
+
+@csrf_exempt
+@require_POST
+def internal_upload_media(request):
+    """Recebe do BRAÇO um arquivo de mídia PROCESSADO e o grava no MEDIA_ROOT do
+    painel, para a Graph API baixá-lo pela URL pública (a Meta baixa a mídia por
+    URL). Server-to-server: sem login, protegido por token compartilhado
+    (MEDIA_UPLOAD_TOKEN). Aceita SÓ dentro de 'processed/' (anti path traversal)."""
+    import os
+    from django.conf import settings
+    tok_cfg = getattr(settings, 'MEDIA_UPLOAD_TOKEN', '') or ''
+    if not tok_cfg or request.headers.get('X-Upload-Token', '') != tok_cfg:
+        return HttpResponseForbidden('token invalido')
+    relname = (request.POST.get('relname') or '').strip().replace('\\', '/').lstrip('/')
+    arquivo = request.FILES.get('file')
+    if not relname or not arquivo:
+        return JsonResponse({'ok': False, 'error': 'faltou relname/file'}, status=400)
+    if not relname.startswith('processed/') or '..' in relname:
+        return HttpResponseForbidden('relname nao permitido')
+    dest = os.path.join(settings.MEDIA_ROOT, relname.replace('/', os.sep))
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    with open(dest, 'wb') as out:
+        for chunk in arquivo.chunks():
+            out.write(chunk)
+    return JsonResponse({'ok': True, 'relname': relname})
 
 @login_required
 def queue_list(request):

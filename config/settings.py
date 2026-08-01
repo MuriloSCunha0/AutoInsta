@@ -171,6 +171,15 @@ WHITENOISE_USE_FINDERS = True
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Envio de mídia processada BRAÇO -> PAINEL. O braço limpa/gera o vídeo no disco
+# DELE; a Graph API (oficial) precisa baixar a mídia por URL pública do painel.
+# Sem isso, contas SÓ-Graph falham com 404 em toda mídia processada.
+#  - PAINEL_MEDIA_UPLOAD_URL: no braço, aponta para o endpoint do painel; vazio
+#    no painel/máquina única (o arquivo já está onde o Caddy serve → no-op).
+#  - MEDIA_UPLOAD_TOKEN: segredo compartilhado (MESMO nas duas máquinas).
+PAINEL_MEDIA_UPLOAD_URL = env("PAINEL_MEDIA_UPLOAD_URL", default="")
+MEDIA_UPLOAD_TOKEN = env("MEDIA_UPLOAD_TOKEN", default="")
+
 # =============================================================================
 # Modelo de Usuário Customizado
 # =============================================================================

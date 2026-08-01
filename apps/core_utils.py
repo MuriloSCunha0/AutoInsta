@@ -136,6 +136,34 @@ def garantir_midia_local(fieldfile):
     return tmp, True
 
 
+def enviar_midia_para_painel(local_path, relname):
+    """Envia um arquivo de mídia PROCESSADO (limpo/gerado no braço) para o PAINEL,
+    para a Graph API (oficial) baixá-lo pela URL pública — a Meta baixa a mídia
+    por URL, e o arquivo processado só existe no disco do braço.
+
+    No painel / máquina única (sem PAINEL_MEDIA_UPLOAD_URL) é no-op: o arquivo já
+    está onde o Caddy serve. Retorna True se enviou, False se não havia destino.
+    Levanta em falha de rede/servidor para o chamador decidir (revezar/erro).
+    """
+    from django.conf import settings
+    url = (getattr(settings, 'PAINEL_MEDIA_UPLOAD_URL', '') or '').strip()
+    if not url:
+        return False  # máquina única/painel: nada a enviar
+    import requests
+    token = getattr(settings, 'MEDIA_UPLOAD_TOKEN', '') or ''
+    with open(local_path, 'rb') as fh:
+        r = requests.post(
+            url,
+            data={'relname': relname},
+            files={'file': fh},
+            headers={'X-Upload-Token': token},
+            timeout=180,
+        )
+    r.raise_for_status()
+    logger.info('enviar_midia_para_painel: %s -> painel OK', relname)
+    return True
+
+
 class MidiaStorage(FileSystemStorage):
     """Storage padrão do projeto: nenhum arquivo entra com nome problemático.
 

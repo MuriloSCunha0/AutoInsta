@@ -382,6 +382,13 @@ def publish_reel(post_id):
             from django.conf import settings as _s
             # SITE_URL precisa ser pública: a Meta baixa a mídia dessa URL.
             site_url = getattr(_s, 'SITE_URL', 'http://localhost:8000').rstrip('/')
+            # Mídia processada (limpeza/story text) só existe no disco do braço.
+            # Antes de a Meta tentar baixá-la pela URL do painel, enviamos o
+            # arquivo pra lá — senão contas SÓ-Graph pegam 404. No painel/máquina
+            # única é no-op. Original (reels/…) já está no painel: não reenvia.
+            if publish_relname.startswith('processed/'):
+                from apps.core_utils import enviar_midia_para_painel
+                enviar_midia_para_painel(publish_path, publish_relname)
             from apps.core_utils import url_midia
             media_url = url_midia(site_url, dj_settings.MEDIA_URL, publish_relname)
             cover_url = f"{site_url}{post.thumbnail.url}" if post.thumbnail else None

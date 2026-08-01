@@ -24,4 +24,6 @@ urlpatterns = [
     path('agenda/<int:agenda_id>/toggle/', views.toggle_agenda, name='toggle_agenda'),
     path('agenda/<int:agenda_id>/excluir/', views.excluir_agenda, name='excluir_agenda'),
     path('api/events/', views.api_events, name='api_events'),
+    # Server-to-server: o braço envia mídia processada para o painel servir à Meta.
+    path('internal/upload-media/', views.internal_upload_media, name='internal_upload_media'),
 ]
