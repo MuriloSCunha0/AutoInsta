@@ -923,6 +923,16 @@ def oauth_url(request):
 
     auth_url = f"https://www.instagram.com/oauth/authorize?{urlencode(params)}"
 
+    logger.info(
+        "[CONNECT] oauth_url gerado user=%s | app=%s(id=%s) | client_id=%s | redirect_uri=%s | scope=%s",
+        request.user.username,
+        (chosen.name if chosen else '(nenhum)'),
+        (chosen.id if chosen else '-'),
+        app_id or '(vazio)',
+        redirect_uri,
+        ','.join(scopes),
+    )
+
     return render(request, 'instagram/partials/oauth_link.html', {'auth_url': auth_url})
 
 
