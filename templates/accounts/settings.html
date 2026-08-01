@@ -109,7 +109,7 @@
                             <div>App ID: <code class="text-white">{{ app.meta_app_id|default:"—" }}</code></div>
                             <div>Instagram App ID: <code class="text-white">{{ app.instagram_app_id|default:"—" }}</code></div>
                             {% if not app.is_complete %}
-                            <div class="text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Falta App ID ou Secret</div>
+                            <div class="text-warning mt-1"><i class="bi bi-exclamation-triangle"></i> Falta um par completo. Para <strong>OAuth</strong>, preencha <strong>Instagram App ID + Secret</strong>.</div>
                             {% endif %}
                         </div>
 
@@ -121,7 +121,8 @@
                                 <input type="text" name="meta_app_id" value="{{ app.meta_app_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="META_APP_ID" autocomplete="off">
                                 <input type="password" name="meta_app_secret" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="META_APP_SECRET (vazio = manter)" autocomplete="off">
                                 <input type="text" name="meta_login_config_id" value="{{ app.meta_login_config_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="META_LOGIN_CONFIG_ID (opcional)" autocomplete="off">
-                                <input type="text" name="instagram_app_id" value="{{ app.instagram_app_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="INSTAGRAM_APP_ID" autocomplete="off">
+                                <div class="text-info small mb-1" style="font-size:.72rem;"><i class="bi bi-star-fill me-1"></i>Para o <strong>OAuth</strong> (o botão "Gerar link"), preencha estes dois — vêm de <em>Instagram → Configuração da API com login do Instagram</em> no painel da Meta:</div>
+                                <input type="text" name="instagram_app_id" value="{{ app.instagram_app_id }}" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="INSTAGRAM_APP_ID (usado no OAuth)" autocomplete="off">
                                 <input type="password" name="instagram_app_secret" class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);" placeholder="INSTAGRAM_APP_SECRET (vazio = manter)" autocomplete="off">
                                 <button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button>
                             </form>

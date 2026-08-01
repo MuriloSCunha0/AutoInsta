@@ -149,8 +149,23 @@ class MetaApp(models.Model):
 
     @property
     def is_complete(self):
-        """Tem o mínimo para o fluxo OAuth (App ID + Secret)."""
-        return bool((self.meta_app_id or '').strip()) and bool(self.meta_app_secret_enc)
+        """Tem o mínimo para conectar: o par do INSTAGRAM (fluxo OAuth via
+        Instagram Login) OU o par do Meta/Facebook (legado). Basta um dos dois."""
+        tem_ig = bool((self.instagram_app_id or '').strip()) and bool(self.instagram_app_secret_enc)
+        tem_meta = bool((self.meta_app_id or '').strip()) and bool(self.meta_app_secret_enc)
+        return tem_ig or tem_meta
+
+    def oauth_credentials(self):
+        """(client_id, client_secret) para o fluxo OAuth do Instagram
+        (instagram.com/oauth/authorize + graph.instagram.com). Esse fluxo EXIGE
+        o Instagram App ID/secret — usar o App ID do Facebook aqui dá o erro
+        "Invalid platform app". Cai para o par Meta só por retrocompatibilidade
+        (apps antigos que colocaram o Instagram App ID no campo meta)."""
+        ig_id = (self.instagram_app_id or '').strip()
+        ig_secret = self.get_instagram_secret()
+        if ig_id and ig_secret:
+            return ig_id, ig_secret
+        return (self.meta_app_id or '').strip(), self.get_meta_secret()
 
     def activate(self):
         """Torna este o app ativo (desativa os outros do mesmo dono)."""

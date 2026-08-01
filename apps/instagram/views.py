@@ -873,7 +873,9 @@ def _meta_credentials(user, app=None):
         # Cinto de segurança: um app só serve ao seu dono.
         if app.owner_id != user.id:
             return '', ''
-        return (app.meta_app_id or '').strip(), app.get_meta_secret()
+        # Fluxo OAuth do Instagram exige o Instagram App ID/secret (não o do
+        # Facebook) — senão dá "Invalid platform app".
+        return app.oauth_credentials()
 
     legacy_id = (getattr(user, 'meta_app_id', '') or '').strip()
     if legacy_id:
