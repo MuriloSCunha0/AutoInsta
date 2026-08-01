@@ -1047,6 +1047,8 @@ def oauth_callback(request):
         )
 
         account.set_meta_token(access_token)
+        # Guarda a validade (long-lived ~60 dias) para o beat renovar antes de vencer.
+        account.set_meta_token_expiry(ll_data.get('expires_in'))
         # Vincula a conta ao app pelo qual ela foi REALMENTE conectada — é o
         # app que assinou o state e trocou o código pelo token.
         account.meta_app = _resolver_app(request.user, chosen_app)

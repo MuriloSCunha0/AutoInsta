@@ -250,6 +250,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.notifications.tasks.resumo_diario",
         "schedule": crontab(hour=22, minute=0),
     },
+    # Renovação automática do token da API oficial (long-lived ~60 dias): 1x/dia
+    # renova quem está perto de vencer. É HTTP por token → fila leve (painel).
+    "refresh-meta-tokens": {
+        "task": "apps.instagram.tasks.refresh_meta_tokens",
+        "schedule": crontab(hour=5, minute=30),
+    },
 }
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos
 CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutos

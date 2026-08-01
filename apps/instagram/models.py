@@ -120,6 +120,10 @@ class InstagramAccount(models.Model):
     # status=session_expired quando a conta NÃO tem token (não há outra via).
     sessao_expirada = models.BooleanField(default=False)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
+    # Quando o long-lived token da API oficial vence (~60 dias). O beat renova
+    # ANTES disso (refresh_access_token) — token vencido é a causa do acúmulo de
+    # contas só-token em "erro". Null = validade desconhecida (legado/colado).
+    meta_token_expira_em = models.DateTimeField(null=True, blank=True)
     device_settings = models.JSONField(null=True, blank=True)
     challenge_type = models.CharField(max_length=50, blank=True)
     last_login_at = models.DateTimeField(null=True, blank=True)
@@ -162,6 +166,18 @@ class InstagramAccount(models.Model):
         self.meta_access_token = (
             _get_fernet().encrypt(raw_token.encode()).decode() if raw_token else ''
         )
+
+    def set_meta_token_expiry(self, expires_in):
+        """Grava quando o long-lived token vence, a partir do `expires_in` (seg)
+        que a Meta devolve na troca/renovação. Ignora valor inválido."""
+        from django.utils import timezone
+        from datetime import timedelta
+        try:
+            secs = int(expires_in)
+        except (TypeError, ValueError):
+            return
+        if secs > 0:
+            self.meta_token_expira_em = timezone.now() + timedelta(seconds=secs)
 
     def get_meta_token(self):
         """Token Meta em texto puro. Tolera tokens legados salvos sem criptografia."""

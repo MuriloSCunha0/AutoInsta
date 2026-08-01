@@ -422,3 +422,62 @@ def keepalive_account(account_id):
     except Exception as e:
         # Erro transitório (rate limit/rede) — NÃO marca expirada.
         logger.info("[KEEPALIVE] @%s check transitório: %s", acc.ig_username, str(e)[:100])
+
+
+# =============================================================================
+# Renovação automática do token da API oficial (Instagram long-lived, ~60 dias)
+# =============================================================================
+@shared_task
+def refresh_meta_tokens():
+    """Beat: renova os long-lived tokens da API oficial ANTES de vencerem. O IG
+    permite dar refresh num token VÁLIDO com >24h de idade e devolve outro de 60
+    dias (graph.instagram.com/refresh_access_token, grant_type=ig_refresh_token).
+    Sem isso, o token vence sozinho e a conta cai — é a causa do acúmulo de
+    contas só-token em 'erro'. Só toca em quem está perto de vencer (ou validade
+    desconhecida/legado). É HTTP puro por token: roda na fila leve (painel)."""
+    import requests
+    from django.utils import timezone
+    from datetime import timedelta
+
+    limite = timezone.now() + timedelta(days=15)
+    qs = InstagramAccount.objects.exclude(meta_access_token='')
+    n_ok = n_fail = n_skip = 0
+    for acc in qs:
+        # Renova só quando está a <=15 dias de vencer (ou validade desconhecida).
+        if acc.meta_token_expira_em and acc.meta_token_expira_em > limite:
+            n_skip += 1
+            continue
+        token = acc.get_meta_token()
+        if not token:
+            continue
+        try:
+            r = requests.get(
+                'https://graph.instagram.com/refresh_access_token',
+                params={'grant_type': 'ig_refresh_token', 'access_token': token},
+                timeout=15,
+            )
+            d = r.json()
+            novo = d.get('access_token')
+            if r.status_code == 200 and novo:
+                acc.set_meta_token(novo)
+                acc.set_meta_token_expiry(d.get('expires_in'))
+                campos = ['meta_access_token', 'meta_token_expira_em']
+                # Token renovado: se a conta havia caído SÓ por token, reativa.
+                if acc.status == 'error' and not acc.sessao_expirada:
+                    acc.status = 'active'
+                    acc.last_error = ''
+                    acc.rate_limited_until = None
+                    campos += ['status', 'last_error', 'rate_limited_until']
+                acc.save(update_fields=campos)
+                n_ok += 1
+                logger.info("[TOKEN] @%s renovado (vence %s)", acc.ig_username, acc.meta_token_expira_em)
+            else:
+                # Token não é long-lived-IG, já venceu, ou tipo incompatível:
+                # não dá pra renovar sozinho — o dono precisa reconectar (OAuth).
+                n_fail += 1
+                logger.info("[TOKEN] refresh nao aplicavel @%s: %s", acc.ig_username, str(d)[:150])
+        except Exception as e:
+            n_fail += 1
+            logger.info("[TOKEN] refresh erro @%s: %s", acc.ig_username, str(e)[:120])
+
+    return f"tokens renovados={n_ok} falhas={n_fail} no_prazo={n_skip}"
