@@ -613,6 +613,9 @@ def update_token(request, account_id):
             account.status = 'active'
             account.last_error = ''
             account.rate_limited_until = None
+            # Validade do token colado é desconhecida → zera (some o aviso de
+            # "vencido/vence em breve") e o beat de renovação reassume a partir dele.
+            account.meta_token_expira_em = None
             if data.get('username'):
                 account.ig_username = data['username']
             if not account.ig_user_id and str(data.get('id', '')).isdigit():

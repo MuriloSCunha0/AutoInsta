@@ -72,6 +72,11 @@
                     {% elif account.sessao_expirada %}
                     <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill" style="font-size:.6rem;" title="Story-link indisponível até recolar o sessionid"><i class="bi bi-shield-exclamation me-1"></i>Sessão caída</span>
                     {% endif %}
+                    {% if account.token_vencido %}
+                    <span class="badge bg-danger bg-opacity-25 text-danger rounded-pill" style="font-size:.6rem;" title="O token da API oficial venceu — atualize o token abaixo"><i class="bi bi-clock-history me-1"></i>Token vencido</span>
+                    {% elif account.token_expira_em_breve %}
+                    <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill" style="font-size:.6rem;" title="O token vence em breve — renove para não cair">Token vence {{ account.meta_token_expira_em|timeuntil }}</span>
+                    {% endif %}
                 </div>
             </div>
 
@@ -210,6 +215,30 @@
                                class="form-control form-control-sm text-white border-subtle"
                                style="background:var(--bg-input);" placeholder="Cole o sessionid">
                         <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-shield-check"></i> Ativar</button>
+                    </div>
+                </form>
+            </div>
+        </details>
+        {% endif %}
+
+        {# Token da API oficial vencido/vencendo: deixa colar um token novo sem
+           esperar cair. (Auto-renovação cobre os renováveis; este é o plano B.) #}
+        {% if account.token_vencido or account.token_expira_em_breve %}
+        <details class="mb-3" {% if account.token_vencido %}open{% endif %} style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px;">
+            <summary class="small fw-semibold {% if account.token_vencido %}text-danger{% else %}text-warning{% endif %}" style="cursor:pointer;">
+                <i class="bi bi-arrow-repeat me-1"></i>
+                {% if account.token_vencido %}Token vencido — atualizar{% else %}Token vence {{ account.meta_token_expira_em|timeuntil }} — atualizar{% endif %}
+            </summary>
+            <div class="mt-2">
+                <div class="text-muted small mb-2" style="line-height:1.6">Cole um <strong>token novo</strong> (gerado no painel da Meta) pra renovar a publicação oficial. Se a conta tiver sessão, o story-link continua funcionando.</div>
+                <form hx-post="{% url 'instagram:update_token' account.id %}"
+                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="meta_access_token" required autocomplete="off"
+                               class="form-control form-control-sm text-white border-subtle"
+                               style="background:var(--bg-input);" placeholder="Cole o token novo">
+                        <button type="submit" class="btn btn-sm btn-warning"><i class="bi bi-arrow-repeat"></i> Atualizar</button>
                     </div>
                 </form>
             </div>

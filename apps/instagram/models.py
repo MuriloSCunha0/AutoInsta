@@ -195,6 +195,23 @@ class InstagramAccount(models.Model):
         return self.status == 'active'
 
     @property
+    def token_vencido(self):
+        """Token da API oficial já venceu (precisa colar um novo / reconectar)."""
+        from django.utils import timezone
+        return bool(self.meta_access_token and self.meta_token_expira_em
+                    and self.meta_token_expira_em <= timezone.now())
+
+    @property
+    def token_expira_em_breve(self):
+        """Token vence nos próximos 10 dias — avisar para renovar a tempo."""
+        from django.utils import timezone
+        from datetime import timedelta
+        if not (self.meta_access_token and self.meta_token_expira_em):
+            return False
+        agora = timezone.now()
+        return agora < self.meta_token_expira_em <= agora + timedelta(days=10)
+
+    @property
     def em_cooldown(self):
         """Conta em espera por rate limit da Meta neste momento."""
         from django.utils import timezone

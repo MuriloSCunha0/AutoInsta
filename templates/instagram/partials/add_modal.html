@@ -179,9 +179,21 @@
                           hx-swap="afterbegin">
                         {% csrf_token %}
                         <div class="modal-body pt-0">
-                            <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-3" style="line-height:1.6">
-                                Já tem o token na mão? Gere em <strong class="text-info">Instagram → Gerar tokens de acesso</strong> (ou no Graph API Explorer) e cole abaixo — a conta entra <strong>sem abrir login</strong>. (Pra deixar redondo, prefira a aba <strong>OAuth</strong>.)
+                            <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-2" style="line-height:1.6">
+                                <i class="bi bi-check-circle me-1"></i> <strong>Sem verificação nem testador.</strong> Cola o token gerado no painel da Meta e a conta entra publicando feed/reels/story pela API oficial. É o caminho que já funcionava — e combina com sessionid (híbrido).
                             </div>
+
+                            <details open class="mb-3" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px;">
+                                <summary class="text-info small" style="cursor:pointer;"><i class="bi bi-question-circle me-1"></i> Como gerar o token (passo a passo)</summary>
+                                <div class="text-muted small mt-2" style="line-height:1.7">
+                                    <ol class="ps-3 mb-2">
+                                        <li>Acesse <code class="text-info">developers.facebook.com</code> → seu app → <strong>Instagram → API setup with Instagram login</strong>.</li>
+                                        <li>Em <strong>“2. Gerar tokens de acesso”</strong>, adicione a conta (aba <strong>Funções</strong>) e clique em <strong>Gerar token</strong>.</li>
+                                        <li>Copie o token gerado e <strong>cole abaixo</strong>.</li>
+                                    </ol>
+                                    <div class="text-purple"><i class="bi bi-link-45deg me-1"></i> <strong>Depois de conectar:</strong> no <strong>card da conta</strong>, clique em <strong>“Ativar story-link”</strong> e cole o <code class="text-info">sessionid</code> → a conta vira <strong>híbrida</strong> (story com link + aquecimento).</div>
+                                </div>
+                            </details>
 
                             <div class="mb-3">
                                 <label class="form-label text-muted"><i class="bi bi-meta me-1"></i> App Meta desta conta <span class="text-muted">(opcional)</span></label>

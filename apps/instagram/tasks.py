@@ -473,9 +473,26 @@ def refresh_meta_tokens():
                 logger.info("[TOKEN] @%s renovado (vence %s)", acc.ig_username, acc.meta_token_expira_em)
             else:
                 # Token não é long-lived-IG, já venceu, ou tipo incompatível:
-                # não dá pra renovar sozinho — o dono precisa reconectar (OAuth).
+                # não dá pra renovar sozinho — o dono precisa colar um novo/reconectar.
                 n_fail += 1
                 logger.info("[TOKEN] refresh nao aplicavel @%s: %s", acc.ig_username, str(d)[:150])
+                # Avisa o dono SÓ quando está vencido/vencendo (1x por dia por conta).
+                if acc.token_vencido or acc.token_expira_em_breve:
+                    try:
+                        from apps.notifications.alertas import alertar
+                        from django.utils import timezone as _tz
+                        venc = 'venceu' if acc.token_vencido else 'está vencendo'
+                        alertar(
+                            acc.owner, 'conta_caiu',
+                            'Token precisa ser renovado',
+                            f'@{acc.ig_username}: o token da API oficial {venc}. '
+                            'Cole um token novo no card da conta (botão "Atualizar token") '
+                            'ou reconecte por OAuth.',
+                            chave=f'token:{acc.id}:{_tz.now():%Y%m%d}',
+                            nivel='warning', account=acc,
+                        )
+                    except Exception:
+                        pass
         except Exception as e:
             n_fail += 1
             logger.info("[TOKEN] refresh erro @%s: %s", acc.ig_username, str(e)[:120])
