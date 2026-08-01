@@ -227,6 +227,9 @@ def _deve_revezar(msg):
         # a Graph API não consegue baixá-la, mas a engine sobe os bytes locais.
         # Falha LIMPA (nada foi publicado), então revezar não duplica.
         'não está acessível publicamente', 'a meta precisa baixá-la',
+        # ig_user_id inválido no Graph (o self-heal tenta corrigir antes; se
+        # ainda falhar, a engine/sessão publica). Nada foi publicado -> sem duplicar.
+        'does not exist', 'unsupported post request', 'cannot be loaded',
     )
     return any(g in m for g in gatilhos)
 

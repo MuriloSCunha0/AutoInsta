@@ -397,6 +397,33 @@ class InstagramEngine:
 
     IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
 
+    def _graph_user_id(self, token=None, force=False):
+        """ID da conta profissional que a API de publicação usa em /{id}/media —
+        é o campo `user_id` de /me (NÃO o `id` app-scoped, nem o user_id que a
+        troca de token devolve). Corrige e PERSISTE quando o salvo está errado
+        (foi o bug: id errado -> "Object ... does not exist"). Só vai à rede
+        quando não há id salvo ou quando force=True."""
+        if self.account.ig_user_id and not force:
+            return self.account.ig_user_id
+        import requests
+        token = token or self.account.get_meta_token()
+        if not token:
+            return self.account.ig_user_id
+        try:
+            r = requests.get('https://graph.instagram.com/v23.0/me',
+                             params={'fields': 'user_id', 'access_token': token}, timeout=15)
+            uid = r.json().get('user_id')
+        except Exception:
+            return self.account.ig_user_id
+        if uid and str(uid).isdigit():
+            self.account.ig_user_id = int(uid)
+            try:
+                self.account.save(update_fields=['ig_user_id'])
+            except Exception:
+                pass
+            return int(uid)
+        return self.account.ig_user_id
+
     def publish_meta_api(self, media_url, caption='', post_type='REELS',
                          cover_url=None, share_to_feed=True, is_image=False):
         """
@@ -417,11 +444,12 @@ class InstagramEngine:
         if not self.account.meta_access_token:
             raise ValueError("Conta não possui token Meta configurado.")
 
-        ig_user_id = self.account.ig_user_id
+        token = self.account.get_meta_token()
+        # Resolve o id certo se não houver nenhum salvo (busca em /me?fields=user_id).
+        ig_user_id = self.account.ig_user_id or self._graph_user_id(token)
         if not ig_user_id:
             raise ValueError("Conta sem ig_user_id. Sincronize a conta com a Meta.")
 
-        token = self.account.get_meta_token()
         base = f"https://graph.instagram.com/v23.0/{ig_user_id}"
 
         # ── Blindagem da URL (ver apps/core_utils.py) ─────────────────────
@@ -468,9 +496,24 @@ class InstagramEngine:
             if cover_url:
                 payload['cover_url'] = cover_url
 
-        # 1. Cria o contêiner de mídia
+        # 1. Cria o contêiner de mídia. Se o ig_user_id salvo estiver errado
+        # (id app-scoped/digitado errado), a Meta responde "Object ... does not
+        # exist / Unsupported post request" — resolvemos o ID correto via
+        # /me?fields=user_id, corrigimos no banco e tentamos de novo (1x).
         res = requests.post(f"{base}/media", data=payload, timeout=30)
         data = res.json()
+        if 'id' not in data:
+            err = str(data.get('error', data)).lower()
+            if ('does not exist' in err or 'unsupported post request' in err
+                    or 'cannot be loaded' in err):
+                novo = self._graph_user_id(token, force=True)
+                if novo and str(novo) != str(ig_user_id):
+                    logger.warning("publish_meta_api: ig_user_id %s errado -> corrigido para %s (@%s)",
+                                   ig_user_id, novo, self.account.ig_username)
+                    ig_user_id = novo
+                    base = f"https://graph.instagram.com/v23.0/{novo}"
+                    res = requests.post(f"{base}/media", data=payload, timeout=30)
+                    data = res.json()
         if 'id' not in data:
             raise Exception(f"Erro ao criar contêiner Meta: {data.get('error', data)}")
         creation_id = data['id']
