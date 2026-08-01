@@ -83,7 +83,7 @@ class InstagramAccount(models.Model):
     # Teto de publicações por dia nesta conta (0 = sem limite). Ajuda a evitar
     # bloqueios por volume — o Composer distribui o excedente para os dias
     # seguintes quando o modo "Respeitar limite" está ligado.
-    daily_post_limit = models.IntegerField(default=20)
+    daily_post_limit = models.IntegerField(default=100)
     # Quando a Meta sinaliza rate limit, a conta fica em espera até este horário.
     # Enquanto isso, a fila NÃO tenta publicar nela (evita martelar a API — o
     # que é o padrão que dispara bans).

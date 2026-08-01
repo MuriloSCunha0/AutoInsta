@@ -4,6 +4,15 @@
 {% block page_title %}Fila de Publicação{% endblock %}
 
 {% block top_actions %}
+<form method="post" action="{% url 'publisher:bulk_posts' %}" class="d-inline"
+      onsubmit="return confirm('Forçar TODAS as publicações da fila agora? (até 100 por vez; a Meta ainda pode limitar por volume)')">
+    {% csrf_token %}
+    <input type="hidden" name="acao" value="forcar">
+    <input type="hidden" name="todos" value="1">
+    <input type="hidden" name="escopo" value="fila">
+    <input type="hidden" name="next" value="{% url 'publisher:queue' %}">
+    <button type="submit" class="btn btn-warning"><i class="bi bi-lightning-charge-fill"></i> Forçar todas</button>
+</form>
 <form method="post" action="{% url 'publisher:toggle_pause' %}" class="d-inline">
     {% csrf_token %}
     <input type="hidden" name="next" value="{% url 'publisher:queue' %}">

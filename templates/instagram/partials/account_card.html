@@ -115,11 +115,25 @@
         {% elif account.status == 'error' %}
         <div class="status-banner banner-erro mb-3">
             <i class="bi bi-exclamation-octagon-fill"></i>
-            <div><strong>Conta caiu</strong><div class="small">
-                {% if account.meta_access_token %}Token inválido/expirado. Reconecte para voltar a publicar.
+            <div class="flex-grow-1"><strong>Conta caiu</strong><div class="small">
+                {% if account.meta_access_token %}Token inválido/expirado. Cole um token <strong>novo</strong> abaixo — sem reconectar a conta.
                 {% elif account.last_error %}{{ account.last_error|truncatechars:120 }}
                 {% else %}Falha ao conectar. Tente reconectar.{% endif %}
-            </div></div>
+            </div>
+            {% if account.meta_access_token %}
+            <form hx-post="{% url 'instagram:update_token' account.id %}"
+                  hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">
+                {% csrf_token %}
+                <div class="input-group input-group-sm">
+                    <input type="text" name="meta_access_token" required autocomplete="off"
+                           class="form-control form-control-sm text-white border-subtle"
+                           style="background:var(--bg-input);" placeholder="Cole o token novo">
+                    <button type="submit" class="btn btn-sm btn-warning"><i class="bi bi-arrow-repeat"></i> Atualizar token</button>
+                </div>
+                <small class="text-muted" style="font-size:.66rem;">Gere em Instagram → Gerar tokens de acesso e cole aqui.</small>
+            </form>
+            {% endif %}
+            </div>
         </div>
         {% elif account.status == 'session_expired' %}
         <div class="status-banner banner-erro mb-3">

@@ -592,6 +592,44 @@ def reativar_conta(request, account_id):
 
 @login_required
 @require_POST
+def update_token(request, account_id):
+    """Atualiza SÓ o token de uma conta que caiu (sem refazer a conexão). Valida
+    o token novo na Meta e, se válido, reativa a conta e retoma a fila."""
+    import requests as _rq
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    token = (request.POST.get('meta_access_token') or '').strip()
+    if not token:
+        return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+    account.set_meta_token(token)
+    try:
+        ig_id = account.ig_user_id or 'me'
+        r = _rq.get(
+            f'https://graph.instagram.com/v23.0/{ig_id}',
+            params={'fields': 'id,username', 'access_token': token}, timeout=12,
+        )
+        data = r.json()
+        if r.status_code == 200 and 'id' in data:
+            account.status = 'active'
+            account.last_error = ''
+            account.rate_limited_until = None
+            if data.get('username'):
+                account.ig_username = data['username']
+            if not account.ig_user_id and str(data.get('id', '')).isdigit():
+                account.ig_user_id = int(data['id'])
+            _subir_fila_agora(account)
+        else:
+            account.status = 'error'
+            account.last_error = f"Token recusado pela Meta: {data.get('error', data)}"
+    except Exception as e:
+        account.status = 'error'
+        account.last_error = f'Falha ao validar o token novo: {str(e)[:150]}'
+    account.save()
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
 def bulk_accounts(request):
     """Ações em massa nas contas SELECIONADAS: ativar (reativa + sobe a fila),
     pausar ou remover. Uma única ação para várias contas de uma vez."""
