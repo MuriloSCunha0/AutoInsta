@@ -613,15 +613,19 @@ def _composer_submit(request):
     # Story com link exige sessão da engine (a API oficial não tem sticker de
     # link). Avisamos ANTES de enfileirar, em vez de falhar na publicação.
     if post_type == 'STORY' and story_link:
+        # Sem sessão utilizável = sem session_blob OU sessão expirada (híbrido:
+        # conta com token mas sessão caída não consegue link até recolar).
+        from django.db.models import Q
         sem_sessao = InstagramAccount.objects.filter(
-            id__in=account_ids, owner=user, session_blob__isnull=True
+            Q(session_blob__isnull=True) | Q(sessao_expirada=True),
+            id__in=account_ids, owner=user,
         ).values_list('ig_username', flat=True)
         if sem_sessao:
             messages.error(
                 request,
-                'Story com link precisa da conta conectada por sessão/senha '
-                f'(a API oficial não permite link). Sem sessão: @{", @".join(sem_sessao)}. '
-                'Publique o Story sem link ou conecte essas contas pela aba Entrar.'
+                'Story com link precisa da conta com sessão ativa (a API oficial não '
+                f'permite link). Sem sessão: @{", @".join(sem_sessao)}. '
+                'Recole o sessionid dessas contas no card, ou publique o Story sem link.'
             )
             return redirect('publisher:composer')
 

@@ -9,76 +9,83 @@
             <div class="modal-body pb-0">
                 <ul class="nav nav-pills nav-fill mb-3" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-login" type="button">
-                            <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-oauth" type="button">
+                            <i class="bi bi-check-circle me-1"></i> OAuth <span class="badge bg-success ms-1" style="font-size:.6rem;">estável</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-session" type="button">
-                            <i class="bi bi-shield-lock me-1"></i> Sessão <span class="badge bg-success ms-1" style="font-size:.6rem;">recomendado</span>
+                            <i class="bi bi-shield-lock me-1"></i> Sessão
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-meta" type="button">
-                            <i class="bi bi-key me-1"></i> Importar Token
+                            <i class="bi bi-key me-1"></i> Token Meta
                         </button>
                     </li>
                 </ul>
             </div>
 
             <div class="tab-content">
-                <!-- ABA PRINCIPAL: usuário + senha (login web real via servidor) -->
-                <div class="tab-pane fade show active" id="tab-login">
-                    <form hx-post="{% url 'instagram:add' %}"
-                          hx-target="#account-list"
-                          hx-swap="afterbegin">
-                        {% csrf_token %}
-                        <div class="modal-body pt-0">
-                            <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-2">
-                                <i class="bi bi-shield-check me-1"></i> Fazemos o login na tela <strong>real</strong> do Instagram para você. Se pedir código de verificação, a gente avisa aqui mesmo.
-                            </div>
-                            <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3" style="line-height:1.5">
-                                <i class="bi bi-exclamation-triangle me-1"></i> <strong>Conta nova?</strong> O Instagram costuma barrar o 1º login por senha vindo de servidor (defesa dele, não dá pra evitar 100% no código). Se der erro de senha, use a aba <strong>Sessão</strong> — é o caminho confiável.
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Nome de Usuário</label>
-                                <input type="text" name="ig_username" class="form-control" placeholder="@usuario" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Senha</label>
-                                {% include 'partials/pw_field.html' with name='ig_password' placeholder='••••••••' required=1 autocomplete='current-password' %}
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Chave 2FA <span class="text-success">(recomendado)</span></label>
-                                <input type="text" name="totp_seed" class="form-control" placeholder="Ex: 54N FF4Y R2TP ZC73 ..." autocomplete="off">
-                                <small class="text-muted" style="font-size: 0.75rem;">
-                                    Ative a Autenticação de 2 Fatores por <strong>app autenticador</strong> no Instagram
-                                    (Configurações → Central de contas → Senha e segurança → 2FA → App de autenticação)
-                                    e cole aqui a <strong>chave</strong> mostrada. Com ela o login conecta sozinho, mesmo pelo servidor.
-                                </small>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label text-muted">Proxy (Opcional)</label>
-                                <input type="text" name="proxy_url" class="form-control" placeholder="http://user:pass@ip:port">
-                                <small class="text-muted" style="font-size: 0.75rem;">Só para muitas contas. Deixe em branco para usar o servidor.</small>
-                            </div>
-
-                            <div class="text-muted small">
-                                <i class="bi bi-lock-fill me-1"></i> Sua senha é criptografada (Fernet) e usada só para o login.
-                            </div>
+                <!-- ABA OAUTH: autorização oficial (estável, não cai por IP) + sessão opcional guiada -->
+                <div class="tab-pane fade show active" id="tab-oauth">
+                    <div class="modal-body pt-0">
+                        <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3" style="line-height:1.6">
+                            <i class="bi bi-check-circle me-1"></i> <strong>Caminho mais estável.</strong> O dono da conta autoriza no próprio aparelho, logado no Instagram dele. Conecta por <strong>token oficial</strong> — <strong>não cai por IP</strong> e publica feed, reels e stories (sem link).
                         </div>
-                        <div class="modal-footer border-0">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-primary">Conectar Conta</button>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted"><i class="bi bi-meta me-1"></i> App Meta desta conta <span class="text-muted">(opcional)</span></label>
+                            {% if meta_apps %}
+                            <select name="meta_app" id="oauth-app" class="form-select text-white border-subtle" style="background: var(--bg-input);">
+                                <option value="">Sem app (padrão)</option>
+                                {% for app in meta_apps %}
+                                <option value="{{ app.id }}"
+                                    {% if filtro_app and filtro_app == app.id|stringformat:'s' %}selected{% elif not filtro_app and app.is_active %}selected{% endif %}>
+                                    {{ app.name }}{% if app.is_active %} (padrão){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-0">
+                                <i class="bi bi-info-circle me-1"></i> Sem app Meta cadastrado ainda. Cadastre um em
+                                <a href="{% url 'accounts:settings' %}" class="text-info text-decoration-underline">Configurações</a> para usar o OAuth.
+                            </div>
+                            {% endif %}
                         </div>
-                    </form>
+
+                        <button type="button" class="btn btn-primary w-100 mb-2"
+                                hx-get="{% url 'instagram:oauth_url' %}"
+                                hx-include="#oauth-app" hx-target="#oauth-slot" hx-swap="innerHTML">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Gerar link / QR de autorização
+                        </button>
+                        <div id="oauth-slot" class="mb-2"></div>
+                        <small class="text-muted d-block mb-3" style="font-size:.75rem;">
+                            Abra o link (ou o QR) no aparelho do dono da conta, logado no Instagram dele. Ao autorizar, a conta entra sozinha aqui.
+                        </small>
+
+                        <!-- Passo opcional: ativar story-link colando o sessionid (guiado) -->
+                        <details style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:10px 14px;">
+                            <summary class="text-purple small fw-semibold" style="cursor:pointer;">
+                                <i class="bi bi-link-45deg me-1"></i> Ativar Story com LINK e aquecimento (opcional)
+                            </summary>
+                            <div class="text-muted small mt-2" style="line-height:1.7">
+                                O <strong>link no story</strong>, o aquecimento e a edição de bio/foto <strong>não existem na API oficial</strong> — só saem por <strong>sessão</strong>. É <strong>opcional</strong>: sem isso a conta já publica feed/reels/story-simples.
+                                <div class="mt-2 mb-1"><strong class="text-white">Como habilitar (2 passos):</strong></div>
+                                <ol class="ps-3 mb-2">
+                                    <li>Autorize por OAuth acima (a conta aparece na lista).</li>
+                                    <li>No <strong>card da conta</strong>, clique em <strong>“Ativar story-link”</strong> e cole o <code class="text-info">sessionid</code> — te mostramos o passo a passo ali mesmo.</li>
+                                </ol>
+                                Se a sessão cair depois, <strong>a conta não trava</strong>: segue publicando pelo OAuth e só o story-link espera você recolar o cookie.
+                            </div>
+                        </details>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
                 </div>
 
-                <!-- ABA SESSÃO: colar cookies/sessionid (caminho confiável, sem senha) -->
+                <!-- ABA SESSÃO: colar cookies/sessionid (habilita story-link/aquecimento) -->
                 <div class="tab-pane fade" id="tab-session">
                     <form hx-post="{% url 'instagram:add_session' %}"
                           hx-target="#account-list"
@@ -86,7 +93,7 @@
                         {% csrf_token %}
                         <div class="modal-body pt-0">
                             <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3" style="line-height:1.6">
-                                <i class="bi bi-shield-check me-1"></i> <strong>Caminho mais confiável.</strong> Reaproveita um login que o Instagram <strong>já confia</strong> — pula o login novo, que é o passo mais bloqueado. Ideal para contas novas.
+                                <i class="bi bi-shield-check me-1"></i> Reaproveita um login que o Instagram <strong>já confia</strong>. É o que habilita <strong>story com link</strong>, aquecimento e edição de perfil. Ideal combinar com o OAuth (híbrido).
                             </div>
 
                             <div class="mb-2">
@@ -133,7 +140,7 @@
                     </form>
                 </div>
 
-                <!-- ABA META: importar conta colando o token (sem redirect URI) -->
+                <!-- ABA TOKEN META: importar conta colando o token -->
                 <div class="tab-pane fade" id="tab-meta">
                     <form hx-post="{% url 'instagram:add_meta' %}"
                           hx-target="#account-list"
@@ -141,8 +148,7 @@
                         {% csrf_token %}
                         <div class="modal-body pt-0">
                             <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-3" style="line-height:1.6">
-                                Gere o token em <strong class="text-info">Instagram → Gerar tokens de acesso</strong> (ou no Graph API Explorer) e cole abaixo.
-                                Assim a conta é salva <strong>sem abrir login</strong> e <strong>sem precisar de redirect URI</strong>.
+                                Já tem o token na mão? Gere em <strong class="text-info">Instagram → Gerar tokens de acesso</strong> (ou no Graph API Explorer) e cole abaixo — a conta entra <strong>sem abrir login</strong>. (Pra deixar redondo, prefira a aba <strong>OAuth</strong>.)
                             </div>
 
                             <div class="mb-3">
@@ -151,7 +157,6 @@
                                 <select name="meta_app" class="form-select text-white border-subtle" style="background: var(--bg-input);">
                                     <option value="">Sem app (só o token)</option>
                                     {% for app in meta_apps %}
-                                    {# Se o usuário está filtrando por um app, já vem esse — senão o ativo. #}
                                     <option value="{{ app.id }}"
                                         {% if filtro_app and filtro_app == app.id|stringformat:'s' %}selected{% elif not filtro_app and app.is_active %}selected{% endif %}>
                                         {{ app.name }}{% if app.is_active %} (padrão){% endif %}
@@ -162,8 +167,6 @@
                                 {% else %}
                                 <div class="alert alert-secondary border-0 bg-dark bg-opacity-50 text-muted small mb-0">
                                     <i class="bi bi-info-circle me-1"></i> Não precisa de app Meta: basta colar o token abaixo.
-                                    Se um dia quiser renovação automática do token, dá para cadastrar um app em
-                                    <a href="{% url 'accounts:settings' %}" class="text-info text-decoration-underline">Configurações</a>.
                                 </div>
                                 {% endif %}
                             </div>
@@ -188,21 +191,11 @@
                                     <input type="text" name="profile_pic_url" class="form-control" placeholder="URL da foto se a Meta não devolver" autocomplete="off">
                                 </div>
                             </div>
-
-                            <div class="text-muted small mt-3">
-                                <i class="bi bi-info-circle me-1"></i> Só adicionar como testadora não publica — é o token e a autorização real da conta que valem.
-                            </div>
                         </div>
-                        <div class="modal-footer border-0 d-flex justify-content-between">
-                            <a href="#" hx-get="{% url 'instagram:oauth_url' %}"
-                               hx-include="[name='meta_app']" hx-target="#oauth-slot" hx-swap="innerHTML"
-                               class="btn btn-link btn-sm text-info text-decoration-none">Preferir OAuth (Facebook)?</a>
-                            <div>
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Importar conta pelo token</button>
-                            </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Importar conta pelo token</button>
                         </div>
-                        <div id="oauth-slot" class="px-3 pb-3"></div>
                     </form>
                 </div>
             </div>

@@ -113,6 +113,12 @@ class InstagramAccount(models.Model):
     banned_reason = models.CharField(max_length=255, blank=True)
     banned_at = models.DateTimeField(null=True, blank=True)
     session_blob = models.JSONField(null=True, blank=True)
+    # HÍBRIDO: a saúde da SESSÃO (engine/sessionid) é rastreada à parte do
+    # `status` geral. Assim, numa conta que TAMBÉM tem token OAuth, a sessão pode
+    # cair (story-link/aquecimento ficam indisponíveis) SEM derrubar a conta — ela
+    # segue publicando feed/reels/story-simples pela API oficial. Só vira
+    # status=session_expired quando a conta NÃO tem token (não há outra via).
+    sessao_expirada = models.BooleanField(default=False)
     meta_access_token = models.TextField(blank=True, help_text="Token da API Oficial (Meta Graph)")
     device_settings = models.JSONField(null=True, blank=True)
     challenge_type = models.CharField(max_length=50, blank=True)
@@ -269,7 +275,7 @@ class InstagramAccount(models.Model):
         não conseguem usar recursos que a API oficial não expõe (aquecimento,
         edição de bio/foto, Story com link).
         """
-        if self.session_blob:
+        if self.session_blob and not self.sessao_expirada:
             return True
         try:
             return self.get_ig_password() not in ('', '__session_login__')

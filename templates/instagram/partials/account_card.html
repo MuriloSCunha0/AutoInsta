@@ -62,6 +62,17 @@
                         {% endfor %}
                     </ul>
                 </div>
+                {# Selos de capacidade: o que a conta consegue fazer (híbrido). #}
+                <div class="mt-1 d-flex gap-1 flex-wrap">
+                    {% if account.meta_access_token %}
+                    <span class="badge bg-success bg-opacity-25 text-success rounded-pill" style="font-size:.6rem;" title="Publica feed/reels/story pela API oficial (estável, não cai por IP)"><i class="bi bi-check-circle me-1"></i>OAuth</span>
+                    {% endif %}
+                    {% if account.tem_sessao_engine %}
+                    <span class="badge bg-primary bg-opacity-25 text-primary rounded-pill" style="font-size:.6rem;" title="Story com link, aquecimento e edição de perfil"><i class="bi bi-shield-lock me-1"></i>Sessão</span>
+                    {% elif account.sessao_expirada %}
+                    <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill" style="font-size:.6rem;" title="Story-link indisponível até recolar o sessionid"><i class="bi bi-shield-exclamation me-1"></i>Sessão caída</span>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="ms-auto text-end">
@@ -173,6 +184,34 @@
                 </form>
             </div>
         </div>
+        {% endif %}
+
+        {# HÍBRIDO: ativar/reconectar a SESSÃO (story-link) numa conta que tem token
+           OAuth mas está sem sessão ativa. Não aparece se já tem sessão viva, nem
+           em conta só-sessão (essa usa o banner "Sessão expirada" acima). #}
+        {% if account.meta_access_token and not account.tem_sessao_engine and account.status != 'session_expired' %}
+        <details class="mb-3" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px;">
+            <summary class="small fw-semibold {% if account.sessao_expirada %}text-warning{% else %}text-primary{% endif %}" style="cursor:pointer;">
+                <i class="bi bi-link-45deg me-1"></i>
+                {% if account.sessao_expirada %}Story-link caiu — reconectar sessão{% else %}Ativar story-link (opcional){% endif %}
+            </summary>
+            <div class="mt-2">
+                <div class="text-muted small mb-2" style="line-height:1.6">
+                    Cole o <code class="text-info">sessionid</code> pra habilitar <strong>story com link</strong>, aquecimento e edição de perfil. O resto já publica pelo OAuth.
+                    <div class="mt-1" style="font-size:.7rem;">instagram.com logado → <kbd>F12</kbd> → Application → Cookies → <code class="text-info">sessionid</code>.</div>
+                </div>
+                <form hx-post="{% url 'instagram:update_session' account.id %}"
+                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="sessionid" required autocomplete="off"
+                               class="form-control form-control-sm text-white border-subtle"
+                               style="background:var(--bg-input);" placeholder="Cole o sessionid">
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-shield-check"></i> Ativar</button>
+                    </div>
+                </form>
+            </div>
+        </details>
         {% endif %}
 
         {# Forçar postagem — no topo, bem visível (publica mesmo no limite/cooldown). #}

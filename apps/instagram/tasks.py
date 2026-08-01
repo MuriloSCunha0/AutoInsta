@@ -385,22 +385,40 @@ def keepalive_account(account_id):
         SessionManager.load_session(acc, eng.client)
         eng.client.account_info()               # validação leve e CONFIÁVEL
         SessionManager.save_session(acc, eng.client)  # re-salva (renova)
-        if acc.status != 'active':
+        # Sessão viva: limpa a flag e reativa se estava caída só por causa dela.
+        campos = []
+        if acc.sessao_expirada:
+            acc.sessao_expirada = False
+            campos.append('sessao_expirada')
+        if acc.status in ('session_expired',) or (acc.status != 'active' and campos):
             acc.status = 'active'
             acc.last_error = ''
-            acc.save(update_fields=['status', 'last_error'])
+            campos += ['status', 'last_error']
+        if campos:
+            acc.save(update_fields=list(set(campos)))
     except LoginRequired:
-        # Sessão REALMENTE morta. Só marca expirada em conta só-sessão (sem
-        # senha real p/ religar sozinha) — evita falso "sessão expirada".
-        try:
-            senha = acc.get_ig_password()
-        except Exception:
-            senha = ''
-        if senha in ('', '__session_login__'):
-            acc.status = 'session_expired'
-            acc.last_error = ('Sessão expirada (keep-alive). Reconecte pela aba '
-                              '"Sessão" — cole o cookie do Instagram de novo.')
-            acc.save(update_fields=['status', 'last_error'])
+        # Sessão REALMENTE morta. HÍBRIDO: se a conta tem token OAuth, NÃO derruba
+        # — só marca a sessão caída (story-link/aquecimento esperam recolar). Sem
+        # token (só-sessão), aí sim vira session_expired (não há outra via).
+        acc.sessao_expirada = True
+        if acc.meta_access_token:
+            campos = ['sessao_expirada', 'last_error']
+            acc.last_error = ('Sessão do story-link caiu (keep-alive) — recole o '
+                              'sessionid no card. O resto segue pelo OAuth.')
+            if acc.status == 'session_expired':
+                acc.status = 'active'
+                campos.append('status')
+            acc.save(update_fields=campos)
+        else:
+            try:
+                senha = acc.get_ig_password()
+            except Exception:
+                senha = ''
+            if senha in ('', '__session_login__'):
+                acc.status = 'session_expired'
+                acc.last_error = ('Sessão expirada (keep-alive). Reconecte pela aba '
+                                  '"Sessão" — cole o cookie do Instagram de novo.')
+                acc.save(update_fields=['status', 'last_error', 'sessao_expirada'])
     except Exception as e:
         # Erro transitório (rate limit/rede) — NÃO marca expirada.
         logger.info("[KEEPALIVE] @%s check transitório: %s", acc.ig_username, str(e)[:100])

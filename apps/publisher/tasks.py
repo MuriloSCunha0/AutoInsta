@@ -495,29 +495,48 @@ def publish_reel(post_id):
 
         if _e_sessao_morta(msg):
             # Sessão da engine caiu/deslogou (ex.: user_has_logged_out,
-            # logout_reason 9). Retry NÃO resolve — só marca a conta como
-            # "reconectar" e para de martelar (antes ia +10min pra sempre).
-            # O dispatcher pula contas session_expired, então o post fica na
-            # fila e retoma sozinho quando o usuário recolar o cookie.
+            # logout_reason 9). Retry NÃO resolve. HÍBRIDO:
+            #  - Conta COM token OAuth: NÃO derruba — segue publicando feed/reels/
+            #    story-simples pelo Graph; só marca a sessão caída (story-link/
+            #    aquecimento esperam recolar o cookie). Esse post falhou por exigir
+            #    a sessão → marca 'failed' com mensagem clara (sem loop).
+            #  - Conta SÓ-sessão: sem outra via → status=session_expired e o post
+            #    volta pra fila (o dispatcher pula a conta até religar).
             conta = post.account
-            conta.status = 'session_expired'
-            conta.last_error = ('Sessão do Instagram caiu (deslogada). Reconecte '
-                                'pela aba "Sessão" — cole o cookie do IG de novo.')
-            conta.save(update_fields=['status', 'last_error'])
-            post.status = 'queued'
-            post.error_message = 'Sessão expirada — reconecte a conta para retomar.'
-            post.save(update_fields=['status', 'error_message'])
-            print(f"Post {post_id}: SESSAO MORTA; @{conta.ig_username} -> session_expired (sem retry)")
+            conta.sessao_expirada = True
+            tem_token = bool(conta.meta_access_token)
+            if tem_token:
+                campos = ['sessao_expirada', 'last_error']
+                conta.last_error = ('Sessão do story-link caiu — recole o sessionid no '
+                                    'card. O resto segue publicando pelo OAuth.')
+                if conta.status == 'session_expired':   # corrige estado antigo
+                    conta.status = 'active'
+                    campos.append('status')
+                conta.save(update_fields=campos)
+                post.status = 'failed'
+                post.error_message = ('Sessão expirada: recole o sessionid e reenvie este '
+                                      'post (story-link/engine precisa de sessão).')
+                post.save(update_fields=['status', 'error_message'])
+                print(f"Post {post_id}: SESSAO MORTA; @{conta.ig_username} tem token -> conta segue ATIVA (só sessão caída)")
+            else:
+                conta.status = 'session_expired'
+                conta.last_error = ('Sessão do Instagram caiu (deslogada). Reconecte '
+                                    'pela aba "Sessão" — cole o cookie do IG de novo.')
+                conta.save(update_fields=['status', 'last_error', 'sessao_expirada'])
+                post.status = 'queued'
+                post.error_message = 'Sessão expirada — reconecte a conta para retomar.'
+                post.save(update_fields=['status', 'error_message'])
+                print(f"Post {post_id}: SESSAO MORTA; @{conta.ig_username} -> session_expired (sem retry)")
             try:
                 from apps.notifications.alertas import alertar
                 agora = timezone.now()
                 alertar(
                     post.owner, 'conta_caiu',
                     'Sessão expirada',
-                    f'@{conta.ig_username}: a sessão caiu (deslogada). Reconecte '
-                    'pela aba Sessão para as publicações voltarem.',
+                    f'@{conta.ig_username}: a sessão do story-link caiu. Recole o sessionid '
+                    + ('(o resto segue pelo OAuth).' if tem_token else 'para religar a conta.'),
                     chave=f'sess:{conta.id}:{agora:%Y%m%d%H}',
-                    nivel='error', account=conta,
+                    nivel='warning' if tem_token else 'error', account=conta,
                 )
             except Exception:
                 pass

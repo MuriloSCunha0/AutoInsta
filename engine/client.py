@@ -220,6 +220,8 @@ class InstagramEngine:
             except (TypeError, ValueError):
                 pass
             self.account.status = 'active'
+            self.account.sessao_expirada = False   # sessão nova e válida
+            self.account.last_error = ''
             self._fetch_profile_info()
             logger.info("%s OK -> conta ativa", tag)
             return True
