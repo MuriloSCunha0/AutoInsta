@@ -630,6 +630,25 @@ def update_token(request, account_id):
 
 @login_required
 @require_POST
+def update_session(request, account_id):
+    """Reconecta uma conta de SESSÃO que expirou colando SÓ o novo sessionid —
+    sem refazer o cadastro. Revalida em background pela engine (fila do braço)."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    sessionid = _extract_sessionid(request.POST.get('sessionid'))
+    if not sessionid:
+        return _toast('Cole o valor do novo sessionid.', 'error')
+
+    account.status = 'connecting'
+    account.last_error = ''
+    account.rate_limited_until = None
+    account.save(update_fields=['status', 'last_error', 'rate_limited_until'])
+
+    connect_by_sessionid.delay(account.id, sessionid)
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
 def bulk_accounts(request):
     """Ações em massa nas contas SELECIONADAS: ativar (reativa + sobe a fila),
     pausar ou remover. Uma única ação para várias contas de uma vez."""

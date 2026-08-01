@@ -138,7 +138,20 @@
         {% elif account.status == 'session_expired' %}
         <div class="status-banner banner-erro mb-3">
             <i class="bi bi-clock-history"></i>
-            <div><strong>Sessão expirada</strong><div class="small">Reconecte a conta.</div></div>
+            <div class="flex-grow-1"><strong>Sessão expirada</strong>
+                <div class="small">Cole o <strong>novo sessionid</strong> abaixo — reconecta na hora, sem recadastrar.</div>
+                <form hx-post="{% url 'instagram:update_session' account.id %}"
+                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">
+                    {% csrf_token %}
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="sessionid" required autocomplete="off"
+                               class="form-control form-control-sm text-white border-subtle"
+                               style="background:var(--bg-input);" placeholder="Cole o novo sessionid">
+                        <button type="submit" class="btn btn-sm btn-warning"><i class="bi bi-arrow-repeat"></i> Reconectar</button>
+                    </div>
+                    <small class="text-muted" style="font-size:.66rem;">instagram.com logado → F12 → Application → Cookies → sessionid.</small>
+                </form>
+            </div>
         </div>
         {% elif account.pausada %}
         <div class="status-banner banner-pausa mb-3">

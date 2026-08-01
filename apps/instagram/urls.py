@@ -19,6 +19,7 @@ urlpatterns = [
     path('stories-ativos/', views.stories_ativos, name='stories_ativos'),
     path('<int:account_id>/reativar/', views.reativar_conta, name='reativar_conta'),
     path('<int:account_id>/update-token/', views.update_token, name='update_token'),
+    path('<int:account_id>/update-session/', views.update_session, name='update_session'),
     path('bulk/', views.bulk_accounts, name='bulk_accounts'),
     path('<int:account_id>/change-app/', views.change_account_app, name='change_app'),
     path('meta/sync-all/', views.sync_all_meta, name='sync_all_meta'),
