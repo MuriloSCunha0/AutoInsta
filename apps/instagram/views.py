@@ -900,12 +900,13 @@ def oauth_url(request):
             '<a href="/accounts/settings/" class="alert-link">Configurações</a> antes de conectar.</div>'
         )
 
+    # SÓ o que a gente realmente usa. Cada permissão avançada a mais aumenta o
+    # atrito da análise/Verificação da Empresa na Meta (e polui a tela de
+    # consentimento do dono). Não usamos mensagens/comentários da API.
     scopes = [
-        'instagram_business_basic',
-        'instagram_business_manage_messages',
-        'instagram_business_manage_comments',
-        'instagram_business_content_publish',
-        'instagram_business_manage_insights',
+        'instagram_business_basic',          # ler perfil/username (obrigatório)
+        'instagram_business_content_publish',  # publicar feed/reels/story
+        'instagram_business_manage_insights',  # métricas (views) no painel
     ]
 
     # `state` assinado carrega usuário + app escolhido, para o callback saber
