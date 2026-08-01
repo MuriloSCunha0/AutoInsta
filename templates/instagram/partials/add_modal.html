@@ -30,8 +30,12 @@
                 <!-- ABA OAUTH: autorização oficial (estável, não cai por IP) + sessão opcional guiada -->
                 <div class="tab-pane fade show active" id="tab-oauth">
                     <div class="modal-body pt-0">
-                        <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3" style="line-height:1.6">
+                        <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-2" style="line-height:1.6">
                             <i class="bi bi-check-circle me-1"></i> <strong>Caminho mais estável.</strong> O dono da conta autoriza no próprio aparelho, logado no Instagram dele. Conecta por <strong>token oficial</strong> — <strong>não cai por IP</strong> e publica feed, reels e stories (sem link).
+                        </div>
+
+                        <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3" style="line-height:1.6">
+                            <i class="bi bi-clock-history me-1"></i> <strong>Primeira vez pode pedir "Verificação da empresa" (~2 dias úteis).</strong> É uma exigência <strong>da Meta</strong> pra liberar a publicação oficial — não é erro nosso, e acontece <strong>uma vez por empresa</strong>. Se precisar publicar <strong>agora</strong>, use a aba <strong>“Sessão”</strong> (conecta na hora, sem verificação) e depois adicione o OAuth por cima.
                         </div>
 
                         <details open class="mb-3" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:10px 14px;">
@@ -121,7 +125,7 @@
                         {% csrf_token %}
                         <div class="modal-body pt-0">
                             <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-3" style="line-height:1.6">
-                                <i class="bi bi-shield-check me-1"></i> Reaproveita um login que o Instagram <strong>já confia</strong>. É o que habilita <strong>story com link</strong>, aquecimento e edição de perfil. Ideal combinar com o OAuth (híbrido).
+                                <i class="bi bi-shield-check me-1"></i> <strong>Conecta na hora, sem verificação da Meta.</strong> Reaproveita um login que o Instagram já confia — é o único jeito de fazer <strong>story com link</strong>, aquecimento e edição de perfil. Pode <strong>combinar com o OAuth</strong> na mesma conta (híbrido): o OAuth segura a estabilidade e a sessão faz o extra.
                             </div>
 
                             <div class="mb-2">
