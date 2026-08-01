@@ -289,39 +289,66 @@ def run_account_warmup(config_id, likes, follows, views):
 
 
 @shared_task(soft_time_limit=300, time_limit=340)
-def bulk_edit_profiles(account_ids, full_name, biography, external_url, picture_path=None):
-    """Edita bio/nome/link (e opcionalmente foto) de várias contas de uma vez.
-    Aplica spintax ({nome_conta}) por conta. Funciona em contas Pessoais."""
-    for acc_id in account_ids:
+def bulk_edit_profiles(account_ids, full_name, biography, external_url, picture_name=None, to_creator=False):
+    """Edita bio/nome/link (e opcionalmente foto) de várias contas de uma vez, e
+    opcionalmente converte para conta de CRIADOR DE CONTEÚDO. Aplica spintax
+    ({nome_conta}) por conta. Só funciona em contas com sessão (engine)."""
+    import os
+    from apps.core_utils import midia_local_por_nome
+
+    # A foto é salva no painel; o braço baixa uma cópia local UMA vez.
+    pic_local, pic_tmp = (None, False)
+    if picture_name:
         try:
-            account = InstagramAccount.objects.get(id=acc_id)
-        except InstagramAccount.DoesNotExist:
-            continue
-
-        # Editar bio/nome/foto não existe na API oficial: exige a engine.
-        if not account.tem_sessao_engine:
-            account.last_error = ('Edição de perfil requer conexão por sessão/senha — '
-                                  'a API oficial da Meta não permite alterar bio/nome/foto.')
-            account.save(update_fields=['last_error'])
-            continue
-
-        try:
-            engine = InstagramEngine(account)
-
-            bio = (biography or '').replace('{nome_conta}', account.ig_username) if biography else None
-            name = (full_name or '').replace('{nome_conta}', account.ig_username) if full_name else None
-            link = external_url or None
-
-            if bio is not None or name is not None or link is not None:
-                engine.edit_profile(full_name=name, biography=bio, external_url=link)
-            if picture_path:
-                engine.change_profile_picture(picture_path)
-
-            account.last_error = ''
-            account.save(update_fields=['last_error'])
+            pic_local, pic_tmp = midia_local_por_nome(picture_name)
         except Exception as e:
-            account.last_error = f"Falha ao editar perfil: {str(e)[:200]}"
-            account.save(update_fields=['last_error'])
+            logger.warning("bulk_edit: falha ao obter a foto (%s): %s", picture_name, str(e)[:120])
+            pic_local = None
+
+    try:
+        for acc_id in account_ids:
+            try:
+                account = InstagramAccount.objects.get(id=acc_id)
+            except InstagramAccount.DoesNotExist:
+                continue
+
+            # Editar perfil/converter tipo não existe na API oficial: exige a engine.
+            if not account.tem_sessao_engine:
+                account.last_error = ('Edição de perfil requer conexão por sessão/senha — '
+                                      'a API oficial da Meta não permite alterar bio/nome/foto.')
+                account.save(update_fields=['last_error'])
+                continue
+
+            try:
+                engine = InstagramEngine(account)
+
+                if to_creator:
+                    try:
+                        engine.convert_to_creator()
+                    except Exception as e:
+                        logger.warning("bulk_edit: converter @%s p/ criador falhou: %s",
+                                       account.ig_username, str(e)[:120])
+
+                bio = (biography or '').replace('{nome_conta}', account.ig_username) if biography else None
+                name = (full_name or '').replace('{nome_conta}', account.ig_username) if full_name else None
+                link = external_url or None
+
+                if bio is not None or name is not None or link is not None:
+                    engine.edit_profile(full_name=name, biography=bio, external_url=link)
+                if pic_local:
+                    engine.change_profile_picture(pic_local)
+
+                account.last_error = ''
+                account.save(update_fields=['last_error'])
+            except Exception as e:
+                account.last_error = f"Falha ao editar perfil: {str(e)[:200]}"
+                account.save(update_fields=['last_error'])
+    finally:
+        if pic_tmp and pic_local and os.path.exists(pic_local):
+            try:
+                os.remove(pic_local)
+            except Exception:
+                pass
 
 
 # =============================================================================
@@ -348,6 +375,7 @@ def keepalive_account(account_id):
     sessão morreu e a conta é só-sessão, marca `session_expired` para aparecer
     em 'contas que precisam de atenção'."""
     from engine.session_manager import SessionManager
+    from instagrapi.exceptions import LoginRequired
     acc = InstagramAccount.objects.filter(id=account_id).first()
     if not acc or not acc.session_blob:
         return
@@ -355,21 +383,24 @@ def keepalive_account(account_id):
     try:
         eng._aplicar_proxy()
         SessionManager.load_session(acc, eng.client)
-        eng.client.get_timeline_feed()          # valida a sessão
+        eng.client.account_info()               # validação leve e CONFIÁVEL
         SessionManager.save_session(acc, eng.client)  # re-salva (renova)
         if acc.status != 'active':
             acc.status = 'active'
             acc.last_error = ''
             acc.save(update_fields=['status', 'last_error'])
-    except Exception as e:
-        logger.info("[KEEPALIVE] @%s sessão não validou: %s", acc.ig_username, str(e)[:120])
+    except LoginRequired:
+        # Sessão REALMENTE morta. Só marca expirada em conta só-sessão (sem
+        # senha real p/ religar sozinha) — evita falso "sessão expirada".
         try:
             senha = acc.get_ig_password()
         except Exception:
             senha = ''
-        # Só marca expirada quando NÃO há senha real para religar sozinho.
         if senha in ('', '__session_login__'):
             acc.status = 'session_expired'
             acc.last_error = ('Sessão expirada (keep-alive). Reconecte pela aba '
                               '"Sessão" — cole o cookie do Instagram de novo.')
             acc.save(update_fields=['status', 'last_error'])
+    except Exception as e:
+        # Erro transitório (rate limit/rede) — NÃO marca expirada.
+        logger.info("[KEEPALIVE] @%s check transitório: %s", acc.ig_username, str(e)[:100])

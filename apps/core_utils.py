@@ -52,6 +52,39 @@ def url_midia(site_url, media_url, relname):
     return url_segura(f"{(site_url or '').rstrip('/')}{media_url}{relname}")
 
 
+def midia_local_por_nome(relname):
+    """Caminho LOCAL para uma mídia dado o nome relativo ao MEDIA_ROOT.
+
+    Igual a garantir_midia_local, mas recebe o NOME (ex.: 'profile_pics/x.jpg')
+    em vez do FileField — usado na edição em massa de perfil (a foto é salva no
+    painel e o braço precisa dela local). Retorna (caminho, eh_temporario).
+    """
+    from django.conf import settings
+
+    if not relname:
+        return None, False
+    local = os.path.join(settings.MEDIA_ROOT, relname.replace('/', os.sep))
+    if os.path.exists(local):
+        return local, False
+
+    import requests
+    site = (getattr(settings, 'SITE_URL', '') or '').rstrip('/')
+    media_url = getattr(settings, 'MEDIA_URL', '/media/')
+    url = url_segura(f"{site}{media_url}{relname}")
+    destino = os.path.join(settings.MEDIA_ROOT, 'processed')
+    os.makedirs(destino, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(suffix=os.path.splitext(relname)[1] or '.jpg', dir=destino)
+    os.close(fd)
+    with requests.get(url, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        with open(tmp, 'wb') as fh:
+            for chunk in r.iter_content(chunk_size=1024 * 256):
+                if chunk:
+                    fh.write(chunk)
+    logger.info('midia_local_por_nome: baixou %s', relname)
+    return tmp, True
+
+
 def garantir_midia_local(fieldfile):
     """Devolve (caminho_local, eh_temporario) para o arquivo de um FileField.
 

@@ -34,11 +34,16 @@
                     <input type="url" name="external_url" class="form-control text-white border-subtle"
                            style="background: var(--bg-input);" placeholder="https://...">
                 </div>
-                <div class="mb-2">
+                <div class="mb-3">
                     <label class="form-label text-muted">Foto de perfil (opcional)</label>
                     <input type="file" name="picture" accept="image/*" class="form-control text-white border-subtle"
                            style="background: var(--bg-input);">
                 </div>
+                <label class="d-flex align-items-center gap-2" style="cursor:pointer;">
+                    <input type="checkbox" name="to_creator" class="form-check-input">
+                    <span class="text-white small"><i class="bi bi-stars text-warning me-1"></i>Converter para conta de <strong>Criador de Conteúdo</strong></span>
+                </label>
+                <small class="text-muted d-block mt-1">Muda o tipo da conta para profissional/criador (via engine). Opcional.</small>
             </div>
         </div>
 

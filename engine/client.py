@@ -252,10 +252,14 @@ class InstagramEngine:
         tinha_sessao = SessionManager.load_session(acc, self.client)
         if tinha_sessao:
             try:
-                self.client.get_timeline_feed()   # valida a sessão salva
+                self.client.account_info()   # validação leve e CONFIÁVEL
                 return
+            except LoginRequired:
+                pass  # sessão REALMENTE morta — tenta senha / marca expirada abaixo
             except Exception:
-                pass  # sessão inválida/expirada — tenta senha abaixo
+                # Erro transitório (rate limit/rede) — NÃO é sessão expirada.
+                # Confia na sessão salva e segue; se estiver morta, a ação falha.
+                return
 
         senha = ''
         try:
@@ -305,6 +309,12 @@ class InstagramEngine:
         """Troca a foto de perfil da conta."""
         self._prepare_client()
         return self.client.account_change_picture(image_path)
+
+    def convert_to_creator(self):
+        """Converte a conta para profissional do tipo CRIADOR DE CONTEÚDO.
+        Só a engine faz isso (a API oficial não converte tipo de conta)."""
+        self._prepare_client()
+        return self.client.account_convert_to_creator()
 
     def run_warmup(self, likes=0, follows=0, views=0, hashtag='reels'):
         """Aquecimento gradual: curte/visualiza/segue conteúdo de um hashtag.

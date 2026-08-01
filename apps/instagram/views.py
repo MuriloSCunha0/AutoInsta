@@ -1106,20 +1106,24 @@ def bulk_edit(request):
         biography = request.POST.get('biography')
         external_url = (request.POST.get('external_url') or '').strip()
 
-        picture_path = None
+        # Salva a foto e passa o NOME relativo (o braço baixa a cópia local por
+        # URL — passar o path local do painel não funcionava no setup 2 máquinas).
+        picture_name = None
         if 'picture' in request.FILES:
-            name = default_storage.save(f'profile_pics/{request.FILES["picture"].name}', request.FILES['picture'])
-            try:
-                picture_path = default_storage.path(name)
-            except NotImplementedError:
-                picture_path = None  # storage remoto não expõe path local
+            from apps.core_utils import nome_seguro
+            f = request.FILES['picture']
+            f.name = nome_seguro(f.name)
+            picture_name = default_storage.save(f'profile_pics/{f.name}', f)
+
+        to_creator = request.POST.get('to_creator') == 'on'
 
         # Garante que as contas são do usuário.
         owned_ids = list(
             InstagramAccount.objects.filter(id__in=account_ids, owner=request.user).values_list('id', flat=True)
         )
-        bulk_edit_profiles.delay(owned_ids, full_name, biography, external_url, picture_path)
-        messages.success(request, f'Edição de perfil disparada para {len(owned_ids)} conta(s). Pode levar alguns minutos.')
+        bulk_edit_profiles.delay(owned_ids, full_name, biography, external_url, picture_name, to_creator)
+        extra = ' + converter p/ Criador' if to_creator else ''
+        messages.success(request, f'Edição de perfil{extra} disparada para {len(owned_ids)} conta(s). Pode levar alguns minutos.')
         return redirect('instagram:bulk_edit')
 
     accounts = InstagramAccount.objects.filter(owner=request.user)
