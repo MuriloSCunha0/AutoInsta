@@ -16,3 +16,9 @@ services:
   redis:
     ports:
       - "${WG_IP:-10.8.0.1}:6379:6379"
+  # O worker do painel NÃO pode consumir a fila 'publisher' (login/publicação),
+  # senão essas tarefas rodariam pelo IP do painel e furariam o isolamento
+  # painel×braço. Aqui fixamos a fila leve, independente do .env do operador.
+  celery_worker:
+    environment:
+      CELERY_QUEUES: celery

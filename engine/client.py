@@ -256,9 +256,21 @@ class InstagramEngine:
                 return
             except LoginRequired:
                 pass  # sessão REALMENTE morta — tenta senha / marca expirada abaixo
+            except ChallengeRequired:
+                # Sessão viva, mas o IG exige verificação (checkpoint). Não dá
+                # para publicar — e senha não resolve. Sinaliza no painel em vez
+                # de deixar a conta "ativa" falhando em silêncio a cada post.
+                acc.status = 'challenge_required'
+                acc.last_error = ('O Instagram pediu verificação nesta conta '
+                                  '(checkpoint). Abra a conta no app, confirme '
+                                  'que é você e reconecte a sessão.')
+                acc.save(update_fields=['status', 'last_error'])
+                raise Exception('Conta em checkpoint no Instagram — verifique e reconecte.')
             except Exception:
                 # Erro transitório (rate limit/rede) — NÃO é sessão expirada.
                 # Confia na sessão salva e segue; se estiver morta, a ação falha.
+                # (Só marcamos expirada em falhas CONHECIDAS de sessão, acima,
+                # para não derrubar conta ativa por soluço de rede/rate limit.)
                 return
 
         senha = ''

@@ -9,7 +9,8 @@
             <thead>
                 <tr>
                     <th class="text-muted fw-medium border-0">Conta</th>
-                    <th class="text-muted fw-medium border-0">Status da Meta API</th>
+                    <th class="text-muted fw-medium border-0">Conexão</th>
+                    <th class="text-muted fw-medium border-0">Status</th>
                     <th class="text-muted fw-medium border-0">Diagnóstico</th>
                 </tr>
             </thead>
@@ -17,6 +18,7 @@
                 {% for acc in account_health %}
                 <tr>
                     <td class="text-white border-0">@{{ acc.username }}</td>
+                    <td class="text-muted border-0"><span class="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-25 rounded-pill">{{ acc.conexao }}</span></td>
                     <td class="border-0">
                         {% if acc.status == 'ok' %}
                             <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill"><i class="bi bi-check-circle me-1"></i> Saudável</span>
@@ -30,7 +32,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" class="text-center text-muted border-0 py-4">Nenhuma conta conectada.</td>
+                    <td colspan="4" class="text-center text-muted border-0 py-4">Nenhuma conta conectada.</td>
                 </tr>
                 {% endfor %}
             </tbody>

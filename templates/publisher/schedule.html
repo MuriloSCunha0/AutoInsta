@@ -189,6 +189,13 @@
               </select>
               <small class="text-muted">Postar o mesmo conteúdo em várias contas? Ultra evita que o Instagram ligue as contas.</small>
             </div>
+
+            <div class="col-12 feed-only">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" name="grade" value="grade" id="pm-grade" checked>
+                <label class="form-check-label text-muted small" for="pm-grade">Publicar também na grade do perfil (feed)</label>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer border-0 justify-content-between">
@@ -236,6 +243,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function aplicarTipo() {
         var story = tipo.value === 'STORY';
         form.querySelectorAll('.story-only').forEach(function (e) { e.style.display = story ? '' : 'none'; });
+        // "Grade" (share_to_feed) só faz sentido em REELS/FEED — Story nunca vai à grade.
+        form.querySelectorAll('.feed-only').forEach(function (e) { e.style.display = story ? 'none' : ''; });
     }
     function preview() {
         var nd = form.querySelectorAll('.pm-weekday:checked').length;
@@ -258,6 +267,7 @@ document.addEventListener('DOMContentLoaded', function () {
         byId('pm-name').value = ''; byId('pm-hora').value = '09:00'; tipo.value = 'STORY';
         byId('pm-caption').value = ''; byId('pm-link').value = ''; byId('pm-label').value = 'CLIQUE AQUI';
         byId('pm-espac').value = '20'; byId('pm-clean').value = 'light';
+        byId('pm-grade').checked = true;
         byId('pm-media').required = true; byId('pm-media-note').textContent = '';
         form.querySelectorAll('.pm-weekday').forEach(function (b) { b.checked = false; marcarDia(b); });
         form.querySelectorAll('.pm-account').forEach(function (b) { b.checked = false; });
@@ -284,6 +294,7 @@ document.addEventListener('DOMContentLoaded', function () {
             byId('pm-label').value = d.label || 'CLIQUE AQUI';
             byId('pm-espac').value = d.espac || '20';
             byId('pm-clean').value = d.clean || 'light';
+            byId('pm-grade').checked = (d.grade !== '0');
             byId('pm-media').required = false;
             byId('pm-media-note').textContent = 'Deixe vazio para manter a mídia atual.';
             var dias = (d.weekdays || '').split(',');

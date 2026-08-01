@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 
 from celery import shared_task
@@ -177,6 +178,21 @@ def _e_rate_limit(msg):
     )
 
 
+def _e_sessao_morta(msg):
+    """A sessão da engine (instagrapi) caiu/foi deslogada — retry não resolve,
+    a conta precisa reconectar. É diferente de app Meta inválido (Graph)."""
+    m = (msg or '').lower()
+    return (
+        'user_has_logged_out' in m
+        or 'logout_reason' in m
+        or 'login_required' in m
+        or 'loginrequired' in m
+        or 'checkpoint_required' in m
+        or 'challenge_required' in m
+        or 'reconecte a conta pela aba' in m   # erro que a própria engine levanta
+    )
+
+
 def _e_app_invalido(msg):
     """Erro de TOKEN/APP inválido (não é rate limit, não adianta retry).
 
@@ -207,6 +223,10 @@ def _deve_revezar(msg):
         "'code': 190", 'oauthexception', 'session has been invalidated', 'session has expired',
         'unsupported request', 'application does not have permission', 'not authorized',
         'permissions error', 'login_required', 'loginrequired', 'challenge_required',
+        # Mídia processada no braço não existe na URL pública do painel (404):
+        # a Graph API não consegue baixá-la, mas a engine sobe os bytes locais.
+        # Falha LIMPA (nada foi publicado), então revezar não duplica.
+        'não está acessível publicamente', 'a meta precisa baixá-la',
     )
     return any(g in m for g in gatilhos)
 
@@ -221,6 +241,12 @@ def publish_reel(post_id):
     except ScheduledPost.DoesNotExist:
         print(f"Post {post_id} não existe mais; ignorando.")
         return
+
+    # Temporários baixados/gerados por esta execução. Pré-inicializados aqui para
+    # o `finally` sempre poder limpá-los — mesmo que a exceção venha cedo (antes
+    # de eles serem reatribuídos no corpo). Em falha/retry eram vazados em disco.
+    fonte_baixada = arquivo_temporario = temp_audio = None
+    audio_src_temp = thumb_temp = None
 
     try:
         engine = InstagramEngine(post.account)
@@ -457,20 +483,39 @@ def publish_reel(post_id):
             post.account.rate_limited_until = None
             post.account.save(update_fields=['rate_limited_until'])
 
-        # Remove as cópias temporárias: já publicadas, não precisam ocupar disco.
-        # Inclui os arquivos baixados no braço (fonte/áudio/thumb), quando houve.
-        for temporario in (arquivo_temporario, temp_audio, fonte_baixada,
-                           audio_src_temp, thumb_temp):
-            if temporario:
-                try:
-                    os.remove(temporario)
-                except Exception:
-                    pass
-        
     except Exception as e:
         msg = str(e)
 
-        if _e_app_invalido(msg):
+        if _e_sessao_morta(msg):
+            # Sessão da engine caiu/deslogou (ex.: user_has_logged_out,
+            # logout_reason 9). Retry NÃO resolve — só marca a conta como
+            # "reconectar" e para de martelar (antes ia +10min pra sempre).
+            # O dispatcher pula contas session_expired, então o post fica na
+            # fila e retoma sozinho quando o usuário recolar o cookie.
+            conta = post.account
+            conta.status = 'session_expired'
+            conta.last_error = ('Sessão do Instagram caiu (deslogada). Reconecte '
+                                'pela aba "Sessão" — cole o cookie do IG de novo.')
+            conta.save(update_fields=['status', 'last_error'])
+            post.status = 'queued'
+            post.error_message = 'Sessão expirada — reconecte a conta para retomar.'
+            post.save(update_fields=['status', 'error_message'])
+            print(f"Post {post_id}: SESSAO MORTA; @{conta.ig_username} -> session_expired (sem retry)")
+            try:
+                from apps.notifications.alertas import alertar
+                agora = timezone.now()
+                alertar(
+                    post.owner, 'conta_caiu',
+                    'Sessão expirada',
+                    f'@{conta.ig_username}: a sessão caiu (deslogada). Reconecte '
+                    'pela aba Sessão para as publicações voltarem.',
+                    chave=f'sess:{conta.id}:{agora:%Y%m%d%H}',
+                    nivel='error', account=conta,
+                )
+            except Exception:
+                pass
+
+        elif _e_app_invalido(msg):
             # App/token restringido pela Meta (ex.: 190 "cannot access the app").
             # Retry NÃO resolve e só piora — para de martelar: marca a conta como
             # caída, põe um cooldown longo e reagenda o post para depois dele.
@@ -547,6 +592,19 @@ def publish_reel(post_id):
             except Exception:
                 pass
 
+    finally:
+        # Limpa as cópias temporárias em QUALQUER desfecho (sucesso, falha ou
+        # retry). Antes só limpava no sucesso — em falha/retry os arquivos
+        # baixados no braço (fonte/áudio/thumb) e os processados vazavam em disco
+        # a cada tentativa. Em retry, a próxima execução rebaixa/reprocessa.
+        for temporario in (arquivo_temporario, temp_audio, fonte_baixada,
+                           audio_src_temp, thumb_temp):
+            if temporario:
+                try:
+                    os.remove(temporario)
+                except Exception:
+                    pass
+
 
 @shared_task
 def process_agenda_semanal():
@@ -571,6 +629,10 @@ def process_agenda_semanal():
             continue
 
         contas = [c for c in ag.accounts.all() if not c.pausada and not c.banned_by_admin]
+        # Story COM link só existe pela engine (sessão). Conta sem sessão falharia
+        # em retries silenciosos — pula essas, igual ao bloqueio do Composer.
+        if ag.post_type == 'STORY' and ag.story_link:
+            contas = [c for c in contas if getattr(c, 'tem_sessao_engine', False)]
         espac = max(1, ag.espacamento_min)
         for i, acc in enumerate(contas):
             when = base + timedelta(minutes=i * espac)   # espaça 1 conta por vez

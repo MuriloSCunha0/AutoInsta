@@ -252,19 +252,29 @@ def bulk_posts(request):
         # (como no Murphy). A Meta ainda pode recusar por volume real.
         # Teto por acionamento: disparar milhares de uma vez inunda a API da
         # Meta — que é exatamente o que causa bloqueio.
+        # Não re-disparar posts que já estão EM VOO (processing recente): um
+        # segundo publish_reel do mesmo post gera publicação DUPLICADA no IG.
+        # Posts presos há >15min (worker caiu) continuam forçáveis — mesmo
+        # limite usado pelo dispatcher que devolve presos à fila (tasks.py).
+        from datetime import timedelta
+        limite_voo = timezone.now() - timedelta(minutes=15)
+        qs = qs.exclude(status='processing', processing_since__gte=limite_voo)
+
         LIMITE_FORCAR = 100
-        total_pedido = n
+        total_pedido = qs.count()
         qs = qs.order_by('scheduled_for')[:LIMITE_FORCAR]
         n = len(qs)
 
         from .tasks import publish_reel
+        agora = timezone.now()
         contas_limpas = set()
         for post in qs.select_related('account'):
             post.status = 'processing'
-            post.scheduled_for = timezone.now()
+            post.processing_since = agora
+            post.scheduled_for = agora
             post.retry_count = 0
             post.error_message = ''
-            post.save(update_fields=['status', 'scheduled_for', 'retry_count', 'error_message'])
+            post.save(update_fields=['status', 'processing_since', 'scheduled_for', 'retry_count', 'error_message'])
             # Limpa o cooldown da conta para a força valer.
             if post.account_id not in contas_limpas and post.account.rate_limited_until:
                 post.account.rate_limited_until = None
@@ -744,7 +754,8 @@ def criar_agenda(request):
         post_type=(request.POST.get('post_type') or 'STORY'),
         video_file=media,
         caption=(request.POST.get('caption') or '').strip(),
-        share_to_feed=request.POST.get('grade', 'grade') == 'grade',
+        # Checkbox: marcado envia 'grade'; desmarcado não envia nada -> False.
+        share_to_feed=request.POST.get('grade') == 'grade',
         clean_mode=(request.POST.get('clean_mode') or 'light'),
         story_link=(request.POST.get('story_link') or '').strip(),
         story_link_label=(request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40],
@@ -793,7 +804,8 @@ def editar_agenda(request):
     ag.hora = hora
     ag.post_type = request.POST.get('post_type') or 'STORY'
     ag.caption = (request.POST.get('caption') or '').strip()
-    ag.share_to_feed = request.POST.get('grade', 'grade') == 'grade'
+    # Checkbox: marcado envia 'grade'; desmarcado não envia nada -> False.
+    ag.share_to_feed = request.POST.get('grade') == 'grade'
     ag.clean_mode = request.POST.get('clean_mode') or 'light'
     ag.story_link = (request.POST.get('story_link') or '').strip()
     ag.story_link_label = (request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40]

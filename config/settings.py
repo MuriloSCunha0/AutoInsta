@@ -284,6 +284,16 @@ CHANNEL_LAYERS = {
 # =============================================================================
 FERNET_KEY = env("FERNET_KEY", default="")
 
+# Sem FERNET_KEY, senhas/seeds/tokens não descriptografam e login/publicação
+# falham em silêncio — e a chave PRECISA ser idêntica no painel e no braço.
+# Em produção, falhar cedo (no boot) é melhor que descobrir isso a cada post.
+if not DEBUG and not FERNET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "FERNET_KEY vazia em produção. Defina-a no .env (a MESMA no painel e no "
+        "braço) — sem ela, senhas e tokens do Instagram não descriptografam."
+    )
+
 # =============================================================================
 # Configuração Padrão de Campo Primário
 # =============================================================================

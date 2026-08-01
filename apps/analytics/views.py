@@ -279,32 +279,56 @@ def top_posts(request):
 def health(request):
     accounts = InstagramAccount.objects.filter(owner=request.user)
     account_health = []
-    
+
     for acc in accounts:
-        status = 'ok'
-        msg = 'Token Meta ativo e válido.'
-        if not acc.meta_access_token:
-            status = 'error'
-            msg = 'Não conectado à API Meta.'
+        tem_sessao = acc.tem_sessao_engine   # conexão por sessionid/senha (API privada)
+        tem_meta = bool(acc.meta_access_token)  # conexão por token Meta (API oficial)
+
+        if tem_sessao and tem_meta:
+            conexao = 'Sessão + Meta API'
+        elif tem_sessao:
+            conexao = 'Sessão (API privada)'
+        elif tem_meta:
+            conexao = 'Meta API (oficial)'
         else:
-            # Check token validy
+            conexao = 'Sem conexão'
+
+        # Status base pelo campo mantido pela engine/keep-alive.
+        if acc.status == 'active':
+            status, msg = 'ok', 'Ativa e funcionando.'
+        elif acc.status == 'session_expired':
+            status, msg = 'error', 'Sessão expirada — reconecte o sessionid.'
+        elif acc.status == 'banned':
+            status, msg = 'error', 'Banida/indisponível no Instagram.'
+        elif acc.status in ('challenge_required', '2fa_required'):
+            status, msg = 'warning', 'Requer verificação (2FA/código).'
+        elif acc.status == 'connecting':
+            status, msg = 'warning', 'Conectando...'
+        else:
+            status, msg = 'error', 'Erro na conta.'
+
+        if acc.em_cooldown:
+            status, msg = 'warning', 'Em espera por rate limit da Meta.'
+
+        # Contas SÓ por token Meta: o campo status pode não refletir a expiração
+        # do token (a Meta expira tokens sozinha). Validamos ao vivo nesse caso.
+        if tem_meta and not tem_sessao and status == 'ok':
             url = "https://graph.instagram.com/v23.0/me"
             params = {'access_token': acc.get_meta_token()}
             try:
                 res = requests.get(url, params=params, timeout=5)
                 if res.status_code != 200:
-                    status = 'error'
-                    msg = 'Token Meta expirado ou inválido.'
+                    status, msg = 'error', 'Token Meta expirado ou inválido.'
             except Exception:
-                status = 'warning'
-                msg = 'Falha ao verificar com a Meta.'
-                
+                status, msg = 'warning', 'Falha ao verificar com a Meta.'
+
         account_health.append({
             'username': acc.ig_username,
+            'conexao': conexao,
             'status': status,
-            'message': msg
+            'message': msg,
         })
-        
+
     return render(request, 'analytics/health.html', {'account_health': account_health})
 
 from .models import DailySnapshot, SystemLog

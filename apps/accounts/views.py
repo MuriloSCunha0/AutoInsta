@@ -89,6 +89,12 @@ def profile_update(request):
             
             if not request.user.check_password(old_password):
                 messages.error(request, 'A senha atual está incorreta.')
+            elif not new_password:
+                # Sem isto, dois campos vazios passavam na checagem de igualdade
+                # e a senha era gravada em branco (o `required` do HTML é burlável).
+                messages.error(request, 'A nova senha não pode ficar em branco.')
+            elif len(new_password) < 8:
+                messages.error(request, 'A nova senha precisa ter ao menos 8 caracteres.')
             elif new_password != confirm_password:
                 messages.error(request, 'As novas senhas não coincidem.')
             else:

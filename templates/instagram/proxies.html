@@ -26,17 +26,22 @@
                     </td>
                     <td class="text-muted border-0">{{ proxy.port }}</td>
                     <td class="border-0">
-                        <a href="{% url 'instagram:toggle_proxy' proxy.id %}" class="text-decoration-none">
-                        {% if proxy.is_active %}
-                            <span class="badge bg-success bg-opacity-25 text-success rounded-pill">Ativo</span>
-                        {% else %}
-                            <span class="badge bg-danger bg-opacity-25 text-danger rounded-pill">Inativo</span>
-                        {% endif %}
-                        </a>
+                        <form method="post" action="{% url 'instagram:toggle_proxy' proxy.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link p-0 text-decoration-none border-0">
+                            {% if proxy.is_active %}
+                                <span class="badge bg-success bg-opacity-25 text-success rounded-pill">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-25 text-danger rounded-pill">Inativo</span>
+                            {% endif %}
+                            </button>
+                        </form>
                     </td>
                     <td class="text-end border-0">
-                        <a href="{% url 'instagram:delete_proxy' proxy.id %}" class="btn btn-sm btn-outline-danger border-opacity-25 text-danger"
-                           onclick="return confirm('Excluir este proxy?')"><i class="bi bi-trash"></i></a>
+                        <form method="post" action="{% url 'instagram:delete_proxy' proxy.id %}" onsubmit="return confirm('Excluir este proxy?')" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-opacity-25 text-danger"><i class="bi bi-trash"></i></button>
+                        </form>
                     </td>
                 </tr>
                 {% empty %}

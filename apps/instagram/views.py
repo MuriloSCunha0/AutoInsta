@@ -510,9 +510,9 @@ def update_account_limit(request, account_id):
     """Ajusta o teto diário de publicações da conta (0 = sem limite)."""
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     try:
-        account.daily_post_limit = max(int(request.POST.get('daily_post_limit', 20)), 0)
+        account.daily_post_limit = max(int(request.POST.get('daily_post_limit', 100)), 0)
     except (TypeError, ValueError):
-        account.daily_post_limit = 20
+        account.daily_post_limit = 100
     account.save(update_fields=['daily_post_limit'])
     return render(request, 'instagram/partials/account_card.html', {'account': account})
 
@@ -802,6 +802,7 @@ def resend_challenge(request, account_id):
 
 
 @login_required
+@require_POST
 def remove_account(request, account_id):
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     account.delete()
@@ -1082,6 +1083,7 @@ def add_proxy(request):
 
 
 @login_required
+@require_POST
 def toggle_proxy(request, proxy_id):
     proxy = get_object_or_404(Proxy, id=proxy_id, owner=request.user)
     proxy.is_active = not proxy.is_active
@@ -1090,6 +1092,7 @@ def toggle_proxy(request, proxy_id):
 
 
 @login_required
+@require_POST
 def delete_proxy(request, proxy_id):
     proxy = get_object_or_404(Proxy, id=proxy_id, owner=request.user)
     proxy.delete()

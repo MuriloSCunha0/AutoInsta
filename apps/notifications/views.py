@@ -89,10 +89,9 @@ def alert_test(request):
                     url='/notifications/')
     if n:
         messages.success(request, f'Teste enviado para {n} aparelho(s).')
-    elif pref.telegram_ativo:
-        _enviar_telegram(pref, 'Alerta de teste', 'Tudo certo!')
-        messages.success(request, 'Teste enviado ao Telegram.')
-    else:
+    elif not pref.telegram_ativo:
+        # Sem push e sem Telegram: só o sino. (Se Telegram estiver ativo, ele já
+        # foi enviado no bloco acima — não repetir para não chegar em dobro.)
         messages.info(request, 'Teste criado no sino. Ative as notificações neste aparelho para receber no celular.')
     return redirect('notifications:alertas')
 
