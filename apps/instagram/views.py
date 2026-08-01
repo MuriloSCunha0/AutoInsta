@@ -595,39 +595,34 @@ def reativar_conta(request, account_id):
 def update_token(request, account_id):
     """Atualiza SÓ o token de uma conta que caiu (sem refazer a conexão). Valida
     o token novo na Meta e, se válido, reativa a conta e retoma a fila."""
-    import requests as _rq
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     token = (request.POST.get('meta_access_token') or '').strip()
     if not token:
         return render(request, 'instagram/partials/account_card.html', {'account': account})
 
     account.set_meta_token(token)
+    # Validade do token colado é desconhecida → zera (some o aviso de "vencido")
+    # e o beat de renovação reassume a partir dele.
+    account.meta_token_expira_em = None
+    account.save(update_fields=['meta_access_token', 'meta_token_expira_em'])
+
+    # Valida o token E resolve o ig_user_id CORRETO (via /me?fields=user_id, o
+    # mesmo caminho do add_meta) — nunca o `id` app-scoped, que quebra o /media.
     try:
-        ig_id = account.ig_user_id or 'me'
-        r = _rq.get(
-            f'https://graph.instagram.com/v23.0/{ig_id}',
-            params={'fields': 'id,username', 'access_token': token}, timeout=12,
-        )
-        data = r.json()
-        if r.status_code == 200 and 'id' in data:
-            account.status = 'active'
-            account.last_error = ''
-            account.rate_limited_until = None
-            # Validade do token colado é desconhecida → zera (some o aviso de
-            # "vencido/vence em breve") e o beat de renovação reassume a partir dele.
-            account.meta_token_expira_em = None
-            if data.get('username'):
-                account.ig_username = data['username']
-            if not account.ig_user_id and str(data.get('id', '')).isdigit():
-                account.ig_user_id = int(data['id'])
-            _subir_fila_agora(account)
-        else:
-            account.status = 'error'
-            account.last_error = f"Token recusado pela Meta: {data.get('error', data)}"
+        ok, msg = _sync_meta_account(account)
     except Exception as e:
+        ok, msg = False, str(e)
+
+    if ok:
+        account.status = 'active'
+        account.last_error = ''
+        account.rate_limited_until = None
+        account.save(update_fields=['status', 'last_error', 'rate_limited_until'])
+        _subir_fila_agora(account)
+    else:
         account.status = 'error'
-        account.last_error = f'Falha ao validar o token novo: {str(e)[:150]}'
-    account.save()
+        account.last_error = f'Token recusado pela Meta: {msg}'
+        account.save(update_fields=['status', 'last_error'])
     return render(request, 'instagram/partials/account_card.html', {'account': account})
 
 
@@ -1072,6 +1067,14 @@ def oauth_callback(request):
             account.ig_user_id = int(user_id)
         account.status = 'active'
         account.save()
+
+        # O user_id da troca de token pode ser app-scoped e NÃO servir para
+        # publicar (/media dá "Object does not exist"). Resolve o id correto via
+        # /me?fields=user_id — mesmo caminho do add_meta.
+        try:
+            _sync_meta_account(account)
+        except Exception:
+            pass
 
         via = f" (app: {account.meta_app.name})" if account.meta_app else ""
         logger.info("[CONNECT acc=%s @%s] oauth_callback OK -> conta conectada%s",
