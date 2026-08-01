@@ -221,8 +221,7 @@
         </details>
         {% endif %}
 
-        {# Token da API oficial vencido/vencendo: deixa colar um token novo sem
-           esperar cair. (Auto-renovação cobre os renováveis; este é o plano B.) #}
+        {% comment %}Token da API oficial vencido/vencendo: deixa colar um token novo sem esperar cair. Auto-renovação cobre os renováveis; este é o plano B.{% endcomment %}
         {% if account.token_vencido or account.token_expira_em_breve %}
         <details class="mb-3" {% if account.token_vencido %}open{% endif %} style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px;">
             <summary class="small fw-semibold {% if account.token_vencido %}text-danger{% else %}text-warning{% endif %}" style="cursor:pointer;">
