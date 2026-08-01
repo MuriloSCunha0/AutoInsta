@@ -186,9 +186,11 @@
         </div>
         {% endif %}
 
-        {# HÍBRIDO: ativar/reconectar a SESSÃO (story-link) numa conta que tem token
-           OAuth mas está sem sessão ativa. Não aparece se já tem sessão viva, nem
-           em conta só-sessão (essa usa o banner "Sessão expirada" acima). #}
+        {% comment %}
+        HÍBRIDO: ativar/reconectar a SESSÃO (story-link) numa conta que tem token
+        OAuth mas está sem sessão ativa. Não aparece se já tem sessão viva, nem
+        em conta só-sessão (essa usa o banner "Sessão expirada" acima).
+        {% endcomment %}
         {% if account.meta_access_token and not account.tem_sessao_engine and account.status != 'session_expired' %}
         <details class="mb-3" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px;">
             <summary class="small fw-semibold {% if account.sessao_expirada %}text-warning{% else %}text-primary{% endif %}" style="cursor:pointer;">

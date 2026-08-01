@@ -34,6 +34,34 @@
                             <i class="bi bi-check-circle me-1"></i> <strong>Caminho mais estável.</strong> O dono da conta autoriza no próprio aparelho, logado no Instagram dele. Conecta por <strong>token oficial</strong> — <strong>não cai por IP</strong> e publica feed, reels e stories (sem link).
                         </div>
 
+                        <details open class="mb-3" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:10px 14px;">
+                            <summary class="text-info small fw-semibold" style="cursor:pointer;">
+                                <i class="bi bi-list-ol me-1"></i> Passo a passo do OAuth (leia antes)
+                            </summary>
+                            <div class="text-muted small mt-2" style="line-height:1.75">
+                                <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning py-2 px-2 mb-2" style="font-size:.78rem;">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> <strong>Pré-requisito:</strong> a conta precisa ser <strong>Profissional</strong> (Comercial ou Criador). Conta pessoal não entra na API oficial.
+                                </div>
+
+                                <strong class="text-white">Antes (uma vez, no app do Instagram da conta):</strong>
+                                <ol class="ps-3 mb-2">
+                                    <li>No app do IG: <strong>Perfil → ☰ (menu) → Configurações e privacidade</strong>.</li>
+                                    <li><strong>Tipo de conta e ferramentas → Mudar para conta profissional</strong> (escolha <strong>Criador</strong> ou <strong>Comercial</strong>). Pode pular a parte de vincular ao Facebook.</li>
+                                </ol>
+
+                                <strong class="text-white">Conectar aqui (o passo a passo):</strong>
+                                <ol class="ps-3 mb-2">
+                                    <li>Escolha o <strong>App Meta</strong> abaixo (ou deixe no padrão).</li>
+                                    <li>Clique em <strong>“Gerar link / QR de autorização”</strong>.</li>
+                                    <li><strong>Abra o link (ou escaneie o QR) no aparelho onde a conta está logada</strong> no instagram.com. Se for o dono da conta, mande o link pra ele.</li>
+                                    <li>Na tela do Instagram, confira se é a <strong>conta certa</strong> e toque em <strong>Permitir / Autorizar</strong> todas as permissões pedidas.</li>
+                                    <li>Pronto — a conta <strong>aparece sozinha</strong> aqui na lista, com o selo <span class="badge bg-success bg-opacity-25 text-success rounded-pill" style="font-size:.6rem;">OAuth</span>.</li>
+                                </ol>
+
+                                <div style="font-size:.78rem;"><i class="bi bi-lightbulb me-1 text-warning"></i> O token renova <strong>sozinho</strong> antes de vencer — você não precisa refazer isso a cada 60 dias. E se um dia cair, é só gerar o link de novo.</div>
+                            </div>
+                        </details>
+
                         <div class="mb-3">
                             <label class="form-label text-muted"><i class="bi bi-meta me-1"></i> App Meta desta conta <span class="text-muted">(opcional)</span></label>
                             {% if meta_apps %}
