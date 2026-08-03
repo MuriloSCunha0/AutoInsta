@@ -145,14 +145,13 @@ def process_scheduled_posts():
         # limitada. Pula cooldown e teto diário (a Meta ainda pode recusar).
         forcado = conta.ignorar_limites
 
-        # INTERVALO MÍNIMO entre publicações da MESMA conta (anti-burst). Sem
-        # isto o dispatcher publicava até 2/min (rajada robótica que ZERA o
-        # alcance no IG). Vale MESMO FORÇADO — a rajada mata o alcance
-        # independentemente da intenção; forçar só ENCURTA o gap, não o elimina.
+        # INTERVALO MÍNIMO entre publicações da MESMA conta (anti-burst). É a
+        # regra MAIS IMPORTANTE contra queda: publicar a sequência toda de uma
+        # vez (segundos de diferença) o IG identifica como SPAM e DERRUBA a conta
+        # (feedback real). Vale SEMPRE — inclusive com "Forçar". Forçar ignora só
+        # o TETO DIÁRIO e o cooldown de rate-limit, NUNCA o espaçamento.
         from django.conf import settings as _cfg2
         gap_min = getattr(_cfg2, 'MIN_INTERVALO_POST_MIN', 40)
-        if forcado:
-            gap_min = min(gap_min, getattr(_cfg2, 'MIN_INTERVALO_FORCADO_MIN', 5))
         # Post EM VOO (processing) conta como "acabou de postar": sem isto, o gap
         # baseado só em published_at furava (o post em voo ainda não publicou, e
         # a próxima rodada disparava outro → saíam com segundos de diferença).

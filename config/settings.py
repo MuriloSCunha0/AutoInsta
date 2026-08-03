@@ -189,9 +189,6 @@ MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
 # publicava até 2/min por conta (rajada robótica) — o IG zera o alcance disso.
 # 40min => no máx ~1 post/40min por conta (natural, humano). Ajustável por env.
 MIN_INTERVALO_POST_MIN = env.int("MIN_INTERVALO_POST_MIN", default=40)
-# Gap mínimo (min) quando a conta está em "Forçar": mesmo forçando, nunca em
-# rajada (a rajada zera o alcance). Forçar encurta o gap, não o elimina.
-MIN_INTERVALO_FORCADO_MIN = env.int("MIN_INTERVALO_FORCADO_MIN", default=5)
 
 # Aquecimento humano: janela de horas ATIVAS (local) e gap aleatório (min) entre
 # ações. Fora da janela o warm-up não age (humano não curte às 4h).
