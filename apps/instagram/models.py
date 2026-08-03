@@ -256,8 +256,25 @@ class InstagramAccount(models.Model):
         vai a todo vapor e a Meta CORTA de surpresa com 3h de cooldown. Com o
         teto real, a conta desliza logo abaixo do limite e nunca leva o corte.
         """
-        tetos = [t for t in (self.daily_post_limit or 0, self.quota_total or 0) if t > 0]
+        tetos = [t for t in (self.daily_post_limit or 0, self.quota_total or 0,
+                             self.teto_maturidade) if t > 0]
         return min(tetos) if tetos else 0
+
+    @property
+    def teto_maturidade(self):
+        """Teto de postagem pela MATURIDADE da conta (seguidores + nº de posts).
+        Conta NOVA/pequena que posta muito tem o alcance ZERADO pelo IG (foi o que
+        derrubou as contas do sandrao: reach=0 a 50 posts/dia). Uma conta grande
+        aguenta mais. 0 = sem teto extra (usa o limite do usuário/cota da Meta)."""
+        seg = self.followers_count or 0
+        posts = self.posts_count or 0
+        if seg < 300 and posts < 40:   # conta claramente nova/fria
+            return 5
+        if seg < 1000:
+            return 12
+        if seg < 5000:
+            return 25
+        return 0                        # madura: sem teto extra
 
     def _publicados_24h(self):
         from datetime import timedelta

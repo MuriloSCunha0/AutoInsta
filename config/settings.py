@@ -185,6 +185,11 @@ MEDIA_UPLOAD_TOKEN = env("MEDIA_UPLOAD_TOKEN", default="")
 # vazão (e a operação estiver saudável); desça se estiver levando bloqueio.
 MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
 
+# Intervalo MÍNIMO (min) entre publicações da MESMA conta. Sem isto, o dispatcher
+# publicava até 2/min por conta (rajada robótica) — o IG zera o alcance disso.
+# 40min => no máx ~1 post/40min por conta (natural, humano). Ajustável por env.
+MIN_INTERVALO_POST_MIN = env.int("MIN_INTERVALO_POST_MIN", default=40)
+
 # Aquecimento humano: janela de horas ATIVAS (local) e gap aleatório (min) entre
 # ações. Fora da janela o warm-up não age (humano não curte às 4h).
 WARMUP_HORA_INI = env.int("WARMUP_HORA_INI", default=8)

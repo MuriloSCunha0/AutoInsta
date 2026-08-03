@@ -145,6 +145,20 @@ def process_scheduled_posts():
         # limitada. Pula cooldown e teto diário (a Meta ainda pode recusar).
         forcado = conta.ignorar_limites
 
+        # INTERVALO MÍNIMO entre publicações da MESMA conta: sem isto o dispatcher
+        # publicava até 2/min (rajada robótica que ZERA o alcance no IG). Se a
+        # conta publicou faz pouco, espera. (Forçar ignora.)
+        if not forcado:
+            from django.conf import settings as _cfg2
+            gap_min = getattr(_cfg2, 'MIN_INTERVALO_POST_MIN', 40)
+            ultimo_pub = (ScheduledPost.objects
+                          .filter(account=conta, status='published',
+                                  published_at__isnull=False)
+                          .order_by('-published_at')
+                          .values_list('published_at', flat=True).first())
+            if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_min):
+                continue
+
         # Conta em cooldown por rate limit: reagenda o post para o FIM do
         # cooldown (em vez de deixar vencido, martelando a cada rodada).
         if not forcado and conta.rate_limited_until and conta.rate_limited_until > now:
