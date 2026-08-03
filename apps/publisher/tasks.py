@@ -145,19 +145,26 @@ def process_scheduled_posts():
         # limitada. Pula cooldown e teto diário (a Meta ainda pode recusar).
         forcado = conta.ignorar_limites
 
-        # INTERVALO MÍNIMO entre publicações da MESMA conta: sem isto o dispatcher
-        # publicava até 2/min (rajada robótica que ZERA o alcance no IG). Se a
-        # conta publicou faz pouco, espera. (Forçar ignora.)
-        if not forcado:
-            from django.conf import settings as _cfg2
-            gap_min = getattr(_cfg2, 'MIN_INTERVALO_POST_MIN', 40)
-            ultimo_pub = (ScheduledPost.objects
-                          .filter(account=conta, status='published',
-                                  published_at__isnull=False)
-                          .order_by('-published_at')
-                          .values_list('published_at', flat=True).first())
-            if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_min):
-                continue
+        # INTERVALO MÍNIMO entre publicações da MESMA conta (anti-burst). Sem
+        # isto o dispatcher publicava até 2/min (rajada robótica que ZERA o
+        # alcance no IG). Vale MESMO FORÇADO — a rajada mata o alcance
+        # independentemente da intenção; forçar só ENCURTA o gap, não o elimina.
+        from django.conf import settings as _cfg2
+        gap_min = getattr(_cfg2, 'MIN_INTERVALO_POST_MIN', 40)
+        if forcado:
+            gap_min = min(gap_min, getattr(_cfg2, 'MIN_INTERVALO_FORCADO_MIN', 5))
+        # Post EM VOO (processing) conta como "acabou de postar": sem isto, o gap
+        # baseado só em published_at furava (o post em voo ainda não publicou, e
+        # a próxima rodada disparava outro → saíam com segundos de diferença).
+        if ScheduledPost.objects.filter(account=conta, status='processing').exists():
+            continue
+        ultimo_pub = (ScheduledPost.objects
+                      .filter(account=conta, status='published',
+                              published_at__isnull=False)
+                      .order_by('-published_at')
+                      .values_list('published_at', flat=True).first())
+        if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_min):
+            continue
 
         # Conta em cooldown por rate limit: reagenda o post para o FIM do
         # cooldown (em vez de deixar vencido, martelando a cada rodada).
