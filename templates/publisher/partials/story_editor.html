@@ -19,8 +19,8 @@ Reutilizável: incluído no Composer e na aba Stories.
                 <i class="bi bi-image"></i>
                 <span>Escolha uma foto acima<br>para ver o preview</span>
             </div>
-            <div class="story-drag story-text-box" id="story-text-box" style="left:50%; top:45%;">
-                <span id="story-text-preview">Seu texto aqui</span>
+            <div class="story-drag story-text-box" id="story-text-box" style="left:50%; top:45%; display:none;">
+                <span id="story-text-preview"></span>
             </div>
             <div class="story-drag story-link-chip" id="story-link-chip" style="left:50%; top:82%; display:none;">
                 <i class="bi bi-link-45deg"></i> <span id="story-link-chip-label">CLIQUE AQUI</span>
@@ -180,10 +180,13 @@ Reutilizável: incluído no Composer e na aba Stories.
         else { textSpan.style.background = 'rgba(0,0,0,.55)'; }
         h.bg.value = v;
     }
+    var textBox = document.getElementById('story-text-box');
     function applyText() {
-        var t = inText.value || 'Seu texto aqui';
+        var t = inText.value || '';
         textSpan.textContent = t;
-        h.text.value = inText.value || '';
+        h.text.value = t;
+        // Preview limpo: o box de texto só aparece quando há texto.
+        if (textBox) textBox.style.display = t.trim() ? '' : 'none';
     }
     inText && inText.addEventListener('input', applyText);
     inColor && inColor.addEventListener('input', function () { textSpan.style.color = inColor.value; h.color.value = inColor.value; });
@@ -202,6 +205,7 @@ Reutilizável: incluído no Composer e na aba Stories.
     textSpan.style.color = '#ffffff';
     textSpan.style.fontSize = '28px';
     applyBg();
+    applyText();   // sem texto → o box some (preview limpo, sem "Seu texto aqui")
 
     // Seletor Normal x Com link: mostra/esconde o campo de link e o marcador.
     var linkBlock = document.getElementById('story-link-block');
