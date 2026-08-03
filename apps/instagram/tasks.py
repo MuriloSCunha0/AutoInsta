@@ -315,8 +315,15 @@ def warmup_action(config_id, tipo):
             or a.pausada or a.banned_by_admin or not a.tem_sessao_engine):
         return
 
+    # Mira em conteúdo BRASILEIRO: usa o hashtag próprio da conta (nicho BR) se
+    # houver; senão sorteia um do pool BR — mantém curtidas/follows no público br.
+    import random as _rnd
+    from django.conf import settings as _s
+    br = getattr(_s, 'WARMUP_HASHTAGS_BR', ['brasil'])
+    _ht = (cfg.target_hashtag or '').strip()
+    hashtag = _ht if (_ht and _ht.lower() != 'reels') else _rnd.choice(br)
     try:
-        done = InstagramEngine(a).warmup_acao(tipo, hashtag=(cfg.target_hashtag or 'reels'))
+        done = InstagramEngine(a).warmup_acao(tipo, hashtag=hashtag)
         cfg.likes_today += done.get('likes', 0)
         cfg.follows_today += done.get('follows', 0)
         cfg.views_today += done.get('views', 0)

@@ -653,10 +653,20 @@ def _composer_submit(request):
     skipped = 0
     adiados = 0
     por_conta = []  # [(username, quantos)] para o resumo da campanha
-    for account_id in account_ids:
+    n_contas = max(len(account_ids), 1)
+    # Escalonamento ENTRE contas: espalha cada conta DENTRO do intervalo para que
+    # não publiquem todas no MESMO instante. Antes, media[i] de TODAS as contas
+    # caía no mesmo horário (fila "na mesma hora" + mini-burst). Agora cada conta
+    # ganha um deslocamento próprio.
+    if interval and interval.total_seconds() > 0:
+        gap_conta = interval / n_contas
+    else:
+        gap_conta = timedelta(seconds=90)   # sem intervalo: 90s entre contas
+    for pos_conta, account_id in enumerate(account_ids):
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
+        offset_conta = gap_conta * pos_conta
 
         # Cada conta ganha (ou reaproveita) a fila com esse nome.
         fila = None
@@ -666,7 +676,7 @@ def _composer_submit(request):
 
         criados_conta = 0
         for i, vname in enumerate(queue_per_account):
-            when_dt = start + i * interval
+            when_dt = start + i * interval + offset_conta
             when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
             if foi_adiado:
                 adiados += 1

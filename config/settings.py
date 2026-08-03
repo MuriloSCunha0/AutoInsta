@@ -191,6 +191,13 @@ WARMUP_HORA_INI = env.int("WARMUP_HORA_INI", default=8)
 WARMUP_HORA_FIM = env.int("WARMUP_HORA_FIM", default=23)
 WARMUP_GAP_MIN = env.int("WARMUP_GAP_MIN", default=12)
 WARMUP_GAP_MAX = env.int("WARMUP_GAP_MAX", default=30)
+# Hashtags BRASILEIRAS para o aquecimento mirar (curtir/seguir conteúdo e perfis
+# BR → mantém o público brasileiro). Se a conta tiver um hashtag próprio (nicho
+# BR), ele é respeitado; senão, sorteia um destes.
+WARMUP_HASHTAGS_BR = env.list("WARMUP_HASHTAGS_BR", default=[
+    "brasil", "reelsbrasil", "humorbrasil", "memesbrasil", "viralbrasil",
+    "tiktokbrasil", "brasiloficial", "vibesbrasil", "explorarbrasil", "brasil360",
+])
 
 # =============================================================================
 # Modelo de Usuário Customizado

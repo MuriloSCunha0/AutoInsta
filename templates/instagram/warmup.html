@@ -51,9 +51,10 @@
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label text-muted">Hashtag alvo</label>
+                    <label class="form-label text-muted">Hashtag alvo <span class="text-muted">(opcional)</span></label>
                     <input type="text" name="target_hashtag" class="form-control text-white border-subtle"
-                           style="background: var(--bg-input);" value="{{ row.cfg.target_hashtag|default:'reels' }}">
+                           style="background: var(--bg-input);" value="{{ row.cfg.target_hashtag|default:'' }}" placeholder="deixe vazio p/ conteúdo BR">
+                    <small class="text-muted" style="font-size:.72rem;">🇧🇷 Vazio = mira em <strong>conteúdo brasileiro</strong> (mantém o público BR). Preencha só se quiser um nicho BR específico.</small>
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button>
             </form>

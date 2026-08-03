@@ -1197,7 +1197,9 @@ def warmup_save(request, account_id):
         cfg.started_at = timezone.now()
     cfg.enabled = novo_enabled
     cfg.intensity = request.POST.get('intensity', 'low')
-    cfg.target_hashtag = (request.POST.get('target_hashtag') or 'reels').lstrip('#').strip() or 'reels'
+    # Vazio = pool BR (o task sorteia hashtag brasileira). Só guarda se o usuário
+    # informar um nicho próprio.
+    cfg.target_hashtag = (request.POST.get('target_hashtag') or '').lstrip('#').strip()
     cfg.save()
     messages.success(request, f'Aquecimento de @{account.ig_username} atualizado.')
     return redirect('instagram:warmup')
