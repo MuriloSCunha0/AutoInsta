@@ -185,6 +185,13 @@ MEDIA_UPLOAD_TOKEN = env("MEDIA_UPLOAD_TOKEN", default="")
 # vazão (e a operação estiver saudável); desça se estiver levando bloqueio.
 MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
 
+# Aquecimento humano: janela de horas ATIVAS (local) e gap aleatório (min) entre
+# ações. Fora da janela o warm-up não age (humano não curte às 4h).
+WARMUP_HORA_INI = env.int("WARMUP_HORA_INI", default=8)
+WARMUP_HORA_FIM = env.int("WARMUP_HORA_FIM", default=23)
+WARMUP_GAP_MIN = env.int("WARMUP_GAP_MIN", default=12)
+WARMUP_GAP_MAX = env.int("WARMUP_GAP_MAX", default=30)
+
 # =============================================================================
 # Modelo de Usuário Customizado
 # =============================================================================
@@ -217,10 +224,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.publisher.tasks.process_scheduled_posts",
         "schedule": 30.0,
     },
-    # Aquecimento gradual das contas (ações sociais em pequenos lotes).
+    # Aquecimento HUMANO: o dispatcher roda a cada 5 min e decide 0-1 ação por
+    # conta (o espaçamento humano é feito por gap aleatório + jitter, não aqui).
     "run-account-warmups": {
         "task": "apps.instagram.tasks.run_warmups",
-        "schedule": 1800.0,  # a cada 30 min
+        "schedule": 300.0,  # a cada 5 min
     },
     # Loops: enfileira a próxima mídia da pasta quando o intervalo vence.
     "process-loops": {
@@ -281,7 +289,7 @@ CELERY_TASK_ROUTES = {
     "apps.publisher.tasks.publish_reel": {"queue": "publisher"},
     "apps.instagram.tasks.web_login_account": {"queue": "publisher"},
     "apps.instagram.tasks.connect_by_sessionid": {"queue": "publisher"},
-    "apps.instagram.tasks.run_account_warmup": {"queue": "publisher"},
+    "apps.instagram.tasks.warmup_action": {"queue": "publisher"},
     "apps.instagram.tasks.bulk_edit_profiles": {"queue": "publisher"},
     "apps.instagram.tasks.keepalive_account": {"queue": "publisher"},
     "apps.library.tasks.run_profile_download": {"queue": "publisher"},

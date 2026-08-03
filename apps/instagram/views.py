@@ -1190,7 +1190,12 @@ def warmup_save(request, account_id):
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
     cfg, _ = WarmupConfig.objects.get_or_create(account=account, defaults={'owner': request.user})
     cfg.owner = request.user
-    cfg.enabled = request.POST.get('enabled') == 'on'
+    novo_enabled = request.POST.get('enabled') == 'on'
+    # Ao LIGAR (e ainda sem base), marca o início do ramp-up (curva por idade).
+    if novo_enabled and not cfg.started_at:
+        from django.utils import timezone
+        cfg.started_at = timezone.now()
+    cfg.enabled = novo_enabled
     cfg.intensity = request.POST.get('intensity', 'low')
     cfg.target_hashtag = (request.POST.get('target_hashtag') or 'reels').lstrip('#').strip() or 'reels'
     cfg.save()

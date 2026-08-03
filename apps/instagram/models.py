@@ -353,6 +353,12 @@ class WarmupConfig(models.Model):
     likes_today = models.IntegerField(default=0)
     follows_today = models.IntegerField(default=0)
     views_today = models.IntegerField(default=0)
+    browse_today = models.IntegerField(default=0)   # consumo passivo (feed/reels/stories)
+
+    # Quando o aquecimento foi LIGADO (base da curva de ramp-up) e quando foi a
+    # última ação (para o espaçamento humano entre ações).
+    started_at = models.DateTimeField(null=True, blank=True)
+    last_action_at = models.DateTimeField(null=True, blank=True)
 
     last_run = models.DateTimeField(null=True, blank=True)
     last_result = models.CharField(max_length=255, blank=True)
@@ -361,6 +367,35 @@ class WarmupConfig(models.Model):
     @property
     def daily_targets(self):
         return self.INTENSITY_TARGETS.get(self.intensity, self.INTENSITY_TARGETS['low'])
+
+    @property
+    def dias_aquecendo(self):
+        """Dias desde que o aquecimento foi ligado (base do ramp-up)."""
+        if not self.started_at:
+            return 0
+        from django.utils import timezone
+        return max(0, (timezone.now() - self.started_at).days)
+
+    @property
+    def fase(self):
+        """Ramp-up por idade: 1 = só passivo (ver/rolar); 2 = + curtidas leves;
+        3 = cheio (+ follows). Conta nova NÃO leva like/follow de cara."""
+        d = self.dias_aquecendo
+        if d < 3:
+            return 1
+        if d < 7:
+            return 2
+        return 3
+
+    def alvos_hoje(self):
+        """(likes, follows, views) do DIA, escalados pela fase de ramp-up."""
+        likes, follows, views = self.daily_targets
+        f = self.fase
+        if f == 1:
+            return (0, 0, max(6, views // 2))       # só consumo
+        if f == 2:
+            return (max(3, likes // 2), 0, views)   # curtidas leves, sem follow
+        return (likes, follows, views)              # cheio
 
 
 class Proxy(models.Model):

@@ -4,9 +4,12 @@
 
 {% block content %}
 <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info small mb-4">
-    <i class="bi bi-fire me-1"></i> O aquecimento executa <strong>ações sociais graduais</strong> (curtidas, follows e views)
-    para maturar contas novas e reduzir risco de bloqueio. Funciona em contas <strong>Pessoais</strong> também —
-    algo que soluções 100% API oficial não conseguem fazer.
+    <i class="bi bi-fire me-1"></i> O aquecimento simula um usuário <strong>humano</strong>: começa só
+    <strong>observando</strong> (rola o feed, vê posts) e vai <strong>aumentando aos poucos</strong> —
+    curtidas leves depois de uns dias, follows só mais tarde — com <strong>intervalos aleatórios</strong>
+    ao longo do dia (nunca em rajada, nunca de madrugada). Se o Instagram pedir verificação, ele
+    <strong>para sozinho</strong> naquela conta. Funciona só em contas com <strong>sessão</strong>
+    (a API oficial não permite curtir/seguir/ver).
 </div>
 
 <div class="row g-4">
@@ -57,7 +60,15 @@
 
             {% if row.cfg %}
             <div class="mt-3 pt-3 border-top border-subtle small text-muted">
-                <div>Hoje: {{ row.cfg.likes_today }} curtidas · {{ row.cfg.follows_today }} follows · {{ row.cfg.views_today }} views</div>
+                {% if row.cfg.enabled %}
+                <div class="mb-1">
+                    {% if row.cfg.fase == 1 %}<span class="badge bg-info bg-opacity-25 text-info">Fase 1 · observando</span>
+                    {% elif row.cfg.fase == 2 %}<span class="badge bg-primary bg-opacity-25 text-primary">Fase 2 · curtidas leves</span>
+                    {% else %}<span class="badge bg-success bg-opacity-25 text-success">Fase 3 · maduro</span>{% endif %}
+                    <span class="ms-1">dia {{ row.cfg.dias_aquecendo|add:1 }}</span>
+                </div>
+                {% endif %}
+                <div>Hoje: {{ row.cfg.browse_today }} navegadas · {{ row.cfg.views_today }} views · {{ row.cfg.likes_today }} curtidas · {{ row.cfg.follows_today }} follows</div>
                 {% if row.cfg.last_result %}<div class="mt-1"><i class="bi bi-clock-history"></i> {{ row.cfg.last_result }}</div>{% endif %}
             </div>
             {% endif %}

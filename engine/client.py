@@ -3,9 +3,16 @@ import os
 
 from instagrapi import Client as InstagrapiClient
 from instagrapi.exceptions import (
-    LoginRequired, ChallengeRequired, TwoFactorRequired, BadPassword
+    LoginRequired, ChallengeRequired, TwoFactorRequired, BadPassword,
+    FeedbackRequired, PleaseWaitFewMinutes,
 )
 from .session_manager import SessionManager
+
+
+class WarmupParar(Exception):
+    """Sinal de que o Instagram pediu para PARAR (challenge/feedback_required/
+    please-wait/login) — o chamador deve interromper o aquecimento da conta e
+    NÃO insistir (insistir é o que leva a bloqueio)."""
 
 # Logger dedicado ao fluxo de conexão. Prefixo [CONNECT] em todas as linhas
 # para facilitar o grep quando um usuário reclamar que "não conecta".
@@ -330,45 +337,58 @@ class InstagramEngine:
         self._prepare_client()
         return self.client.account_convert_to_creator()
 
-    def run_warmup(self, likes=0, follows=0, views=0, hashtag='reels'):
-        """Aquecimento gradual: curte/visualiza/segue conteúdo de um hashtag.
-        Best-effort — cada ação é isolada para uma falha não abortar o lote."""
-        self._prepare_client()
-        done = {'likes': 0, 'follows': 0, 'views': 0}
-
-        amount = max(likes, follows, views, 1)
+    def _warmup_medias(self, hashtag, amount):
+        """Busca alguns posts de um hashtag (recent, com fallback top)."""
         try:
-            medias = self.client.hashtag_medias_recent(hashtag, amount=amount)
+            return self.client.hashtag_medias_recent(hashtag, amount=amount) or []
         except Exception:
             try:
-                medias = self.client.hashtag_medias_top(hashtag, amount=amount)
+                return self.client.hashtag_medias_top(hashtag, amount=amount) or []
             except Exception:
-                medias = []
+                return []
 
-        # Visualizações (media_seen aceita lista de pks)
-        if views and medias:
-            try:
-                self.client.media_seen([m.pk for m in medias[:views]])
-                done['views'] = min(views, len(medias))
-            except Exception:
-                pass
+    def warmup_acao(self, tipo, hashtag='reels'):
+        """Executa UMA ação de aquecimento (curta e humana). O espaçamento entre
+        ações é feito pelo AGENDADOR (micro-tarefas), não aqui — então cada
+        chamada carrega a sessão, faz 1 coisa, re-salva e sai em ~2s.
 
-        # Curtidas
-        for m in medias[:likes]:
-            try:
-                self.client.media_like(m.id)
-                done['likes'] += 1
-            except Exception:
-                pass
+        Tipos: 'browse' (rola o feed), 'view' (vê posts), 'like' (1 curtida),
+        'follow' (1 follow). Consumo passivo (browse/view) é baixo risco e alto
+        sinal de confiança; like/follow entram só nas fases mais avançadas.
 
-        # Follows (usuários dos primeiros posts)
-        for m in medias[:follows]:
-            try:
-                self.client.user_follow(m.user.pk)
-                done['follows'] += 1
-            except Exception:
-                pass
+        Levanta WarmupParar se o IG pedir challenge/feedback — o chamador PARA a
+        conta e não insiste."""
+        import random
+        self._prepare_client()
+        done = {'likes': 0, 'follows': 0, 'views': 0, 'browse': 0}
+        try:
+            if tipo == 'browse':
+                self.client.get_timeline_feed()   # "rolar o feed" (consumo)
+                done['browse'] = 1
+            elif tipo == 'view':
+                medias = self._warmup_medias(hashtag, 4)
+                if medias:
+                    n = min(random.randint(1, 2), len(medias))
+                    self.client.media_seen([m.pk for m in medias[:n]])
+                    done['views'] = n
+            elif tipo == 'like':
+                medias = self._warmup_medias(hashtag, 6)
+                if medias:
+                    self.client.media_like(random.choice(medias).id)
+                    done['likes'] = 1
+            elif tipo == 'follow':
+                medias = self._warmup_medias(hashtag, 6)
+                if medias:
+                    self.client.user_follow(random.choice(medias).user.pk)
+                    done['follows'] = 1
+        except (ChallengeRequired, FeedbackRequired, PleaseWaitFewMinutes, LoginRequired) as e:
+            raise WarmupParar(f"{type(e).__name__}: {e}")
 
+        # Re-salva a sessão: cada ação estende a validade (keep-alive natural).
+        try:
+            SessionManager.save_session(self.account, self.client)
+        except Exception:
+            pass
         return done
 
     def upload_reel(self, video_path, caption, thumbnail_path=None):

@@ -226,77 +226,119 @@ def connect_by_sessionid(account_id, sessionid):
 # =============================================================================
 # Onda 4 — Diferenciais da engine (warm-up e edição de perfil em massa)
 # =============================================================================
-# Lote pequeno por execução (o beat roda a cada 30min → várias execuções/dia
-# distribuem o alvo diário sem picos robóticos).
-WARMUP_BATCH = {'likes': 4, 'follows': 1, 'views': 6}
-
-
+# Aquecimento HUMANO: micro-ações ESPAÇADAS + ramp-up + consumo passivo primeiro.
+# O espaçamento vem do AGENDAMENTO (o dispatcher decide 0-1 ação por conta por
+# rodada, respeitando gap aleatório + horas ativas + alvo do dia por FASE), não
+# de sleep numa tarefa longa. Cada ação é uma micro-tarefa curta que recarrega e
+# RE-SALVA a sessão (mantém viva) — sem risco de expirar no meio.
+# =============================================================================
 @shared_task
 def run_warmups():
-    """Percorre as contas com warm-up ligado e executa um lote pequeno de ações,
-    respeitando o alvo diário por intensidade."""
+    """Dispatcher (beat, roda a cada poucos min): agenda NO MÁXIMO 1 ação por
+    conta saudável quando dá o gap humano, dentro das horas ativas."""
+    import random
     from django.utils import timezone
+    from django.conf import settings as _s
     from .models import WarmupConfig
 
+    agora = timezone.now()
+    hora = timezone.localtime(agora).hour
+    h_ini = getattr(_s, 'WARMUP_HORA_INI', 8)
+    h_fim = getattr(_s, 'WARMUP_HORA_FIM', 23)
+    gap_min = getattr(_s, 'WARMUP_GAP_MIN', 12)   # minutos entre ações
+    gap_max = getattr(_s, 'WARMUP_GAP_MAX', 30)
     today = timezone.localdate()
+
     for cfg in WarmupConfig.objects.filter(enabled=True).select_related('account'):
-        # Conta NÃO-ativa (sessão caída/challenge/error/banida/pausada): não
-        # cutuca a API privada (curtir/seguir numa conta sinalizada é dos maiores
-        # gatilhos de bloqueio). Warm-up só em conta 100% saudável.
-        _a = cfg.account
-        if (_a.status != 'active' or _a.sessao_expirada or _a.pausada
-                or _a.banned_by_admin):
+        a = cfg.account
+        # Só conta 100% saudável e com sessão (curtir/seguir/ver é API privada).
+        if (a.status != 'active' or a.sessao_expirada or a.pausada
+                or a.banned_by_admin or not a.tem_sessao_engine):
             continue
-        # Reseta contadores no virar do dia.
+        # Humano não fica ativo às 4h da manhã.
+        if not (h_ini <= hora < h_fim):
+            continue
+
+        campos = []
         if cfg.counter_date != today:
             cfg.counter_date = today
-            cfg.likes_today = cfg.follows_today = cfg.views_today = 0
+            cfg.likes_today = cfg.follows_today = cfg.views_today = cfg.browse_today = 0
+            campos += ['counter_date', 'likes_today', 'follows_today', 'views_today', 'browse_today']
+        if not cfg.started_at:
+            cfg.started_at = agora
+            campos.append('started_at')
+        if campos:
+            cfg.save(update_fields=campos)
 
-        target_likes, target_follows, target_views = cfg.daily_targets
-        batch_likes = max(min(WARMUP_BATCH['likes'], target_likes - cfg.likes_today), 0)
-        batch_follows = max(min(WARMUP_BATCH['follows'], target_follows - cfg.follows_today), 0)
-        batch_views = max(min(WARMUP_BATCH['views'], target_views - cfg.views_today), 0)
+        # Gap humano (aleatório a cada checagem → jitter natural).
+        if cfg.last_action_at:
+            faltam_min = (agora - cfg.last_action_at).total_seconds() / 60.0
+            if faltam_min < random.randint(gap_min, gap_max):
+                continue
 
-        if not (batch_likes or batch_follows or batch_views):
-            cfg.save()
-            continue
+        # Pool de ações permitidas pela FASE (ramp-up) + alvo restante do dia.
+        # Peso maior no consumo passivo (baixo risco); like/follow são o tempero.
+        alvo_likes, alvo_follows, alvo_views = cfg.alvos_hoje()
+        pool = []
+        if cfg.browse_today < max(6, alvo_views):
+            pool += ['browse'] * 4
+        if cfg.views_today < alvo_views:
+            pool += ['view'] * 4
+        if alvo_likes and cfg.likes_today < alvo_likes:        # fase >= 2
+            pool += ['like'] * 2
+        if alvo_follows and cfg.follows_today < alvo_follows:  # fase >= 3
+            pool += ['follow'] * 1
+        if not pool:
+            continue  # alvo do dia batido — nada a fazer
 
-        run_account_warmup.delay(cfg.id, batch_likes, batch_follows, batch_views)
-        cfg.save()
+        tipo = random.choice(pool)
+        # Jitter extra (0-4min) para as contas não dispararem juntas no tick.
+        warmup_action.apply_async((cfg.id, tipo), countdown=random.randint(0, 240))
+        cfg.last_action_at = agora
+        cfg.save(update_fields=['last_action_at'])
 
 
-@shared_task(soft_time_limit=240, time_limit=280)
-def run_account_warmup(config_id, likes, follows, views):
+@shared_task(soft_time_limit=120, time_limit=150)
+def warmup_action(config_id, tipo):
+    """Micro-tarefa: executa UMA ação de aquecimento. PARA a conta se o IG pedir
+    verificação (challenge/feedback) — não insiste, que é o que leva a bloqueio."""
     from django.utils import timezone
+    from engine.client import InstagramEngine, WarmupParar
     from .models import WarmupConfig
-
     try:
         cfg = WarmupConfig.objects.select_related('account').get(id=config_id)
     except WarmupConfig.DoesNotExist:
         return
 
-    # A API oficial da Meta não permite curtir/seguir/ver: o aquecimento só
-    # funciona pela engine, que exige sessão/senha. Sem isso, registramos o
-    # motivo em vez de falhar em silêncio.
-    if not cfg.account.tem_sessao_engine:
-        cfg.last_result = ('Requer conexão por sessão/senha — a API oficial '
-                           'não permite curtidas/follows.')
-        cfg.last_run = timezone.now()
-        cfg.save(update_fields=['last_result', 'last_run'])
+    a = cfg.account
+    if (not cfg.enabled or a.status != 'active' or a.sessao_expirada
+            or a.pausada or a.banned_by_admin or not a.tem_sessao_engine):
         return
 
     try:
-        engine = InstagramEngine(cfg.account)
-        done = engine.run_warmup(likes=likes, follows=follows, views=views, hashtag=cfg.target_hashtag or 'reels')
+        done = InstagramEngine(a).warmup_acao(tipo, hashtag=(cfg.target_hashtag or 'reels'))
         cfg.likes_today += done.get('likes', 0)
         cfg.follows_today += done.get('follows', 0)
         cfg.views_today += done.get('views', 0)
-        cfg.last_result = f"+{done.get('likes',0)} curtidas, +{done.get('follows',0)} follows, +{done.get('views',0)} views"
+        cfg.browse_today += done.get('browse', 0)
+        rotulo = {'like': 'curtiu 1 post', 'follow': 'seguiu 1 perfil',
+                  'view': 'viu posts', 'browse': 'rolou o feed'}
+        cfg.last_result = rotulo.get(tipo, tipo)
+        cfg.last_run = timezone.now()
+        cfg.save(update_fields=['likes_today', 'follows_today', 'views_today',
+                                'browse_today', 'last_result', 'last_run'])
+    except WarmupParar as e:
+        # Sinal forte do IG: PARA o aquecimento desta conta.
+        cfg.enabled = False
+        cfg.last_result = (f'Parado: o Instagram pediu verificação ({str(e)[:70]}). '
+                           'Religue a conta e reative o aquecimento com calma.')
+        cfg.last_run = timezone.now()
+        cfg.save(update_fields=['enabled', 'last_result', 'last_run'])
+        logger.warning('[WARMUP] parado @%s: %s', a.ig_username, str(e)[:150])
     except Exception as e:
-        cfg.last_result = f"Erro: {str(e)[:180]}"
-
-    cfg.last_run = timezone.now()
-    cfg.save()
+        cfg.last_result = f'Erro: {str(e)[:160]}'
+        cfg.last_run = timezone.now()
+        cfg.save(update_fields=['last_result', 'last_run'])
 
 
 @shared_task(soft_time_limit=300, time_limit=340)
