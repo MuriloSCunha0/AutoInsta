@@ -29,18 +29,60 @@
         <input type="hidden" name="post_type" value="STORY">
         <input type="hidden" name="schedule_mode" value="now" id="cs-sched-mode">
 
-        <label class="form-label text-muted small mb-1"><i class="bi bi-instagram me-1"></i> Contas</label>
-        <div class="border border-subtle rounded p-2 mb-3" style="max-height:150px; overflow-y:auto; background:var(--bg-input);">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+            <label class="form-label text-muted small mb-0"><i class="bi bi-instagram me-1"></i> Contas</label>
+            <div class="d-flex align-items-center gap-2">
+                <select id="story-filtro-pasta" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input); width:auto; font-size:.72rem;">
+                    <option value="">Todas as pastas</option>
+                    <option value="__none__">— Sem pasta —</option>
+                    {% for p in pastas %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+                </select>
+                <button type="button" id="story-marcar-todas" class="btn btn-sm btn-outline-secondary border-opacity-25 text-muted" style="font-size:.7rem;">Marcar visíveis</button>
+            </div>
+        </div>
+        <div id="story-lista-contas" class="border border-subtle rounded p-2 mb-3" style="max-height:210px; overflow-y:auto; background:var(--bg-input);">
             {% for acc in accounts %}
-            <label class="d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
-                <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input">
-                <span class="text-white small">@{{ acc.ig_username }}</span>
-                {% if acc.status != 'active' %}<span class="acct-tag warn ms-auto" style="font-size:.58rem;">TOKEN</span>{% endif %}
+            <label class="story-conta-row d-flex align-items-center gap-2 py-1 px-1 rounded"
+                   data-pasta="{{ acc.pasta_id|default:'__none__' }}" data-user="{{ acc.ig_username|lower }}"
+                   style="cursor:pointer;">
+                <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input flex-shrink-0">
+                {% if acc.profile_pic_url %}
+                <img src="{{ acc.profile_pic_url }}" alt="" class="rounded-circle flex-shrink-0" style="width:26px; height:26px; object-fit:cover;">
+                {% else %}
+                <span class="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center flex-shrink-0" style="width:26px; height:26px;"><i class="bi bi-person text-muted" style="font-size:.8rem;"></i></span>
+                {% endif %}
+                <span class="d-flex flex-column" style="line-height:1.15; min-width:0;">
+                    <span class="text-white small text-truncate">@{{ acc.ig_username }}</span>
+                    <span class="text-muted" style="font-size:.6rem;"><i class="bi bi-folder2"></i> {{ acc.pasta.name|default:"Sem pasta" }}</span>
+                </span>
+                {% if acc.status != 'active' %}<span class="acct-tag warn ms-auto flex-shrink-0" style="font-size:.58rem;">TOKEN</span>{% endif %}
             </label>
             {% empty %}
             <div class="text-muted small">Nenhuma conta conectada. <a href="{% url 'instagram:list' %}" class="text-info">Conectar</a>.</div>
             {% endfor %}
         </div>
+        <script>
+        (function(){
+            var sel=document.getElementById('story-filtro-pasta');
+            var lista=document.getElementById('story-lista-contas');
+            var btn=document.getElementById('story-marcar-todas');
+            if(!sel||!lista) return;
+            function aplica(){
+                var v=sel.value;
+                lista.querySelectorAll('.story-conta-row').forEach(function(row){
+                    var ok = !v || row.dataset.pasta===v;
+                    row.style.display = ok ? '' : 'none';
+                    if(!ok){ var c=row.querySelector('input'); if(c) c.checked=false; }
+                });
+            }
+            sel.addEventListener('change', aplica);
+            if(btn) btn.addEventListener('click', function(){
+                lista.querySelectorAll('.story-conta-row').forEach(function(row){
+                    if(row.style.display!=='none'){ var c=row.querySelector('input'); if(c) c.checked=true; }
+                });
+            });
+        })();
+        </script>
 
         <label class="form-label text-muted small mb-1"><i class="bi bi-image me-1"></i> Foto do story</label>
         <input type="file" name="videos" accept="image/*,video/*"

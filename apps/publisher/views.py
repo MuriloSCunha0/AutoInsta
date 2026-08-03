@@ -442,12 +442,16 @@ def stories(request):
 
     form = ScheduledPostForm(initial={'post_type': 'STORY'})
     form.fields['account'].queryset = form.fields['account'].queryset.filter(owner=request.user)
+    from apps.instagram.models import Pasta
+    contas_story = (InstagramAccount.objects.filter(owner=request.user)
+                    .select_related('pasta').order_by('pasta__name', 'ig_username'))
     return render(request, 'publisher/stories.html', {
         'posts': page,
         'page_obj': page,
         'total_filtrado': paginator.count,
         'form': form,
-        'accounts': InstagramAccount.objects.filter(owner=request.user),
+        'accounts': contas_story,
+        'pastas': Pasta.objects.filter(owner=request.user),
         'tab': tab,
         'counts': counts,
     })
