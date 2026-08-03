@@ -95,8 +95,17 @@ def process_scheduled_posts():
            # o que fazia uma fila drenar inteira antes da outra começar.
            .order_by(F('queue__last_dispatch').asc(nulls_first=True), 'scheduled_for'))
 
+    # Teto GLOBAL por rodada: evita o BURST de dezenas de publicações no mesmo
+    # instante (visto em produção: ~25 num minuto) — a Meta lê isso como
+    # atividade coordenada e pune invalidando tokens. O excedente sai nas
+    # próximas rodadas (a cada ~30s). Ajustável por env sem deploy.
+    from django.conf import settings as _cfg
+    MAX_POR_RODADA = getattr(_cfg, 'MAX_DISPATCH_POR_RODADA', 8)
+
     despachadas = set()
     for post in due:
+        if len(despachadas) >= MAX_POR_RODADA:
+            break
         conta = post.account
 
         # Fila pausada pelo usuário: não publica nada dele.
@@ -243,6 +252,25 @@ def publish_reel(post_id):
         post = ScheduledPost.objects.get(id=post_id)
     except ScheduledPost.DoesNotExist:
         print(f"Post {post_id} não existe mais; ignorando.")
+        return
+
+    # ── GUARDA ANTI-MARTELO (crítico) ─────────────────────────────────────────
+    # NUNCA chama o Instagram para uma conta que já sabemos estar CAÍDA (sessão
+    # expirada / challenge / 2FA / banida). Sem isto, um post preso numa conta
+    # suspensa era redisparado e MARTELAVA o IG — visto em produção: o mesmo post
+    # 240x em 2h pelo IP do braço. Esse padrão abusivo ajuda a Meta a flagar o
+    # IP/app e invalidar TOKENS de outras contas. Deixa o post na fila e sai.
+    _conta = post.account
+    _bloqueada = (_conta.banned_by_admin
+                  or _conta.status in ('session_expired', 'challenge_required',
+                                       '2fa_required', 'banned'))
+    # Só-sessão caída sem token não tem como publicar; conta com token ainda
+    # publica pelo Graph, então não bloqueamos por 'sessao_expirada' aqui.
+    if _bloqueada:
+        if post.status != 'queued':
+            post.status = 'queued'
+            post.save(update_fields=['status'])
+        print(f"Post {post_id}: @{_conta.ig_username} está {_conta.status} — NÃO publica (guarda anti-martelo).")
         return
 
     # Temporários baixados/gerados por esta execução. Pré-inicializados aqui para

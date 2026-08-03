@@ -180,6 +180,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 PAINEL_MEDIA_UPLOAD_URL = env("PAINEL_MEDIA_UPLOAD_URL", default="")
 MEDIA_UPLOAD_TOKEN = env("MEDIA_UPLOAD_TOKEN", default="")
 
+# Teto de publicações despachadas por RODADA do dispatcher (a cada ~30s). Evita
+# o burst que a Meta pune com invalidação de token. Suba se precisar de mais
+# vazão (e a operação estiver saudável); desça se estiver levando bloqueio.
+MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
+
 # =============================================================================
 # Modelo de Usuário Customizado
 # =============================================================================

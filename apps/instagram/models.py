@@ -195,6 +195,17 @@ class InstagramAccount(models.Model):
         return self.status == 'active'
 
     @property
+    def app_restringido(self):
+        """A Meta restringiu o APP (não é token vencido nem a conta em si):
+        'cannot access the app till you log in to www.instagram.com...'. Afeta
+        TODAS as contas do mesmo app de uma vez — só o dono do app resolve,
+        entrando no instagram.com e seguindo as instruções."""
+        m = (self.last_error or '').lower()
+        return ('cannot access the app' in m
+                or 'log in to www.instagram.com' in m
+                or 'follow the instructions given' in m)
+
+    @property
     def token_vencido(self):
         """Token da API oficial já venceu (precisa colar um novo / reconectar)."""
         from django.utils import timezone
