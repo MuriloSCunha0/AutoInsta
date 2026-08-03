@@ -136,6 +136,27 @@ def garantir_midia_local(fieldfile):
     return tmp, True
 
 
+def msg_meta_amigavel(msg):
+    """Traduz o erro CRU da Meta (JSON com 'OAuthException' etc.) numa frase
+    clara pro usuário — o dict cru assusta e confunde no card."""
+    m = (msg or '').lower()
+    if ('cannot access the app' in m or 'log in to www.instagram.com' in m
+            or 'error validating access token' in m or "'code': 190" in m
+            or 'oauthexception' in m):
+        return ('A Meta invalidou o token desta conta. Entre no instagram.com '
+                'com ela, resolva o aviso que aparecer, gere um token novo e '
+                'cole no card ("Atualizar token").')
+    if 'rate limit' in m or 'too many' in m or '2207042' in m or 'número máximo' in m:
+        return 'Limite de publicações da Meta atingido — volta sozinha após o cooldown.'
+    if 'does not exist' in m or 'unsupported post request' in m:
+        return 'ID da conta desatualizado — o sistema corrige e republica sozinho.'
+    # Fallback: tira o dict cru e devolve uma frase curta e legível.
+    limpo = (msg or '').replace('{', '').replace('}', '').replace("'", '').strip()
+    if limpo.lower().startswith('meta:'):
+        limpo = limpo[5:].strip()
+    return limpo[:160] or 'Falha ao publicar na Meta.'
+
+
 def enviar_midia_para_painel(local_path, relname):
     """Envia um arquivo de mídia PROCESSADO (limpo/gerado no braço) para o PAINEL,
     para a Graph API (oficial) baixá-lo pela URL pública — a Meta baixa a mídia

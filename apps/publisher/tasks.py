@@ -593,7 +593,8 @@ def publish_reel(post_id):
             cooldown = timezone.now() + timedelta(hours=2)
             conta = post.account
             conta.status = 'error'
-            conta.last_error = f'Meta: {msg[:200]}'
+            from apps.core_utils import msg_meta_amigavel
+            conta.last_error = msg_meta_amigavel(msg)
             conta.rate_limited_until = cooldown
             conta.save(update_fields=['status', 'last_error', 'rate_limited_until'])
             post.status = 'queued'

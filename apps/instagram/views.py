@@ -425,7 +425,8 @@ def _sync_meta_account(account):
         msg = erro.get('message', 'Token inválido ou expirado.')
         logger.warning('Sync Meta falhou (acc=%s): %s', account.id, erro)
         account.status = _classificar_falha(erro, msg)
-        account.last_error = f'Meta: {msg}'
+        from apps.core_utils import msg_meta_amigavel
+        account.last_error = msg_meta_amigavel(msg)
         account.save(update_fields=['status', 'last_error'])
         return False, msg
 
