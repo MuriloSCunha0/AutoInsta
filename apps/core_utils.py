@@ -143,9 +143,10 @@ def msg_meta_amigavel(msg):
     if ('cannot access the app' in m or 'log in to www.instagram.com' in m
             or 'error validating access token' in m or "'code': 190" in m
             or 'oauthexception' in m):
-        return ('A Meta invalidou o token desta conta. Entre no instagram.com '
-                'com ela, resolva o aviso que aparecer, gere um token novo e '
-                'cole no card ("Atualizar token").')
+        return ('Entre no instagram.com com esta conta e veja o que aparece: '
+                'se a conta estiver SUSPENSA, recorra ali mesmo (o token novo só '
+                'funciona depois que ela voltar); se estiver normal, gere um token '
+                'novo e cole em "Atualizar token".')
     if 'rate limit' in m or 'too many' in m or '2207042' in m or 'número máximo' in m:
         return 'Limite de publicações da Meta atingido — volta sozinha após o cooldown.'
     if 'does not exist' in m or 'unsupported post request' in m:
