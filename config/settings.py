@@ -189,6 +189,10 @@ MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
 # publicava até 2/min por conta (rajada robótica) — o IG zera o alcance disso.
 # 40min => no máx ~1 post/40min por conta (natural, humano). Ajustável por env.
 MIN_INTERVALO_POST_MIN = env.int("MIN_INTERVALO_POST_MIN", default=40)
+# Posts atrasados além disso (horas) são EXPIRADOS em vez de publicados: quando a
+# conta volta (sync/reconexão), não sobe a fila antiga de uma vez (rajada de
+# conteúdo velho = spam). Também estabiliza os horários da fila.
+MAX_ATRASO_POST_HORAS = env.int("MAX_ATRASO_POST_HORAS", default=6)
 
 # Aquecimento humano: janela de horas ATIVAS (local) e gap aleatório (min) entre
 # ações. Fora da janela o warm-up não age (humano não curte às 4h).

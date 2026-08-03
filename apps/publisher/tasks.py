@@ -91,6 +91,25 @@ def process_scheduled_posts():
     if n_presos:
         print(f"Dispatcher: {n_presos} post(s) presos em 'processing' devolvidos à fila.")
 
+    # EXPIRA posts MUITO atrasados: quando uma conta fica FORA (caída/pausada/
+    # cooldown), os posts acumulam com horário no passado. Ao voltar (ex.: clicar
+    # em Sincronizar), NÃO se deve "subir a fila antiga de uma vez" (rajada de
+    # conteúdo velho = spam = derruba a conta — feedback do usuário). Posts
+    # atrasados além do limite viram 'failed' (saem da fila ativa; conteúdo velho
+    # não vale republicar). Isso também estabiliza os horários (para de remexer
+    # a fila atrasada a cada rodada). Ajustável por env.
+    from django.conf import settings as _cfg0
+    max_atraso_h = getattr(_cfg0, 'MAX_ATRASO_POST_HORAS', 6)
+    vencidos = ScheduledPost.objects.filter(
+        status='queued', scheduled_for__lt=now - timedelta(hours=max_atraso_h))
+    n_venc = vencidos.update(
+        status='failed',
+        error_message=(f'Não publicado: o horário passou há mais de {max_atraso_h}h '
+                       '(a conta estava fora). Evitamos subir a fila antiga de uma '
+                       'vez. Reenvie se ainda quiser publicar.'))
+    if n_venc:
+        print(f"Dispatcher: {n_venc} post(s) antigos (>{max_atraso_h}h) expirados — sem rajada de fila velha.")
+
     due = (ScheduledPost.objects.filter(status='queued', scheduled_for__lte=now)
            .select_related('account', 'owner', 'queue')
            # Rodízio: a fila que despachou há mais tempo vem primeiro, então
