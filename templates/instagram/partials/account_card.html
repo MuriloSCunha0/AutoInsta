@@ -131,11 +131,14 @@
         {% elif account.status == 'error' %}
         <div class="status-banner banner-erro mb-3">
             <i class="bi bi-exclamation-octagon-fill"></i>
-            <div class="flex-grow-1"><strong>Conta caiu</strong><div class="small">
-                {% if account.meta_access_token %}Token inválido/expirado. Cole um token <strong>novo</strong> abaixo — sem reconectar a conta.
+            <div class="flex-grow-1">
+                <strong>{% if account.app_restringido %}App precisa de verificação{% else %}Conta caiu{% endif %}</strong>
+                <div class="small">
+                {% if account.app_restringido %}A Meta invalidou o token. <strong>Entre no instagram.com com esta conta</strong> e siga as instruções que aparecerem; depois gere um <strong>token novo</strong> (Instagram → Gerar tokens de acesso) e cole abaixo.
+                {% elif account.meta_access_token %}Token inválido/expirado. Gere um token <strong>novo</strong> e cole abaixo — sem reconectar a conta.
                 {% elif account.last_error %}{{ account.last_error|truncatechars:120 }}
                 {% else %}Falha ao conectar. Tente reconectar.{% endif %}
-            </div>
+                </div>
             {% if account.meta_access_token %}
             <form hx-post="{% url 'instagram:update_token' account.id %}"
                   hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">

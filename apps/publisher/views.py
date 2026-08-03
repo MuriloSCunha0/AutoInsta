@@ -275,45 +275,31 @@ def bulk_posts(request):
                   retry_count=0, error_message='')
         messages.success(request, f'{n} publicação(ões) recolocada(s) na fila.')
     elif acao == 'forcar':
-        # Forçar: publica AGORA, ignorando throttle, cooldown e limite diário
-        # (como no Murphy). A Meta ainda pode recusar por volume real.
-        # Teto por acionamento: disparar milhares de uma vez inunda a API da
-        # Meta — que é exatamente o que causa bloqueio.
-        # Não re-disparar posts que já estão EM VOO (processing recente): um
-        # segundo publish_reel do mesmo post gera publicação DUPLICADA no IG.
-        # Posts presos há >15min (worker caiu) continuam forçáveis — mesmo
-        # limite usado pelo dispatcher que devolve presos à fila (tasks.py).
+        # "Forçar": recoloca os posts na fila para AGORA e limpa o cooldown das
+        # contas — mas NÃO dispara em BURST. O dispatcher publica de forma PACED
+        # (MAX_DISPATCH_POR_RODADA por rodada, ~30s). Antes isto disparava até 100
+        # publish_reel de uma vez; esse burst no mesmo app é lido pela Meta como
+        # atividade coordenada e leva à INVALIDAÇÃO de tokens (visto em produção).
         from datetime import timedelta
         limite_voo = timezone.now() - timedelta(minutes=15)
         qs = qs.exclude(status='processing', processing_since__gte=limite_voo)
-
-        LIMITE_FORCAR = 100
-        total_pedido = qs.count()
-        qs = qs.order_by('scheduled_for')[:LIMITE_FORCAR]
-        n = len(qs)
-
-        from .tasks import publish_reel
-        agora = timezone.now()
-        contas_limpas = set()
-        for post in qs.select_related('account'):
-            post.status = 'processing'
-            post.processing_since = agora
-            post.scheduled_for = agora
-            post.retry_count = 0
-            post.error_message = ''
-            post.save(update_fields=['status', 'processing_since', 'scheduled_for', 'retry_count', 'error_message'])
-            # Limpa o cooldown da conta para a força valer.
-            if post.account_id not in contas_limpas and post.account.rate_limited_until:
-                post.account.rate_limited_until = None
-                post.account.save(update_fields=['rate_limited_until'])
-                contas_limpas.add(post.account_id)
-            publish_reel.delay(post.id)
-        msg = f'{n} publicação(ões) FORÇADA(S) agora — a Meta ainda pode limitar por volume real.'
-        if total_pedido > n:
-            msg += (f' Das {total_pedido} selecionadas, forçamos as {n} mais antigas '
-                    f'(teto por vez, para não inundar a API e arriscar bloqueio). '
-                    'Repita a ação para continuar.')
-        messages.warning(request, msg)
+        ids = list(qs.values_list('id', flat=True))
+        n = len(ids)
+        # Limpa o cooldown das contas envolvidas (para saírem logo), sem burst.
+        contas_ids = list(
+            ScheduledPost.objects.filter(id__in=ids)
+            .values_list('account_id', flat=True).distinct()
+        )
+        InstagramAccount.objects.filter(
+            id__in=contas_ids, rate_limited_until__isnull=False
+        ).update(rate_limited_until=None)
+        ScheduledPost.objects.filter(id__in=ids).update(
+            status='queued', scheduled_for=timezone.now(),
+            retry_count=0, error_message='')
+        messages.warning(
+            request,
+            f'{n} publicação(ões) recolocada(s) para AGORA. O sistema publica de '
+            'forma ESPAÇADA (anti-bloqueio) — não tudo de uma vez.')
     else:
         messages.error(request, 'Ação inválida.')
 

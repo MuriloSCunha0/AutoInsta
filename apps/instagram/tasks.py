@@ -135,7 +135,11 @@ def refresh_quotas():
     from django.utils import timezone
     from apps.instagram.views import IG_API_VERSION
 
-    contas = InstagramAccount.objects.exclude(meta_access_token='').exclude(ig_user_id__isnull=True)
+    # SÓ contas ATIVAS e não pausadas: bater na Graph (4 requests/conta) numa
+    # conta já em 'error'/190/pausada é tráfego falho repetido contra um app já
+    # restringido — agrava a punição. Contas caídas voltam ao religar o token.
+    contas = (InstagramAccount.objects.filter(status='active', pausada=False)
+              .exclude(meta_access_token='').exclude(ig_user_id__isnull=True))
     for acc in contas:
         token = acc.get_meta_token()
         if not token:
@@ -236,6 +240,13 @@ def run_warmups():
 
     today = timezone.localdate()
     for cfg in WarmupConfig.objects.filter(enabled=True).select_related('account'):
+        # Conta NÃO-ativa (sessão caída/challenge/error/banida/pausada): não
+        # cutuca a API privada (curtir/seguir numa conta sinalizada é dos maiores
+        # gatilhos de bloqueio). Warm-up só em conta 100% saudável.
+        _a = cfg.account
+        if (_a.status != 'active' or _a.sessao_expirada or _a.pausada
+                or _a.banned_by_admin):
+            continue
         # Reseta contadores no virar do dia.
         if cfg.counter_date != today:
             cfg.counter_date = today
@@ -440,7 +451,11 @@ def refresh_meta_tokens():
     from datetime import timedelta
 
     limite = timezone.now() + timedelta(days=15)
-    qs = InstagramAccount.objects.exclude(meta_access_token='')
+    # Não insiste em token JÁ inválido (status 'error'/190 ou banida) nem em conta
+    # pausada — refresh nesses casos é chamada falha repetida contra o app; eles
+    # voltam pelo religar manual do token. Só renova quem está saudável.
+    qs = (InstagramAccount.objects.exclude(meta_access_token='')
+          .exclude(status__in=['banned', 'error']).filter(pausada=False))
     n_ok = n_fail = n_skip = 0
     for acc in qs:
         # Renova só quando está a <=15 dias de vencer (ou validade desconhecida).

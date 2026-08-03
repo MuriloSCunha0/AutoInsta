@@ -21,6 +21,11 @@ def process_loops():
         # Fila do usuário pausada? não enfileira novos.
         if loop.owner.publishing_paused:
             continue
+        # Conta pausada/caída/banida: não acumula posts que só vão falhar (a
+        # guarda no publish_reel evita o hit, mas isto evita a fila entupir).
+        if (loop.account.pausada or loop.account.banned_by_admin
+                or loop.account.status != 'active'):
+            continue
         # Ainda não venceu o intervalo?
         if loop.last_posted and (agora - loop.last_posted) < timedelta(minutes=loop.interval_minutes):
             continue
@@ -124,9 +129,13 @@ def process_scheduled_posts():
         if conta.pausada:
             continue
 
-        # Conta caída que exige RECONEXÃO (sessão expirada / 2FA / challenge):
-        # não publica até religar — evita martelar com posts que só vão falhar.
-        if conta.status in ('session_expired', 'challenge_required', '2fa_required'):
+        # Conta caída que exige RECONEXÃO (sessão expirada / 2FA / challenge /
+        # erro de token-app / banida): não publica até religar — evita martelar
+        # com posts que só vão falhar (o 190 grava 'error'; sem incluí-lo aqui, a
+        # conta redespachava a cada 2h e refazia a chamada falha, agravando a
+        # punição da Meta). Volta sozinha quando o token/sessão for religado.
+        if conta.status in ('session_expired', 'challenge_required', '2fa_required',
+                            'error', 'banned'):
             continue
 
         if conta.id in despachadas:
@@ -261,9 +270,12 @@ def publish_reel(post_id):
     # 240x em 2h pelo IP do braço. Esse padrão abusivo ajuda a Meta a flagar o
     # IP/app e invalidar TOKENS de outras contas. Deixa o post na fila e sai.
     _conta = post.account
+    # Inclui 'error' (é o status que o handler de app inválido/190 grava) e
+    # 'banned' — sem eles, passado o cooldown de 2h, o post era redespachado e
+    # refazia a chamada Graph com token morto → novo 190 → loop a cada 2h.
     _bloqueada = (_conta.banned_by_admin
                   or _conta.status in ('session_expired', 'challenge_required',
-                                       '2fa_required', 'banned'))
+                                       '2fa_required', 'banned', 'error'))
     # Só-sessão caída sem token não tem como publicar; conta com token ainda
     # publica pelo Graph, então não bloqueamos por 'sessao_expirada' aqui.
     if _bloqueada:
