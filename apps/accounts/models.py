@@ -34,7 +34,15 @@ class User(AbstractUser):
         choices=[('free', 'Free'), ('pro', 'Pro'), ('agency', 'Agência')],
         default='free'
     )
-    max_ig_accounts = models.IntegerField(default=3)
+    # Limites do plano. 0 = ILIMITADO — é o padrão de quem já existia quando os
+    # limites passaram a valer (ver a migração de dados): ligar um teto em cima
+    # de quem já tinha 50 contas travaria a operação do dia para a noite.
+    max_ig_accounts = models.IntegerField(
+        default=0, verbose_name='Limite de contas do Instagram',
+        help_text='0 = ilimitado.')
+    max_meta_apps = models.IntegerField(
+        default=0, verbose_name='Limite de apps Meta',
+        help_text='0 = ilimitado.')
     avatar = models.ImageField(upload_to='avatars/', max_length=500, null=True, blank=True)
     # Token secreto usado pela extensão de navegador para autenticar o envio
     # do sessionid capturado do instagram.com (ver apps.instagram.views.connect_extension).
@@ -47,6 +55,41 @@ class User(AbstractUser):
     instagram_app_id = models.CharField(max_length=64, blank=True)
     instagram_app_secret_enc = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # ── Limites (0 = ilimitado) ──────────────────────────────────────────────
+    # Ficam no modelo, e não espalhados pelas views, porque a conta nasce em
+    # QUATRO lugares diferentes (token colado, sessionid, extensão e OAuth) —
+    # cada um repetindo a regra viraria um jeito novo de furar o limite.
+
+    @property
+    def contas_usadas(self):
+        return self.instagramaccount_set.count()
+
+    @property
+    def apps_usados(self):
+        return self.meta_apps.count()
+
+    def pode_criar_conta(self):
+        """(pode, mensagem). `pode=False` traz o texto pronto para o usuário."""
+        if not self.max_ig_accounts:
+            return True, ''
+        usadas = self.contas_usadas
+        if usadas < self.max_ig_accounts:
+            return True, ''
+        return False, (
+            f'Você atingiu o limite de {self.max_ig_accounts} conta(s) do Instagram '
+            f'do seu plano ({usadas} em uso). Remova uma conta ou fale com o '
+            f'suporte para aumentar o limite.')
+
+    def pode_criar_app(self):
+        if not self.max_meta_apps:
+            return True, ''
+        usados = self.apps_usados
+        if usados < self.max_meta_apps:
+            return True, ''
+        return False, (
+            f'Você atingiu o limite de {self.max_meta_apps} app(s) Meta do seu '
+            f'plano ({usados} em uso). Remova um app ou fale com o suporte.')
 
     def set_meta_app_secret(self, raw_secret):
         """Criptografa e guarda o App Secret do Meta."""

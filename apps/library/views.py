@@ -328,6 +328,8 @@ def delete_download(request, job_id):
     return redirect('library:downloader')
 
 
+
+
 # =============================================================================
 # Gerador de CTA — arte 9:16 com adesivo no estilo do Instagram
 # =============================================================================
@@ -336,42 +338,150 @@ def delete_download(request, job_id):
 # API oficial não dá para anexar figurinha. Aqui a chamada é desenhada NA
 # imagem, então funciona em qualquer conta — inclusive as só-token.
 #
-# A arte gerada entra na Biblioteca como imagem, então já pode ser postada como
-# story/feed pelo Composer sem passo intermediário.
+# A arte gerada entra na Biblioteca como imagem, então já pode ser postada pelo
+# Composer sem passo intermediário.
 
-@login_required
-def cta_generator(request):
-    """Tela do gerador. O POST gera a arte e guarda na biblioteca."""
+# Onde ficam as bases temporárias da PRÉVIA (não são mídia do usuário).
+_CTA_TMP = 'cta_tmp'
+
+
+def _cta_params(request):
+    """Lê e limita os parâmetros da arte.
+
+    Usado pela prévia E pela geração final: duas leituras diferentes fariam a
+    prévia mentir sobre o resultado.
+    """
+    def num(campo, padrao, minimo, maximo):
+        try:
+            v = float(request.POST.get(campo, padrao))
+        except (TypeError, ValueError):
+            v = padrao
+        return max(minimo, min(v, maximo))
+
+    return dict(
+        tipo=(request.POST.get('tipo') or 'link').strip(),
+        titulo=(request.POST.get('titulo') or '').strip()[:200],
+        titulo_cor=(request.POST.get('titulo_cor') or '#ffffff').strip()[:9],
+        titulo_tamanho=int(num('titulo_tamanho', 72, 24, 160)),
+        titulo_y=num('titulo_y', 0.16, 0.02, 0.95),
+        sticker_texto=(request.POST.get('sticker_texto') or '').strip()[:80],
+        opcao_a=(request.POST.get('opcao_a') or '').strip()[:40],
+        opcao_b=(request.POST.get('opcao_b') or '').strip()[:40],
+        sticker_y=num('sticker_y', 0.62, 0.02, 0.95),
+        sticker_escala=num('sticker_escala', 1.0, 0.4, 2.0),
+        escurecer=num('escurecer', 0.25, 0.0, 0.85),
+    )
+
+
+def _cta_base(request):
+    """Resolve a imagem de fundo e devolve (caminho_local, e_temporario).
+
+    A prévia roda a cada ajuste, então NÃO dá para reenviar a foto toda vez (uma
+    foto de 3 MB a cada tecla digitada). Quando vem um upload novo, guardamos
+    uma cópia e o caminho fica na sessão; nas prévias seguintes o navegador
+    manda só os campos de texto e reaproveitamos essa cópia.
+    """
     import os
     import tempfile
 
-    from engine.cta_render import TIPOS
+    from apps.core_utils import garantir_midia_local
 
-    ultima = None
+    enviada = request.FILES.get('imagem')
+    escolhida_id = (request.POST.get('imagem_biblioteca') or '').strip()
+
+    if enviada:
+        destino_dir = os.path.join(settings.MEDIA_ROOT, _CTA_TMP)
+        os.makedirs(destino_dir, exist_ok=True)
+        fd, caminho = tempfile.mkstemp(
+            suffix=os.path.splitext(enviada.name)[1] or '.jpg', dir=destino_dir)
+        with os.fdopen(fd, 'wb') as fh:
+            for chunk in enviada.chunks():
+                fh.write(chunk)
+        request.session['cta_base'] = caminho
+        request.session.pop('cta_base_asset', None)
+        return caminho, False        # vive na sessão; não apagar aqui
+
+    if escolhida_id:
+        asset = MediaAsset.objects.filter(
+            id=escolhida_id, owner=request.user, kind='image').first()
+        if asset:
+            request.session['cta_base_asset'] = asset.id
+            request.session.pop('cta_base', None)
+            return garantir_midia_local(asset.file)
+
+    # Sem nada novo no POST: reaproveita o que a sessão guardou.
+    guardado = request.session.get('cta_base')
+    if guardado and os.path.exists(guardado):
+        return guardado, False
+    asset_id = request.session.get('cta_base_asset')
+    if asset_id:
+        asset = MediaAsset.objects.filter(
+            id=asset_id, owner=request.user, kind='image').first()
+        if asset:
+            return garantir_midia_local(asset.file)
+    return None, False
+
+
+@login_required
+def cta_generator(request):
+    """Tela do gerador. O POST gera a arte e guarda na Biblioteca."""
+    from engine.cta_render import TIPOS, tem_suporte_a_emoji
+
     if request.method == 'POST':
-        ultima = _gerar_cta(request)
-        if ultima:
-            return redirect(f"{reverse('library:cta')}?ok={ultima.id}")
+        gerada = _gerar_cta(request)
+        if gerada:
+            return redirect(f"{reverse('library:cta')}?ok={gerada.id}")
 
     ok_id = request.GET.get('ok')
-    gerada = MediaAsset.objects.filter(id=ok_id, owner=request.user).first() if ok_id else None
+    gerada = (MediaAsset.objects.filter(id=ok_id, owner=request.user).first()
+              if ok_id else None)
 
     return render(request, 'library/cta.html', {
         'tipos': TIPOS,
         'gerada': gerada,
+        'emoji_ok': tem_suporte_a_emoji(),
         'folders': MediaFolder.objects.filter(owner=request.user),
         # Só imagens: a arte é montada sobre uma foto.
-        'imagens': MediaAsset.objects.filter(owner=request.user, kind='image')
-                                     .order_by('-created_at')[:60],
+        'imagens': (MediaAsset.objects.filter(owner=request.user, kind='image')
+                    .order_by('-created_at')[:60]),
     })
 
 
-def _num(request, campo, padrao, minimo, maximo):
+@login_required
+@require_POST
+def cta_previa(request):
+    """Devolve o JPG da arte SEM salvar nada — é a prévia ao vivo.
+
+    Renderiza pelo MESMO `gerar_cta` da geração final: a prévia É o resultado,
+    não uma imitação. Foi por existirem duas implementações que o editor de
+    Story passou a mostrar o texto num tamanho e publicar em outro.
+    """
+    import os
+    import tempfile
+
+    from django.http import HttpResponse
+
+    from engine.cta_render import gerar_cta
+
+    base, base_temp = _cta_base(request)
+    fd, destino = tempfile.mkstemp(suffix='.jpg')
+    os.close(fd)
     try:
-        v = float(request.POST.get(campo, padrao))
-    except (TypeError, ValueError):
-        v = padrao
-    return max(minimo, min(v, maximo))
+        gerar_cta(base, destino=destino, **_cta_params(request))
+        with open(destino, 'rb') as fh:
+            dados = fh.read()
+        resp = HttpResponse(dados, content_type='image/jpeg')
+        resp['Cache-Control'] = 'no-store'
+        return resp
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    finally:
+        for tmp in (destino, base if base_temp else None):
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
 
 def _gerar_cta(request):
@@ -381,54 +491,22 @@ def _gerar_cta(request):
 
     from django.core.files.base import ContentFile
 
-    from apps.core_utils import garantir_midia_local
     from engine.cta_render import gerar_cta
 
-    # A imagem de fundo vem de um upload novo OU de uma imagem da biblioteca.
-    base_local, base_temp = None, False
-    enviada = request.FILES.get('imagem')
-    escolhida_id = (request.POST.get('imagem_biblioteca') or '').strip()
+    base, base_temp = _cta_base(request)
+    destino_dir = os.path.join(settings.MEDIA_ROOT, 'cta')
+    os.makedirs(destino_dir, exist_ok=True)
+    fd, destino = tempfile.mkstemp(suffix='.jpg', dir=destino_dir)
+    os.close(fd)
 
     try:
-        if enviada:
-            fd, base_local = tempfile.mkstemp(
-                suffix=os.path.splitext(enviada.name)[1] or '.jpg')
-            with os.fdopen(fd, 'wb') as fh:
-                for chunk in enviada.chunks():
-                    fh.write(chunk)
-            base_temp = True
-        elif escolhida_id:
-            asset = MediaAsset.objects.filter(
-                id=escolhida_id, owner=request.user, kind='image').first()
-            if asset:
-                base_local, base_temp = garantir_midia_local(asset.file)
-
-        destino_dir = os.path.join(settings.MEDIA_ROOT, 'cta')
-        fd, destino = tempfile.mkstemp(suffix='.jpg', dir=_criar_dir(destino_dir))
-        os.close(fd)
-
-        gerar_cta(
-            base_local,
-            tipo=(request.POST.get('tipo') or 'link').strip(),
-            titulo=(request.POST.get('titulo') or '').strip()[:200],
-            titulo_cor=(request.POST.get('titulo_cor') or '#ffffff').strip()[:9],
-            titulo_tamanho=int(_num(request, 'titulo_tamanho', 72, 24, 160)),
-            titulo_y=_num(request, 'titulo_y', 0.16, 0.02, 0.95),
-            sticker_texto=(request.POST.get('sticker_texto') or '').strip()[:80],
-            opcao_a=(request.POST.get('opcao_a') or '').strip()[:40],
-            opcao_b=(request.POST.get('opcao_b') or '').strip()[:40],
-            sticker_y=_num(request, 'sticker_y', 0.62, 0.02, 0.95),
-            sticker_escala=_num(request, 'sticker_escala', 1.0, 0.4, 2.0),
-            escurecer=_num(request, 'escurecer', 0.25, 0.0, 0.85),
-            destino=destino,
-        )
+        gerar_cta(base, destino=destino, **_cta_params(request))
 
         nome = (request.POST.get('nome') or 'cta').strip()[:80] or 'cta'
         with open(destino, 'rb') as fh:
             conteudo = fh.read()
         asset = MediaAsset(owner=request.user, kind='image',
-                           original_name=f'{nome}.jpg',
-                           size_bytes=len(conteudo))
+                           original_name=f'{nome}.jpg', size_bytes=len(conteudo))
         pasta_id = (request.POST.get('pasta') or '').strip()
         if pasta_id:
             asset.folder = MediaFolder.objects.filter(
@@ -440,15 +518,11 @@ def _gerar_cta(request):
         messages.error(request, f'Não consegui gerar a arte: {e}')
         return None
     finally:
-        for tmp in ((base_local if base_temp else None),):
+        # A base da sessão sobrevive de propósito (dá para gerar outra variação
+        # sem reenviar a foto); ela só é trocada quando o usuário manda outra.
+        for tmp in (destino, base if base_temp else None):
             if tmp and os.path.exists(tmp):
                 try:
                     os.remove(tmp)
                 except OSError:
                     pass
-
-
-def _criar_dir(caminho):
-    import os
-    os.makedirs(caminho, exist_ok=True)
-    return caminho

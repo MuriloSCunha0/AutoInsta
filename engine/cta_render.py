@@ -13,7 +13,7 @@ daqui em vez de imitar o layout em CSS — foi assim que o editor de Story passo
 a divergir do resultado (preview de 170px contra render de 190px).
 """
 import os
-import textwrap
+import re
 import unicodedata
 
 from engine.story_render import _achar_fonte, _hex_to_rgb
@@ -34,11 +34,111 @@ def _fonte(px, bold=True):
     return _achar_fonte(max(10, int(px)))
 
 
+# ── Emoji ────────────────────────────────────────────────────────────────────
+# A DejaVu (fonte de texto do servidor) não tem NENHUM emoji: cada um sairia
+# como o retângulo do .notdef. A saída é desenhar o emoji com uma fonte COLORIDA
+# separada e colá-lo na linha — nenhuma fonte única cobre texto + emoji.
+#
+# NotoColorEmoji é bitmap (CBDT): o Pillow só a abre nos tamanhos de strike que
+# o arquivo tem — na prática 109px. Por isso renderizamos sempre nesse tamanho
+# e reduzimos para a altura da linha. A fonte vem do pacote
+# `fonts-noto-color-emoji`, instalado no Dockerfile.
+_EMOJI_FONTS = [
+    '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',        # Debian/Ubuntu
+    '/usr/share/fonts/truetype/noto/NotoColorEmoji-Regular.ttf',
+    'C:\\Windows\\Fonts\\seguiemj.ttf',                         # Windows (dev)
+]
+_EMOJI_STRIKE = 109
+
+# Blocos onde moram os emoji. Não precisa ser exaustivo: o que escapar daqui
+# cai no filtro de glifo ausente e é removido em vez de virar quadradinho.
+_RE_EMOJI = re.compile(
+    '(?:[\U0001F300-\U0001FAFF\U0001F000-\U0001F0FF\U0001F900-\U0001F9FF'
+    '\U00002600-\U000027BF\U00002B00-\U00002BFF\U0001F1E6-\U0001F1FF]'
+    '[\U0000FE00-\U0000FE0F\u200d]*)+'
+)
+
+_cache_fonte_emoji = {}
+_cache_emoji_img = {}
+
+
+def _fonte_emoji():
+    """A fonte de emoji colorido, ou None se a máquina não tiver nenhuma."""
+    if 'f' in _cache_fonte_emoji:
+        return _cache_fonte_emoji['f']
+    from PIL import ImageFont
+    achada = None
+    for caminho in _EMOJI_FONTS:
+        if not os.path.exists(caminho):
+            continue
+        # A bitmap só abre no tamanho da strike; a vetorial (Windows) abre em
+        # qualquer um. Tentamos do maior para o menor.
+        for tamanho in (_EMOJI_STRIKE, 96, 72, 64, 48, 32):
+            try:
+                achada = ImageFont.truetype(caminho, tamanho)
+                break
+            except Exception:
+                continue
+        if achada:
+            break
+    _cache_fonte_emoji['f'] = achada
+    return achada
+
+
+def tem_suporte_a_emoji():
+    """A tela usa isto para avisar quando o emoji não vai sair na arte."""
+    return _fonte_emoji() is not None
+
+
+def _fatiar(texto):
+    """Quebra em [(é_emoji, trecho), ...] preservando a ordem."""
+    saida, pos, texto = [], 0, texto or ''
+    for m in _RE_EMOJI.finditer(texto):
+        if m.start() > pos:
+            saida.append((False, texto[pos:m.start()]))
+        saida.append((True, m.group()))
+        pos = m.end()
+    if pos < len(texto):
+        saida.append((False, texto[pos:]))
+    return saida
+
+
+def _img_emoji(trecho, altura):
+    """Desenha o emoji na altura pedida e devolve um RGBA (ou None)."""
+    chave = (trecho, int(altura))
+    if chave in _cache_emoji_img:
+        return _cache_emoji_img[chave]
+
+    from PIL import Image, ImageDraw
+    fonte = _fonte_emoji()
+    resultado = None
+    if fonte:
+        try:
+            lado = _EMOJI_STRIKE * 3
+            tmp = Image.new('RGBA', (lado * max(1, len(trecho)), lado), (0, 0, 0, 0))
+            d = ImageDraw.Draw(tmp)
+            # embedded_color=True é o que traz o emoji COLORIDO — sem isso a
+            # bitmap da Noto sai chapada na cor do texto.
+            d.text((0, 0), trecho, font=fonte, embedded_color=True)
+            caixa = tmp.getbbox()
+            if caixa:
+                tmp = tmp.crop(caixa)
+                escala = altura / tmp.height
+                resultado = tmp.resize(
+                    (max(1, round(tmp.width * escala)), max(1, int(altura))),
+                    Image.LANCZOS)
+        except Exception:
+            resultado = None
+
+    _cache_emoji_img[chave] = resultado
+    return resultado
+
+
 def _desenho_do_char(ch, font):
     """Os pixels que a fonte produz para este caractere.
 
-    `font.getmask()` devolve um ImagingCore, que nao tem `tobytes()`. Entao
-    desenhamos num bitmap pequeno e comparamos os bytes — so API publica.
+    `font.getmask()` devolve um ImagingCore, que não tem `tobytes()`. Então
+    desenhamos num bitmap pequeno e comparamos os bytes — só API pública.
     """
     from PIL import Image, ImageDraw
     lado = max(8, int(font.size * 2))
@@ -48,61 +148,91 @@ def _desenho_do_char(ch, font):
 
 
 def _assinatura_notdef(font):
-    """Como esta fonte desenha um caractere que ela NAO tem.
+    """Como esta fonte desenha um caractere que ela NÃO tem.
 
-    Nao da para detectar glifo ausente por bbox: a fonte desenha `.notdef`
-    (o retangulo/tofu), que tem bbox como qualquer outro. O jeito confiavel e
-    comparar o desenho com o de um caractere que certamente nao existe — usamos
-    a Area de Uso Privado (U+F8FF). Todo glifo ausente renderiza IGUAL a esse.
+    Não dá para detectar glifo ausente por bbox: a fonte desenha `.notdef` (o
+    retângulo/tofu), que tem bbox como qualquer outro. O jeito confiável é
+    comparar o desenho com o de um caractere que certamente não existe — usamos
+    a Área de Uso Privado (U+F8FF). Todo glifo ausente renderiza igual a esse.
     """
     try:
-        return _desenho_do_char('', font)
+        return _desenho_do_char('\uf8ff', font)
     except Exception:
         return None
 
 
 def _limpar_incompativel(texto, font):
-    """Tira os caracteres que a fonte não desenha (sairiam como quadradinho).
+    """Tira o que a fonte de TEXTO não desenha — sem tocar nos emoji.
 
-    As fontes do servidor (DejaVu) não têm emoji colorido. Em vez de estampar
-    tofu na arte do cliente, removemos — o texto fica limpo. Num ambiente que
-    tenha fonte de emoji, nada é removido (a comparação simplesmente não bate).
+    Emoji são desenhados à parte (ver _img_emoji), então permanecem no texto.
+    O que sobrar e a fonte não tiver viraria quadradinho na arte do cliente.
     """
     if not texto:
         return ''
     notdef = _assinatura_notdef(font)
     saida = []
-    for ch in texto:
-        if ch.isspace():
+    for e_emoji, trecho in _fatiar(texto):
+        if e_emoji:
+            saida.append(trecho)
+            continue
+        for ch in trecho:
+            if ch.isspace():
+                saida.append(ch)
+                continue
+            # Controle/formatação (ZWJ solto, variation selector) não desenham
+            # nada e só atrapalham a medição.
+            if unicodedata.category(ch) in ('Cc', 'Cf'):
+                continue
+            if notdef:
+                try:
+                    if _desenho_do_char(ch, font) == notdef:
+                        continue
+                except Exception:
+                    pass
             saida.append(ch)
-            continue
-        # Controle/formatação (ZWJ, variation selectors) não desenham nada e só
-        # atrapalham a medição do texto.
-        if unicodedata.category(ch) in ('Cc', 'Cf'):
-            continue
-        if notdef:
-            try:
-                if _desenho_do_char(ch, font) == notdef:
-                    continue      # a fonte nao tem esse glifo
-            except Exception:
-                pass
-        saida.append(ch)
     return ''.join(saida).strip()
 
 
+# ── Medição e desenho de texto COM emoji ─────────────────────────────────────
+
 def _largura(draw, texto, font):
-    try:
-        return draw.textlength(texto, font=font)
-    except Exception:
-        return len(texto) * font.size * 0.6
+    """Largura da linha contando texto e emoji."""
+    total = 0
+    for e_emoji, trecho in _fatiar(texto or ''):
+        if e_emoji:
+            im = _img_emoji(trecho, font.size)
+            total += im.width if im else 0
+            continue
+        try:
+            total += draw.textlength(trecho, font=font)
+        except Exception:
+            total += len(trecho) * font.size * 0.6
+    return total
 
 
-def _texto_centralizado(draw, cx, y, texto, font, cor, sombra=False):
+def _escrever(camada, draw, x, y, texto, font, cor, sombra=False):
+    """Escreve a linha em (x, y), colando os emoji entre os trechos de texto."""
+    for e_emoji, trecho in _fatiar(texto or ''):
+        if e_emoji:
+            im = _img_emoji(trecho, font.size)
+            if im is not None and camada is not None:
+                # Alinha pela base do texto (o emoji sobe um pouco).
+                camada.alpha_composite(im, (int(x), int(y + font.size * 0.06)))
+                x += im.width
+            continue
+        if sombra:
+            draw.text((x + 3, y + 3), trecho, font=font, fill=(0, 0, 0, 150))
+        draw.text((x, y), trecho, font=font, fill=cor)
+        try:
+            x += draw.textlength(trecho, font=font)
+        except Exception:
+            x += len(trecho) * font.size * 0.6
+    return x
+
+
+def _texto_centralizado(camada, draw, cx, y, texto, font, cor, sombra=False):
     w = _largura(draw, texto, font)
-    x = cx - w / 2
-    if sombra:
-        draw.text((x + 3, y + 3), texto, font=font, fill=(0, 0, 0, 150))
-    draw.text((x, y), texto, font=font, fill=cor)
+    _escrever(camada, draw, cx - w / 2, y, texto, font, cor, sombra)
     return w
 
 
@@ -145,10 +275,9 @@ def _fundo(base_path, escurecer):
 
 
 # ── Adesivos ─────────────────────────────────────────────────────────────────
-# Cada função desenha no `draw` e devolve a ALTURA ocupada, para o chamador
-# saber onde o adesivo termina.
+# Cada função desenha e devolve a ALTURA ocupada.
 
-def _sticker_link(draw, cx, topo, texto, escala):
+def _sticker_link(camada, draw, cx, topo, texto, escala):
     """Pílula branca com o texto — o visual do adesivo de link."""
     fonte = _fonte(46 * escala)
     texto = (_limpar_incompativel(texto, fonte) or 'CLIQUE AQUI').upper()
@@ -171,11 +300,12 @@ def _sticker_link(draw, cx, topo, texto, escala):
     draw.line([ix - r * 0.5, iy, ix + r * 0.5, iy],
               fill=(20, 20, 20, 255), width=max(2, int(4 * escala)))
 
-    draw.text((x0 + padx + icone_w, y0 + pady), texto, font=fonte, fill=(20, 20, 20, 255))
+    _escrever(camada, draw, x0 + padx + icone_w, y0 + pady, texto, fonte,
+              (20, 20, 20, 255))
     return alt
 
 
-def _sticker_enquete(draw, cx, topo, pergunta, opcao_a, opcao_b, escala):
+def _sticker_enquete(camada, draw, cx, topo, pergunta, opcao_a, opcao_b, escala):
     """Caixa branca com a pergunta em cima e duas opções lado a lado."""
     f_perg = _fonte(42 * escala)
     f_op = _fonte(46 * escala)
@@ -195,21 +325,22 @@ def _sticker_enquete(draw, cx, topo, pergunta, opcao_a, opcao_b, escala):
                            fill=(255, 255, 255, 240))
     y = y0 + pad
     for ln in linhas:
-        _texto_centralizado(draw, cx, y, ln, f_perg, (20, 20, 20, 255))
+        _texto_centralizado(camada, draw, cx, y, ln, f_perg, (20, 20, 20, 255))
         y += f_perg.size + 12 * escala
 
-    # Duas metades separadas por uma linha vertical.
     meio_y0 = y + 6 * escala
     meio_y1 = y0 + alt - pad * 0.5
     draw.line([cx, meio_y0, cx, meio_y1], fill=(220, 220, 220, 255),
               width=max(2, int(3 * escala)))
     cy_op = meio_y0 + (meio_y1 - meio_y0) / 2 - f_op.size / 2
-    _texto_centralizado(draw, x0 + larg * 0.25, cy_op, opcao_a, f_op, (20, 20, 20, 255))
-    _texto_centralizado(draw, x0 + larg * 0.75, cy_op, opcao_b, f_op, (20, 20, 20, 255))
+    _texto_centralizado(camada, draw, x0 + larg * 0.25, cy_op, opcao_a, f_op,
+                        (20, 20, 20, 255))
+    _texto_centralizado(camada, draw, x0 + larg * 0.75, cy_op, opcao_b, f_op,
+                        (20, 20, 20, 255))
     return alt
 
 
-def _sticker_pergunta(draw, cx, topo, pergunta, placeholder, escala):
+def _sticker_pergunta(camada, draw, cx, topo, pergunta, placeholder, escala):
     """Caixa de perguntas: título + campo de resposta."""
     f_tit = _fonte(44 * escala)
     f_resp = _fonte(38 * escala)
@@ -228,33 +359,35 @@ def _sticker_pergunta(draw, cx, topo, pergunta, placeholder, escala):
                            fill=(255, 255, 255, 240))
     y = y0 + pad
     for ln in linhas:
-        _texto_centralizado(draw, cx, y, ln, f_tit, (20, 20, 20, 255))
+        _texto_centralizado(camada, draw, cx, y, ln, f_tit, (20, 20, 20, 255))
         y += f_tit.size + 12 * escala
 
     y += 16 * escala
     draw.rounded_rectangle([x0 + pad, y, x0 + larg - pad, y + alt_campo],
                            radius=alt_campo / 2, fill=(238, 238, 238, 255))
-    _texto_centralizado(draw, cx, y + 17 * escala, placeholder, f_resp, (140, 140, 140, 255))
+    _texto_centralizado(camada, draw, cx, y + 17 * escala, placeholder, f_resp,
+                        (140, 140, 140, 255))
     return alt
 
 
-def _sticker_contagem(draw, cx, topo, titulo, tempo, escala):
+def _sticker_contagem(camada, draw, cx, topo, titulo, tempo, escala):
     """Contagem regressiva: título pequeno em cima do tempo grande."""
     f_tit = _fonte(38 * escala)
     f_tempo = _fonte(88 * escala)
     titulo = (_limpar_incompativel(titulo, f_tit) or 'ACABA EM').upper()
     tempo = _limpar_incompativel(tempo, f_tempo) or '00:30:00'
 
-    larg = max(_largura(draw, tempo, f_tempo), _largura(draw, titulo, f_tit)) + 120 * escala
+    larg = max(_largura(draw, tempo, f_tempo),
+               _largura(draw, titulo, f_tit)) + 120 * escala
     pad = 30 * escala
     alt = pad + f_tit.size + 14 * escala + f_tempo.size + pad
     x0, y0 = cx - larg / 2, topo
 
     draw.rounded_rectangle([x0, y0, x0 + larg, y0 + alt], radius=28 * escala,
                            fill=(255, 255, 255, 240))
-    _texto_centralizado(draw, cx, y0 + pad, titulo, f_tit, (120, 120, 120, 255))
-    _texto_centralizado(draw, cx, y0 + pad + f_tit.size + 14 * escala, tempo,
-                        f_tempo, (20, 20, 20, 255))
+    _texto_centralizado(camada, draw, cx, y0 + pad, titulo, f_tit, (120, 120, 120, 255))
+    _texto_centralizado(camada, draw, cx, y0 + pad + f_tit.size + 14 * escala,
+                        tempo, f_tempo, (20, 20, 20, 255))
     return alt
 
 
@@ -262,7 +395,7 @@ def gerar_cta(base_path=None, *, tipo='link', titulo='', titulo_cor='#ffffff',
               titulo_tamanho=72, titulo_y=0.16, sticker_texto='',
               opcao_a='', opcao_b='', sticker_y=0.62, sticker_escala=1.0,
               escurecer=0.25, destino=None):
-    """Monta a arte e devolve o caminho do PNG gerado.
+    """Monta a arte e devolve o caminho do JPG gerado.
 
     `titulo_y` / `sticker_y` são relativos (0..1) — a posição vertical dentro
     do quadro 9:16. O horizontal é sempre centralizado, que é como o adesivo
@@ -285,20 +418,20 @@ def gerar_cta(base_path=None, *, tipo='link', titulo='', titulo_cor='#ffffff',
             linhas.extend(_quebrar(draw, paragrafo, f_tit, LARGURA * 0.86))
         y = ALTURA * float(titulo_y)
         for ln in linhas:
-            _texto_centralizado(draw, cx, y, ln, f_tit, cor, sombra=True)
+            _texto_centralizado(camada, draw, cx, y, ln, f_tit, cor, sombra=True)
             y += f_tit.size * 1.25
 
     # ── Adesivo ──────────────────────────────────────────────────────────
     esc = max(0.4, min(float(sticker_escala or 1), 2.0))
     topo = ALTURA * float(sticker_y)
     if tipo == 'link':
-        _sticker_link(draw, cx, topo, sticker_texto, esc)
+        _sticker_link(camada, draw, cx, topo, sticker_texto, esc)
     elif tipo == 'enquete':
-        _sticker_enquete(draw, cx, topo, sticker_texto, opcao_a, opcao_b, esc)
+        _sticker_enquete(camada, draw, cx, topo, sticker_texto, opcao_a, opcao_b, esc)
     elif tipo == 'pergunta':
-        _sticker_pergunta(draw, cx, topo, sticker_texto, opcao_a, esc)
+        _sticker_pergunta(camada, draw, cx, topo, sticker_texto, opcao_a, esc)
     elif tipo == 'contagem':
-        _sticker_contagem(draw, cx, topo, sticker_texto, opcao_a, esc)
+        _sticker_contagem(camada, draw, cx, topo, sticker_texto, opcao_a, esc)
 
     final = Image.alpha_composite(img, camada).convert('RGB')
 

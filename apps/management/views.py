@@ -289,3 +289,58 @@ def posts_list(request):
         'page_obj': page,
         'owner_atual': owner_id,
     })
+
+
+@staff_member_required
+def user_detail(request, user_id):
+    """Ficha do usuário: limites de contas e de apps Meta.
+
+    Os limites moram aqui e não no admin do Django porque quem opera isso é o
+    suporte, não um dev — e no admin não dá para ver quanto o usuário JÁ usa
+    na hora de definir o teto.
+    """
+    alvo = get_object_or_404(User, id=user_id)
+
+    if request.method == 'POST':
+        def _limite(campo):
+            try:
+                return max(0, int(request.POST.get(campo, 0) or 0))
+            except (TypeError, ValueError):
+                return 0
+
+        contas = _limite('max_ig_accounts')
+        apps_meta = _limite('max_meta_apps')
+        usadas = alvo.contas_usadas
+        usados = alvo.apps_usados
+
+        # Deixar definir um teto ABAIXO do que já existe é permitido de
+        # propósito (é como se corta um plano rebaixado): as contas atuais
+        # continuam funcionando, só não dá para adicionar mais. Mas avisamos,
+        # porque quase sempre é engano de digitação.
+        alvo.max_ig_accounts = contas
+        alvo.max_meta_apps = apps_meta
+        alvo.save(update_fields=['max_ig_accounts', 'max_meta_apps'])
+
+        messages.success(request, f'Limites de {alvo.username} atualizados.')
+        if contas and contas < usadas:
+            messages.warning(
+                request,
+                f'Atenção: o limite ({contas}) ficou ABAIXO das {usadas} contas '
+                f'que {alvo.username} já tem. As atuais continuam funcionando, '
+                f'mas ele não consegue adicionar novas.')
+        if apps_meta and apps_meta < usados:
+            messages.warning(
+                request,
+                f'Atenção: o limite de apps ({apps_meta}) ficou abaixo dos '
+                f'{usados} que ele já tem.')
+        return redirect('management:user_detail', user_id=alvo.id)
+
+    contas = (InstagramAccount.objects.filter(owner=alvo)
+              .select_related('meta_app').order_by('ig_username'))
+    return render(request, 'management/user_detail.html', {
+        'alvo': alvo,
+        'contas': contas,
+        'total_contas': contas.count(),
+        'ativas': contas.filter(status='active').count(),
+        'apps': alvo.meta_apps.all(),
+    })

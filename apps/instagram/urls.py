@@ -12,6 +12,9 @@ urlpatterns = [
     path('<int:account_id>/limit/', views.update_account_limit, name='update_account_limit'),
     path('<int:account_id>/forcar/', views.toggle_forcar, name='toggle_forcar'),
     path('<int:account_id>/pausar/', views.toggle_pausada, name='toggle_pausada'),
+    # Gestao de contas do proprio usuario (visao ON/OFF)
+    path('gestao/', views.gestao, name='gestao'),
+    path('gestao/massa/', views.gestao_em_massa, name='gestao_massa'),
     path('<int:account_id>/zerar-fila/', views.zerar_fila, name='zerar_fila'),
     path('<int:account_id>/reagendar-amanha/', views.reagendar_amanha, name='reagendar_amanha'),
     path('<int:account_id>/modelo/', views.save_modelo, name='save_modelo'),

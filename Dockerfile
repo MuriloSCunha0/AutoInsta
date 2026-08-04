@@ -9,11 +9,15 @@ WORKDIR /app
 
 # Instalar dependências do sistema
 # ffmpeg é usado na limpeza/diversificação de metadados dos vídeos antes de publicar.
+# fonts-noto-color-emoji: SEM ela o gerador de CTA e o texto queimado no Story
+# desenham um retângulo (.notdef) no lugar de cada emoji — a DejaVu não tem
+# nenhum. É a fonte de emoji colorido que o Pillow consegue renderizar.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     ffmpeg \
     fonts-dejavu-core \
+    fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar dependências Python

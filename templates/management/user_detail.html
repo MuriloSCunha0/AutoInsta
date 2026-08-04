@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}{{ alvo.username }} | Gestão{% endblock %}
+{% block page_title %}Usuário: {{ alvo.username }}{% endblock %}
+
+{% block top_actions %}
+<a href="{% url 'management:users' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Voltar
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card p-4 h-100">
+            <h6 class="text-white mb-3"><i class="bi bi-person-badge text-purple me-2"></i> Cadastro</h6>
+            <div class="small text-muted mb-1">Usuário</div>
+            <div class="text-white mb-2">{{ alvo.username }}{% if alvo.nickname %} <span class="text-muted">({{ alvo.nickname }})</span>{% endif %}</div>
+            <div class="small text-muted mb-1">E-mail</div>
+            <div class="text-white mb-2">{{ alvo.email|default:"—" }}</div>
+            <div class="small text-muted mb-1">Entrou em</div>
+            <div class="text-white mb-2">{{ alvo.date_joined|date:"d/m/Y" }}</div>
+            <div class="small text-muted mb-1">Situação</div>
+            <div>
+                {% if alvo.is_active %}
+                <span class="badge bg-success bg-opacity-25 text-success">ativo</span>
+                {% else %}
+                <span class="badge bg-danger bg-opacity-25 text-danger">inativo</span>
+                {% endif %}
+                {% if alvo.is_staff %}<span class="badge bg-purple bg-opacity-25 text-purple">staff</span>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card p-4 h-100">
+            <h6 class="text-white mb-1"><i class="bi bi-sliders text-purple me-2"></i> Limites do plano</h6>
+            <p class="text-muted small mb-3">
+                <strong>0 = ilimitado.</strong> O limite vale só para <em>adicionar</em>:
+                as contas que já existem continuam funcionando mesmo se o teto ficar abaixo delas.
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label text-muted small">Contas do Instagram</label>
+                        <input type="number" name="max_ig_accounts" min="0" value="{{ alvo.max_ig_accounts }}"
+                               class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                        <div class="mt-2">
+                            {% with usadas=alvo.contas_usadas %}
+                            <div class="d-flex justify-content-between small">
+                                <span class="text-muted">Em uso</span>
+                                <span class="text-white">
+                                    {{ usadas }}{% if alvo.max_ig_accounts %} de {{ alvo.max_ig_accounts }}{% else %} (sem teto){% endif %}
+                                </span>
+                            </div>
+                            {% if alvo.max_ig_accounts %}
+                            <div class="progress mt-1" style="height:6px; background: rgba(255,255,255,.08);">
+                                <div class="progress-bar {% if usadas >= alvo.max_ig_accounts %}bg-danger{% else %}bg-primary{% endif %}"
+                                     style="width: {% widthratio usadas alvo.max_ig_accounts 100 %}%"></div>
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+
+                    <div class="col-sm-6">
+                        <label class="form-label text-muted small">Apps Meta</label>
+                        <input type="number" name="max_meta_apps" min="0" value="{{ alvo.max_meta_apps }}"
+                               class="form-control text-white border-subtle" style="background: var(--bg-input);">
+                        <div class="mt-2">
+                            {% with usados=alvo.apps_usados %}
+                            <div class="d-flex justify-content-between small">
+                                <span class="text-muted">Em uso</span>
+                                <span class="text-white">
+                                    {{ usados }}{% if alvo.max_meta_apps %} de {{ alvo.max_meta_apps }}{% else %} (sem teto){% endif %}
+                                </span>
+                            </div>
+                            {% if alvo.max_meta_apps %}
+                            <div class="progress mt-1" style="height:6px; background: rgba(255,255,255,.08);">
+                                <div class="progress-bar {% if usados >= alvo.max_meta_apps %}bg-danger{% else %}bg-primary{% endif %}"
+                                     style="width: {% widthratio usados alvo.max_meta_apps 100 %}%"></div>
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">
+                    <i class="bi bi-check2 me-1"></i> Salvar limites
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card p-4 mb-4">
+    <h6 class="text-white mb-3">
+        <i class="bi bi-instagram text-purple me-2"></i> Contas ({{ total_contas }})
+        <span class="text-success small ms-2">{{ ativas }} ativa(s)</span>
+    </h6>
+    {% if contas %}
+    <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr class="text-muted small">
+                <th>Conta</th><th>Status</th><th>App Meta</th><th class="text-end">Seguidores</th>
+            </tr></thead>
+            <tbody>
+            {% for c in contas %}
+            <tr>
+                <td class="text-white">@{{ c.ig_username }}</td>
+                <td>
+                    {% if c.status == 'active' %}
+                    <span class="badge bg-success bg-opacity-25 text-success">ativa</span>
+                    {% else %}
+                    <span class="badge bg-danger bg-opacity-25 text-danger">{{ c.get_status_display }}</span>
+                    {% endif %}
+                    {% if c.pausada %}<span class="badge bg-secondary bg-opacity-25 text-secondary">pausada</span>{% endif %}
+                </td>
+                <td class="text-muted small">{{ c.meta_app.name|default:"—" }}</td>
+                <td class="text-end text-muted small">{{ c.followers_count|default:0 }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted small">Nenhuma conta conectada.</div>
+    {% endif %}
+</div>
+
+<div class="card p-4">
+    <h6 class="text-white mb-3"><i class="bi bi-hdd-network text-purple me-2"></i> Apps Meta ({{ apps|length }})</h6>
+    {% if apps %}
+    <ul class="list-unstyled mb-0">
+        {% for a in apps %}
+        <li class="d-flex justify-content-between border-bottom border-subtle py-2">
+            <span class="text-white">{{ a.name }}</span>
+            <span class="text-muted small">{{ a.meta_app_id|default:"sem app id" }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-muted small">Nenhum app cadastrado.</div>
+    {% endif %}
+</div>
+{% endblock %}

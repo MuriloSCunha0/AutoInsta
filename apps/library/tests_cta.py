@@ -88,12 +88,13 @@ class RenderTest(TestCase):
                 saida = self._gerar(tipo='link', sticker_texto='X', sticker_escala=escala)
                 self.assertTrue(os.path.exists(saida))
 
-    def test_emoji_nao_vira_quadradinho(self):
-        # As fontes do servidor (DejaVu) não têm emoji colorido; em vez de
-        # estampar tofu na arte, o caractere é removido.
+    def test_glifo_que_a_fonte_nao_tem_e_removido(self):
+        # Emoji NÃO entra aqui (é desenhado à parte, ver EmojiTest). O que a
+        # fonte de texto não desenha viraria quadradinho na arte do cliente.
         from engine.cta_render import _limpar_incompativel, _fonte
-        limpo = _limpar_incompativel('Olha isso 🔥🔒', _fonte(40))
-        self.assertNotIn('🔥', limpo)
+        # U+F8FF é da Área de Uso Privado: nenhuma fonte de texto tem.
+        limpo = _limpar_incompativel('Olha isso ', _fonte(40))
+        self.assertNotIn('', limpo)
         self.assertIn('Olha isso', limpo)
 
     def test_texto_longo_quebra_em_linhas(self):
@@ -165,3 +166,84 @@ class ViewTest(TestCase):
         self.assertEqual(r.status_code, 200)
         minha = MediaAsset.objects.filter(owner=self.user).first()
         self.assertIsNotNone(minha)
+
+
+class EmojiTest(TestCase):
+    """Emoji tem que APARECER na arte (colorido), nao ser removido."""
+
+    def setUp(self):
+        self.base = _arquivo_temp()
+        self.addCleanup(lambda: os.path.exists(self.base) and os.remove(self.base))
+
+    def test_fatiar_separa_texto_de_emoji(self):
+        from engine.cta_render import _fatiar
+        partes = _fatiar('Olha 🔥 isso')
+        self.assertIn((True, '🔥'), partes)
+        self.assertIn((False, 'Olha '), partes)
+
+    def test_emoji_nao_e_mais_removido_do_texto(self):
+        # Antes o filtro tirava o emoji; agora ele e desenhado a parte.
+        from engine.cta_render import _limpar_incompativel, _fonte
+        limpo = _limpar_incompativel('Liberei 🔥', _fonte(40))
+        self.assertIn('🔥', limpo)
+
+    def test_emoji_ocupa_largura_na_medicao(self):
+        # Se o emoji nao entrasse na conta, o texto sairia descentralizado.
+        from PIL import Image, ImageDraw
+        from engine.cta_render import _largura, _fonte, tem_suporte_a_emoji
+        if not tem_suporte_a_emoji():
+            self.skipTest('sem fonte de emoji nesta maquina')
+        d = ImageDraw.Draw(Image.new('RGB', (10, 10)))
+        f = _fonte(40)
+        self.assertGreater(_largura(d, 'ab🔥', f), _largura(d, 'ab', f))
+
+    def test_arte_com_emoji_gera(self):
+        fd, destino = tempfile.mkstemp(suffix='.jpg')
+        os.close(fd)
+        self.addCleanup(lambda: os.path.exists(destino) and os.remove(destino))
+        gerar_cta(self.base, tipo='link', titulo='Liberei tudo 🔥🔥',
+                  sticker_texto='CLIQUE AQUI 👉', destino=destino)
+        self.assertGreater(os.path.getsize(destino), 1000)
+
+
+class PreviaTest(TestCase):
+    """A previa devolve o JPG e NAO salva nada na biblioteca."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='p', password='x')
+        self.client.force_login(self.user)
+
+    def test_previa_devolve_imagem(self):
+        r = self.client.post(reverse('library:cta_previa'), {
+            'tipo': 'link', 'sticker_texto': 'OI', 'titulo': 'T',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'image/jpeg')
+        self.assertGreater(len(r.content), 1000)
+
+    def test_previa_nao_salva_na_biblioteca(self):
+        self.client.post(reverse('library:cta_previa'), {'tipo': 'link', 'sticker_texto': 'X'})
+        self.assertFalse(MediaAsset.objects.filter(owner=self.user).exists())
+
+    def test_previa_tem_o_tamanho_do_story(self):
+        from PIL import Image
+        r = self.client.post(reverse('library:cta_previa'), {'tipo': 'link'})
+        with Image.open(io.BytesIO(r.content)) as im:
+            self.assertEqual(im.size, (LARGURA, ALTURA))
+
+    def test_previa_reaproveita_a_foto_da_sessao(self):
+        # 1a chamada manda a foto; a 2a manda so os textos e ainda usa a foto.
+        env = SimpleUploadedFile('f.jpg', _jpg(), content_type='image/jpeg')
+        r1 = self.client.post(reverse('library:cta_previa'),
+                              {'tipo': 'link', 'sticker_texto': 'A', 'imagem': env})
+        self.assertEqual(r1.status_code, 200)
+        self.assertIn('cta_base', self.client.session)
+        r2 = self.client.post(reverse('library:cta_previa'),
+                              {'tipo': 'link', 'sticker_texto': 'B'})
+        self.assertEqual(r2.status_code, 200)
+        self.assertNotEqual(r1.content, r2.content)   # o texto mudou
+
+    def test_previa_exige_login(self):
+        self.client.logout()
+        r = self.client.post(reverse('library:cta_previa'), {'tipo': 'link'})
+        self.assertEqual(r.status_code, 302)

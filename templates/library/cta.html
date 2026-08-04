@@ -4,18 +4,35 @@
 
 {% block extra_css %}
 <style>
-  .cta-cols { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 20px; align-items: start; }
-  @media (max-width: 1100px) { .cta-cols { grid-template-columns: 1fr; } }
+  .cta-cols { display: grid; grid-template-columns: minmax(0,1fr) 420px; gap: 20px; align-items: start; }
+  @media (max-width: 1200px) { .cta-cols { grid-template-columns: 1fr; } }
   .bloco { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
   .campo { margin-bottom: 10px; }
   .campo label { font-size: .72rem; color: var(--text-muted); display: block; margin-bottom: 3px; }
-  .pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 210px; overflow-y: auto; }
-  .pick-grid label { cursor: pointer; }
-  .pick-grid img { width: 100%; aspect-ratio: 9/16; object-fit: cover; border-radius: 8px;
+
+  /* Seletor da biblioteca: mostra a foto INTEIRA (contain), não um recorte —
+     escolher pelo pedaço do meio da imagem não dizia nada. */
+  .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+               gap: 8px; max-height: 340px; overflow-y: auto; padding: 2px; }
+  .pick-grid label { cursor: pointer; display: block; }
+  .pick-grid img { width: 100%; aspect-ratio: 9/16; object-fit: contain;
+                   background: #05070f; border-radius: 8px;
                    border: 2px solid transparent; display: block; }
   .pick-grid input { display: none; }
   .pick-grid input:checked + img { border-color: var(--bs-purple, #7c3aed); }
-  .arte-final { width: 100%; border-radius: 14px; border: 1px solid var(--border-subtle); display: block; }
+
+  /* Prévia: alta o suficiente para ler o texto da arte sem abrir em outra aba. */
+  .previa-box { position: sticky; top: 16px; }
+  .arte { width: 100%; max-width: 380px; aspect-ratio: 9/16; object-fit: contain;
+          border-radius: 14px; border: 1px solid var(--border-subtle);
+          background: #05070f; display: block; margin: 0 auto; }
+  .arte.carregando { opacity: .45; transition: opacity .15s; }
+
+  .emoji-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .emoji-bar button { background: var(--bg-input); border: 1px solid var(--border-subtle);
+                      border-radius: 8px; font-size: 1.05rem; line-height: 1;
+                      padding: 5px 7px; cursor: pointer; }
+  .emoji-bar button:hover { border-color: var(--bs-purple, #7c3aed); }
 </style>
 {% endblock %}
 
@@ -26,11 +43,12 @@
         Monta uma imagem <strong>9:16</strong> com o adesivo desenhado por cima da sua foto.
         Como o adesivo fica <em>na imagem</em>, funciona em <strong>qualquer conta</strong> —
         inclusive as que publicam só pela API oficial, que não aceita figurinha nativa.
-        A arte é salva na Biblioteca e já pode ser postada.
+        A prévia atualiza sozinha enquanto você edita; ao clicar em <strong>Gerar</strong>
+        a arte é salva na Biblioteca e liberada para baixar.
     </p>
 </div>
 
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="cta-form">
 {% csrf_token %}
 <div class="cta-cols">
 
@@ -39,7 +57,7 @@
       <h6 class="text-muted mb-3"><i class="bi bi-image text-purple me-1"></i> Imagem de fundo</h6>
       <div class="campo">
         <label>Enviar uma foto</label>
-        <input type="file" name="imagem" accept="image/*"
+        <input type="file" name="imagem" accept="image/*" id="cta-imagem"
                class="form-control form-control-sm text-white border-subtle" style="background: var(--bg-input);">
       </div>
       {% if imagens %}
@@ -47,9 +65,9 @@
         <label>Ou escolher da biblioteca</label>
         <div class="pick-grid">
           {% for a in imagens %}
-          <label>
+          <label title="{{ a.original_name }}">
             <input type="radio" name="imagem_biblioteca" value="{{ a.id }}">
-            <img src="{{ a.file.url }}" alt="{{ a.original_name }}">
+            <img src="{{ a.file.url }}" alt="{{ a.original_name }}" loading="lazy">
           </label>
           {% endfor %}
         </div>
@@ -67,10 +85,11 @@
       <h6 class="text-muted mb-3"><i class="bi bi-type text-purple me-1"></i> Texto de cima</h6>
       <div class="campo">
         <label>Chamada (deixe vazio para não ter texto)</label>
-        <textarea name="titulo" rows="2" maxlength="200"
+        <textarea name="titulo" rows="2" maxlength="200" id="campo-titulo"
                   class="form-control form-control-sm text-white border-subtle"
                   style="background: var(--bg-input);"
                   placeholder="Ex: Liberei o conteúdo de hoje"></textarea>
+        <div class="emoji-bar" data-alvo="campo-titulo"></div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
         <div class="campo">
@@ -101,9 +120,10 @@
       </div>
       <div class="campo">
         <label id="lbl-sticker">Texto do adesivo</label>
-        <input type="text" name="sticker_texto" maxlength="80"
+        <input type="text" name="sticker_texto" maxlength="80" id="campo-sticker"
                class="form-control form-control-sm text-white border-subtle"
                style="background: var(--bg-input);" placeholder="CLIQUE AQUI">
+        <div class="emoji-bar" data-alvo="campo-sticker"></div>
       </div>
       <div class="d-flex gap-2" id="campos-opcoes" style="display:none !important;">
         <div class="campo flex-grow-1">
@@ -150,34 +170,43 @@
         </div>
       </div>
     </div>
-
-    <button type="submit" class="btn btn-primary w-100">
-      <i class="bi bi-magic me-1"></i> Gerar arte
-    </button>
   </div>
 
-  <div>
+  <div class="previa-box">
     <div class="card p-3">
-      <h6 class="text-white mb-2"><i class="bi bi-phone text-purple me-1"></i> Resultado</h6>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="text-white mb-0"><i class="bi bi-phone text-purple me-1"></i> Prévia</h6>
+        <span class="text-muted" style="font-size:.66rem;" id="previa-estado">ao vivo</span>
+      </div>
+
+      <img id="arte" class="arte" alt="Prévia da arte"
+           src="{% if gerada %}{{ gerada.file.url }}{% endif %}">
+
+      <button type="submit" class="btn btn-primary w-100 mt-3">
+        <i class="bi bi-magic me-1"></i> Gerar e salvar na Biblioteca
+      </button>
+
       {% if gerada %}
-      <img src="{{ gerada.file.url }}" class="arte-final" alt="Arte gerada">
-      <div class="d-flex gap-1 mt-2">
-        <a href="{{ gerada.file.url }}" download class="btn btn-sm btn-outline-success py-0 flex-grow-1">
-          <i class="bi bi-download"></i> Baixar
-        </a>
-        <a href="{% url 'publisher:composer' %}" class="btn btn-sm btn-outline-primary py-0 flex-grow-1">
-          <i class="bi bi-send"></i> Postar
-        </a>
-      </div>
-      <div class="text-muted mt-2" style="font-size:.68rem;">
-        Já está na Biblioteca — é só escolher no Composer.
-      </div>
-      {% else %}
-      <div class="text-center text-muted py-5">
-        <i class="bi bi-image" style="font-size:2.2rem; opacity:.4;"></i>
-        <div class="small mt-2">A arte aparece aqui depois de gerar.</div>
+      <div class="alert alert-success bg-success bg-opacity-10 border-0 text-success small mt-3 mb-0" style="font-size:.72rem;">
+        <i class="bi bi-check-circle me-1"></i> Arte salva na Biblioteca.
+        <div class="d-flex gap-1 mt-2">
+          <a href="{{ gerada.file.url }}" download class="btn btn-sm btn-outline-success py-0 flex-grow-1">
+            <i class="bi bi-download"></i> Baixar
+          </a>
+          <a href="{% url 'publisher:composer' %}" class="btn btn-sm btn-outline-primary py-0 flex-grow-1">
+            <i class="bi bi-send"></i> Postar
+          </a>
+        </div>
       </div>
       {% endif %}
+
+      {% if not emoji_ok %}
+      <div class="alert alert-warning bg-warning bg-opacity-10 border-0 text-warning small mt-3 mb-0" style="font-size:.68rem;">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Este servidor está sem fonte de emoji — os emoji serão removidos da arte.
+      </div>
+      {% endif %}
+
       <div class="alert alert-secondary bg-secondary bg-opacity-10 border-0 text-muted small mt-3 mb-0" style="font-size:.68rem; line-height:1.5;">
         <i class="bi bi-info-circle me-1"></i>
         O adesivo é <strong>desenhado na imagem</strong>: chama atenção, mas não é clicável.
@@ -191,14 +220,103 @@
 </form>
 
 <script>
-// Cada tipo de adesivo usa campos diferentes — mostra só o que faz sentido.
 (function () {
+    var form = document.getElementById('cta-form');
+    var arte = document.getElementById('arte');
+    var estado = document.getElementById('previa-estado');
     var tipo = document.getElementById('cta-tipo');
+    var inputImagem = document.getElementById('cta-imagem');
+    var PREVIA_URL = "{% url 'library:cta_previa' %}";
+
+    // ── Teclado de emoji ────────────────────────────────────────────────
+    // Insere na posição do cursor em vez de concatenar no fim.
+    var EMOJIS = ['🔥','💦','😈','🍑','💋','👀','🔒','🔓','💸','🎁','⚡','❤️',
+                  '😍','🤤','🥵','👉','✨','⏰','🚨','💬'];
+    document.querySelectorAll('.emoji-bar').forEach(function (barra) {
+        var alvo = document.getElementById(barra.dataset.alvo);
+        EMOJIS.forEach(function (e) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = e;
+            b.title = 'Inserir ' + e;
+            b.addEventListener('click', function () {
+                var ini = alvo.selectionStart, fim = alvo.selectionEnd;
+                if (ini === null || ini === undefined) { alvo.value += e; }
+                else {
+                    alvo.value = alvo.value.slice(0, ini) + e + alvo.value.slice(fim);
+                    alvo.selectionStart = alvo.selectionEnd = ini + e.length;
+                }
+                alvo.focus();
+                agendarPrevia();
+            });
+            barra.appendChild(b);
+        });
+    });
+
+    // ── Prévia ao vivo ──────────────────────────────────────────────────
+    // A prévia É o render final (mesmo `gerar_cta` no servidor), então não tem
+    // como divergir do arquivo salvo. O custo é uma requisição por ajuste —
+    // por isso o debounce e o envio da foto UMA vez só (o servidor guarda a
+    // base na sessão; as prévias seguintes mandam só os campos de texto).
+    var timer = null, emVoo = null, fotoEnviada = false;
+
+    function agendarPrevia() {
+        clearTimeout(timer);
+        timer = setTimeout(atualizarPrevia, 350);
+    }
+
+    function atualizarPrevia() {
+        var dados = new FormData(form);
+        // Só manda o arquivo na PRIMEIRA prévia depois de escolher a foto.
+        if (fotoEnviada) dados.delete('imagem');
+        dados.delete('nome');
+        dados.delete('pasta');
+
+        if (emVoo) emVoo.abort();
+        emVoo = new AbortController();
+        arte.classList.add('carregando');
+        estado.textContent = 'gerando…';
+
+        fetch(PREVIA_URL, {method: 'POST', body: dados, signal: emVoo.signal})
+            .then(function (r) {
+                if (!r.ok) throw new Error('falhou');
+                return r.blob();
+            })
+            .then(function (blob) {
+                if (arte.dataset.url) URL.revokeObjectURL(arte.dataset.url);
+                var url = URL.createObjectURL(blob);
+                arte.dataset.url = url;
+                arte.src = url;
+                arte.classList.remove('carregando');
+                estado.textContent = 'ao vivo';
+                // A partir daqui o servidor já tem a base guardada na sessão.
+                if (dados.get('imagem')) fotoEnviada = true;
+            })
+            .catch(function (e) {
+                if (e.name === 'AbortError') return;   // outra prévia assumiu
+                arte.classList.remove('carregando');
+                estado.textContent = 'erro ao gerar';
+            });
+    }
+
+    // Trocar a foto invalida a base guardada: manda o arquivo de novo.
+    if (inputImagem) inputImagem.addEventListener('change', function () {
+        fotoEnviada = false;
+        agendarPrevia();
+    });
+    form.querySelectorAll('input[name=imagem_biblioteca]').forEach(function (r) {
+        r.addEventListener('change', function () { fotoEnviada = false; agendarPrevia(); });
+    });
+
+    form.addEventListener('input', agendarPrevia);
+    form.addEventListener('change', agendarPrevia);
+
+    // ── Campos por tipo de adesivo ──────────────────────────────────────
     var opcoes = document.getElementById('campos-opcoes');
     var campoB = document.getElementById('campo-b');
     var lblSticker = document.getElementById('lbl-sticker');
     var lblA = document.getElementById('lbl-a');
-    var inSticker = document.querySelector('[name=sticker_texto]');
+    var inSticker = document.getElementById('campo-sticker');
 
     var CFG = {
         link:     {opcoes: false, sticker: 'Texto do botão',     ph: 'CLIQUE AQUI'},
@@ -214,11 +332,16 @@
         if (campoB) campoB.style.display = c.b ? '' : 'none';
         lblSticker.textContent = c.sticker;
         if (lblA && c.a) lblA.textContent = c.a;
-        if (inSticker) inSticker.placeholder = c.ph;
-        if (inSticker) inSticker.disabled = (tipo.value === 'nenhum');
+        if (inSticker) {
+            inSticker.placeholder = c.ph;
+            inSticker.disabled = (tipo.value === 'nenhum');
+        }
     }
     tipo.addEventListener('change', aplicar);
     aplicar();
+
+    // Primeira prévia (fundo neutro) para a tela nunca começar vazia.
+    {% if not gerada %}atualizarPrevia();{% endif %}
 })();
 </script>
 {% endblock %}

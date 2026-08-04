@@ -127,6 +127,11 @@ def add_meta_app(request):
         messages.error(request, f'Você já tem um app chamado "{name}".')
         return redirect('accounts:settings')
 
+    pode, motivo = request.user.pode_criar_app()
+    if not pode:
+        messages.error(request, motivo)
+        return redirect('accounts:settings')
+
     app = MetaApp(
         owner=request.user,
         name=name,

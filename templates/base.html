@@ -109,6 +109,9 @@
                 </a>
 
                 <div class="nav-category">Gestão</div>
+                <a href="{% url 'instagram:gestao' %}" class="{% if request.resolver_match.url_name == 'gestao' %}active{% endif %}">
+                    <i class="bi bi-toggles"></i> <span class="nav-text">Gestão de contas</span>
+                </a>
                 <a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.url_name == 'list' and request.resolver_match.namespace == 'instagram' %}active{% endif %}">
                     <i class="bi bi-instagram"></i> <span class="nav-text">Contas</span>
                 </a>

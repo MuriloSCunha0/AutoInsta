@@ -20,6 +20,7 @@ urlpatterns = [
     path('media/delete/<int:asset_id>/', views.delete_media, name='delete_media'),
     # Gerador de CTA (arte 9:16 com adesivo estilo Instagram)
     path('cta/', views.cta_generator, name='cta'),
+    path('cta/previa/', views.cta_previa, name='cta_previa'),
     # Downloader de perfil
     path('downloader/', views.downloader, name='downloader'),
     path('downloader/start/', views.start_download, name='start_download'),

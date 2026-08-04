@@ -13,11 +13,12 @@ from apps.accounts.models import User
 from django.contrib import messages
 from django.conf import settings
 from django.core import signing
-from .models import InstagramAccount, Proxy
+from .models import InstagramAccount, Proxy, Pasta
 import requests
 from urllib.parse import urlencode
 from .forms import AddInstagramAccountForm
 from django.core.cache import cache
+from django.urls import reverse
 
 from .tasks import (
     connect_by_sessionid,
@@ -190,6 +191,10 @@ def add_account_session(request):
     if username and InstagramAccount.objects.filter(owner=request.user, ig_username=username).exists():
         return _toast('Você já adicionou essa conta.', 'warning')
 
+    pode, motivo = request.user.pode_criar_conta()
+    if not pode:
+        return _toast(motivo, 'warning')
+
     account = InstagramAccount(
         owner=request.user,
         ig_username=username,
@@ -241,8 +246,13 @@ def connect_extension(request):
     if not user:
         return _cors(JsonResponse({'ok': False, 'error': 'Token de conexão inválido. Copie-o novamente na plataforma.'}, status=401))
 
-    # Sem limite de contas por enquanto (ainda não há planos pagos).
     existing = InstagramAccount.objects.filter(owner=user, ig_username=username).first() if username else None
+
+    # Só barra conta NOVA: reconectar uma que já existe não consome vaga.
+    if not existing:
+        pode, motivo = user.pode_criar_conta()
+        if not pode:
+            return _cors(JsonResponse({'ok': False, 'error': motivo}, status=403))
 
     account = existing or InstagramAccount(owner=user, ig_username=username)
     account.status = 'connecting'
@@ -316,7 +326,13 @@ def add_account_meta(request):
                 'Cada conta pertence a um único cadastro.</div>'
             )
 
-    # Sem limite de contas por enquanto (ainda não há planos pagos).
+    # Só barra conta NOVA: atualizar o token de uma existente não consome vaga.
+    if not InstagramAccount.objects.filter(owner=request.user, ig_username=ig_username).exists():
+        pode, motivo = request.user.pode_criar_conta()
+        if not pode:
+            return HttpResponse(
+                f'<div class="alert alert-warning"><i class="bi bi-lock"></i> {escape(motivo)}</div>')
+
     try:
         acc, _created = InstagramAccount.objects.get_or_create(
             owner=request.user,
@@ -1090,6 +1106,13 @@ def oauth_callback(request):
                     'Cada conta do Instagram pertence a um único cadastro.')
                 return redirect('instagram:list')
 
+        # Só barra conta NOVA: reconectar por OAuth não consome vaga.
+        if not InstagramAccount.objects.filter(owner=request.user, ig_username=username).exists():
+            pode, motivo = request.user.pode_criar_conta()
+            if not pode:
+                messages.error(request, motivo)
+                return redirect('instagram:list')
+
         # 4. Salvar / Atualizar Conta
         account, _created = InstagramAccount.objects.get_or_create(
             owner=request.user,
@@ -1374,3 +1397,90 @@ def stories_ativos(request):
         'conta_atual': conta_atual,
         'page_obj': page_obj,
     })
+
+
+# =============================================================================
+# Gestão de contas (do próprio usuário)
+# =============================================================================
+# A tela de Contas é feita de cards grandes — ótima para conectar e configurar
+# uma conta, ruim para responder "quantas estão no ar agora?" com 50 contas.
+# Aqui é a visão de CONTROLE: uma linha por conta, ON/OFF explícito, o motivo de
+# quem está fora e ações rápidas. Vale para todo usuário (não é área de admin).
+
+@login_required
+def gestao(request):
+    from django.db.models import Q
+
+    contas = (InstagramAccount.objects.filter(owner=request.user)
+              .select_related('pasta', 'meta_app')
+              .order_by('ig_username'))
+
+    # Filtros da tela (tudo no servidor: a lista pode ter centenas de linhas).
+    situacao = (request.GET.get('situacao') or '').strip()
+    pasta_id = (request.GET.get('pasta') or '').strip()
+    busca = (request.GET.get('q') or '').strip().lstrip('@')
+
+    if pasta_id == 'sem':
+        contas = contas.filter(pasta__isnull=True)
+    elif pasta_id:
+        contas = contas.filter(pasta_id=pasta_id)
+    if busca:
+        contas = contas.filter(ig_username__icontains=busca)
+
+    # "No ar" = publica agora: ativa, não pausada e sem cooldown. O resto é OFF,
+    # e cada uma sabe dizer POR QUE (motivo_parada).
+    lista = []
+    n_on = 0
+    for c in contas:
+        motivo = c.motivo_parada
+        no_ar = motivo is None
+        if no_ar:
+            n_on += 1
+        lista.append({'conta': c, 'no_ar': no_ar,
+                      'rotulo': motivo[0] if motivo else 'no ar',
+                      'explicacao': motivo[1] if motivo else ''})
+
+    if situacao == 'on':
+        lista = [i for i in lista if i['no_ar']]
+    elif situacao == 'off':
+        lista = [i for i in lista if not i['no_ar']]
+
+    total = len(lista)
+    return render(request, 'instagram/gestao.html', {
+        'itens': lista,
+        'total': total,
+        'n_on': n_on,
+        'n_off': len(contas) - n_on,
+        'total_geral': len(contas),
+        'pastas': Pasta.objects.filter(owner=request.user).order_by('name'),
+        'situacao': situacao,
+        'pasta_atual': pasta_id,
+        'busca': busca,
+        # Uso do limite do plano (0 = ilimitado) — o usuário precisa saber
+        # quanto ainda pode conectar antes de tentar e tomar um "não".
+        'limite': request.user.max_ig_accounts,
+        'usadas': request.user.contas_usadas,
+    })
+
+
+@login_required
+@require_POST
+def gestao_em_massa(request):
+    """Pausa/retoma várias contas de uma vez."""
+    acao = (request.POST.get('acao') or '').strip()
+    ids = request.POST.getlist('contas')
+    qs = InstagramAccount.objects.filter(owner=request.user, id__in=ids)
+
+    if acao == 'pausar':
+        n = qs.update(pausada=True)
+        messages.success(request, f'{n} conta(s) pausada(s).')
+    elif acao == 'retomar':
+        # Retomar zera o contador de limites: a conta volta com a ficha limpa,
+        # senão o próximo limite da Meta já a jogaria de molho na hora.
+        n = qs.update(pausada=False, meta_limit_count=0)
+        messages.success(request, f'{n} conta(s) retomada(s).')
+    else:
+        messages.error(request, 'Ação desconhecida.')
+
+    destino = request.POST.get('next') or reverse('instagram:gestao')
+    return redirect(destino)

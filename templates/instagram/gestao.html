@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}Gestão de contas | SandraoFlow{% endblock %}
+{% block page_title %}Gestão de contas{% endblock %}
+
+{% block top_actions %}
+<a href="{% url 'instagram:list' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i> Conectar conta
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .kpi { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px 16px; }
+  .kpi .n { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+  .pill-on  { background: rgba(34,197,94,.15);  color: #4ade80; }
+  .pill-off { background: rgba(148,163,184,.15); color: #cbd5e1; }
+  .linha-off td { opacity: .72; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="kpi">
+      <div class="n text-success">{{ n_on }}</div>
+      <div class="text-muted small">no ar agora</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi">
+      <div class="n text-secondary">{{ n_off }}</div>
+      <div class="text-muted small">fora do ar</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi">
+      <div class="n text-white">{{ total_geral }}</div>
+      <div class="text-muted small">contas no total</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi">
+      {% if limite %}
+      <div class="n {% if usadas >= limite %}text-danger{% else %}text-white{% endif %}">{{ usadas }}<span class="text-muted" style="font-size:1rem;">/{{ limite }}</span></div>
+      <div class="text-muted small">do seu plano</div>
+      <div class="progress mt-2" style="height:5px; background: rgba(255,255,255,.08);">
+        <div class="progress-bar {% if usadas >= limite %}bg-danger{% else %}bg-primary{% endif %}"
+             style="width: {% widthratio usadas limite 100 %}%"></div>
+      </div>
+      {% else %}
+      <div class="n text-white">∞</div>
+      <div class="text-muted small">sem limite de contas</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form method="get" class="d-flex gap-2 flex-wrap align-items-end">
+    <div>
+      <label class="form-label text-muted small mb-1">Buscar</label>
+      <input type="search" name="q" value="{{ busca }}" placeholder="@conta"
+             class="form-control form-control-sm text-white border-subtle" style="background: var(--bg-input);">
+    </div>
+    <div>
+      <label class="form-label text-muted small mb-1">Situação</label>
+      <select name="situacao" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input);">
+        <option value="">Todas</option>
+        <option value="on" {% if situacao == 'on' %}selected{% endif %}>Só no ar</option>
+        <option value="off" {% if situacao == 'off' %}selected{% endif %}>Só fora do ar</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label text-muted small mb-1">Pasta</label>
+      <select name="pasta" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input);">
+        <option value="">Todas</option>
+        {% for p in pastas %}
+        <option value="{{ p.id }}" {% if pasta_atual == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+        <option value="sem" {% if pasta_atual == 'sem' %}selected{% endif %}>— Sem pasta —</option>
+      </select>
+    </div>
+    <button class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+    {% if busca or situacao or pasta_atual %}
+    <a href="{% url 'instagram:gestao' %}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+    {% endif %}
+  </form>
+</div>
+
+<form method="post" action="{% url 'instagram:gestao_massa' %}">
+{% csrf_token %}
+<input type="hidden" name="next" value="{{ request.get_full_path }}">
+<div class="card p-0">
+  <div class="d-flex justify-content-between align-items-center p-3 border-bottom border-subtle flex-wrap gap-2">
+    <div class="text-white">
+      <i class="bi bi-list-check text-purple me-1"></i> {{ total }} conta(s)
+      <span class="text-muted small ms-1" id="sel-info"></span>
+    </div>
+    <div class="d-flex gap-1">
+      <button type="submit" name="acao" value="retomar" class="btn btn-sm btn-outline-success py-0">
+        <i class="bi bi-play-fill"></i> Retomar
+      </button>
+      <button type="submit" name="acao" value="pausar" class="btn btn-sm btn-outline-warning py-0">
+        <i class="bi bi-pause-fill"></i> Pausar
+      </button>
+    </div>
+  </div>
+
+  {% if itens %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead>
+        <tr class="text-muted small">
+          <th style="width:36px;"><input type="checkbox" class="form-check-input" id="marca-todas"></th>
+          <th>Conta</th>
+          <th style="width:150px;">Situação</th>
+          <th>Por quê</th>
+          <th style="width:120px;">Pasta</th>
+          <th class="text-end" style="width:110px;">Fila</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in itens %}
+        <tr class="{% if not i.no_ar %}linha-off{% endif %}">
+          <td><input type="checkbox" name="contas" value="{{ i.conta.id }}" class="form-check-input marca"></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="composer-acc-pic" style="width:28px;height:28px;">
+                {% if i.conta.profile_pic_url %}<img src="{{ i.conta.profile_pic_url }}" alt="">
+                {% else %}<i class="bi bi-person"></i>{% endif %}
+              </span>
+              <a href="{% url 'instagram:list' %}#account-{{ i.conta.id }}" class="text-white text-decoration-none">
+                @{{ i.conta.ig_username }}
+              </a>
+            </div>
+          </td>
+          <td>
+            <span class="badge rounded-pill {% if i.no_ar %}pill-on{% else %}pill-off{% endif %}">
+              {% if i.no_ar %}<i class="bi bi-broadcast me-1"></i>{% else %}<i class="bi bi-pause-circle me-1"></i>{% endif %}{{ i.rotulo }}
+            </span>
+          </td>
+          <td class="text-muted" style="font-size:.72rem;">{{ i.explicacao|default:"—" }}</td>
+          <td class="text-muted small">{{ i.conta.pasta.name|default:"—" }}</td>
+          <td class="text-end">
+            {% with n=i.conta.fila_ativa.count %}
+            {% if n %}<span class="badge bg-warning bg-opacity-25 text-warning">{{ n }}</span>
+            {% else %}<span class="text-muted small">vazia</span>{% endif %}
+            {% endwith %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5">
+    <i class="bi bi-inbox text-muted" style="font-size:2.2rem; opacity:.4;"></i>
+    <p class="text-muted mt-2 mb-0">Nenhuma conta com esses filtros.</p>
+  </div>
+  {% endif %}
+</div>
+</form>
+
+<script>
+(function () {
+    var todas = document.getElementById('marca-todas');
+    var caixas = document.querySelectorAll('.marca');
+    var info = document.getElementById('sel-info');
+    function contar() {
+        var n = document.querySelectorAll('.marca:checked').length;
+        info.textContent = n ? '· ' + n + ' selecionada(s)' : '';
+    }
+    if (todas) todas.addEventListener('change', function () {
+        caixas.forEach(function (c) { c.checked = todas.checked; });
+        contar();
+    });
+    caixas.forEach(function (c) { c.addEventListener('change', contar); });
+    contar();
+})();
+</script>
+{% endblock %}
