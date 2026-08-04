@@ -270,10 +270,29 @@ def bulk_posts(request):
         qs.delete()
         messages.success(request, f'{n} publicação(ões) excluída(s).')
     elif acao == 'reprocessar':
-        # Volta para a fila para agora, zerando o contador de tentativas.
-        qs.update(status='queued', scheduled_for=timezone.now(),
-                  retry_count=0, error_message='')
-        messages.success(request, f'{n} publicação(ões) recolocada(s) na fila.')
+        # Volta para a fila ESPAÇADO por conta (1ª agora, 2ª +30min, ...), nunca
+        # tudo para o MESMO instante. Antes fazia scheduled_for=now em todos, o
+        # que despejava a fila da conta numa rajada (rajada = spam = queda).
+        from datetime import timedelta
+        from django.conf import settings as _s
+        gap_padrao = getattr(_s, 'MIN_INTERVALO_POST_MIN', 30)
+        agora = timezone.now()
+        ids = list(qs.values_list('id', flat=True))
+        n = len(ids)
+        contas_ids = list(ScheduledPost.objects.filter(id__in=ids)
+                          .values_list('account_id', flat=True).distinct())
+        for aid in contas_ids:
+            posts = list(ScheduledPost.objects.filter(id__in=ids, account_id=aid)
+                         .order_by('scheduled_for', 'created_at'))
+            quando = agora
+            for p in posts:
+                p.status = 'queued'
+                p.scheduled_for = quando
+                p.retry_count = 0
+                p.error_message = ''
+                p.save(update_fields=['status', 'scheduled_for', 'retry_count', 'error_message'])
+                quando = quando + timedelta(minutes=(p.interval_minutes or gap_padrao))
+        messages.success(request, f'{n} publicação(ões) recolocada(s) na fila (espaçadas, sem rajada).')
     elif acao == 'forcar':
         # "Forçar": reancora a fila de cada conta em AGORA, mas ESPAÇADA 30/30
         # (a 1ª sai agora, a 2ª em +30 min, a 3ª +60...). Nunca em burst: postar a
