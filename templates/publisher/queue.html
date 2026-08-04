@@ -282,10 +282,10 @@
                             <input type="checkbox" name="post_ids" value="{{ post.id }}" class="form-check-input row-check" data-ciclo="ciclo-{{ ciclo.id }}">
                         </td>
                         <td class="border-0">
-                            {# Conta parada (pausada / de molho / caída / limitada):
-                               mostra o MOTIVO em vez de "na fila". Antes o post
-                               ficava eternamente "na fila" com o horário no
-                               passado e o usuário achava que a fila travou. #}
+                            {# Conta parada (pausada / de molho / caída / #}
+                            {# limitada): mostra o MOTIVO em vez de "na fila". #}
+                            {# Antes o post ficava eternamente "na fila" com o #}
+                            {# horário no passado e parecia fila travada. #}
                             {% with parada=post.account.motivo_parada %}
                             {% if parada and post.status in 'queued,processing' %}
                             <span class="badge rounded-pill bg-secondary bg-opacity-25 text-secondary"

@@ -91,8 +91,8 @@
                 {% endif %}
             </div>
 
-            {# A Capa do Reel subiu para dentro do card "Mídia", logo abaixo do
-               campo de upload — ver o comentário lá em cima. #}
+            {# A Capa do Reel subiu para dentro do card "Mídia", logo abaixo #}
+            {# do campo de upload — ver o comentário lá em cima. #}
 
             <!-- Legenda -->
             <div class="card p-4">
@@ -135,18 +135,18 @@
                 </div>
                 <div id="variacao-preview" class="small text-muted mb-2" style="display:none; background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px; line-height:1.6"></div>
 
-                {# Sem legenda: aviso na hora, antes de enviar. Já saíram
-                   milhares de Reels mudos porque ninguém percebeu o campo em
-                   branco. Não bloqueia — Story nem aceita legenda. #}
+                {# Sem legenda: aviso na hora, antes de enviar. Já saíram #}
+                {# milhares de Reels mudos porque ninguém percebeu o campo #}
+                {# em branco. Não bloqueia — Story nem aceita legenda. #}
                 <div id="aviso-sem-legenda" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-2"
                      style="display:none; line-height:1.5">
                     <i class="bi bi-chat-left-dots me-1"></i>
                     <strong>Sem legenda.</strong> Estes posts vão sair só com o vídeo, sem nenhum texto.
                 </div>
 
-                {# Spintax com opção vazia: `{oi|}` sorteia "oi" OU nada. Se for
-                   a legenda inteira, parte das contas publicaria mudo. O
-                   publicador tem rede de segurança, mas avisar aqui é melhor. #}
+                {# Spintax com opção vazia sorteia o texto OU nada. Se for a #}
+                {# legenda inteira, parte das contas publicaria mudo. O #}
+                {# publicador tem rede de segurança; avisar aqui é melhor. #}
                 <div id="aviso-spintax-vazio" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-2"
                      style="display:none; line-height:1.5">
                     <i class="bi bi-exclamation-triangle me-1"></i>
@@ -188,9 +188,9 @@
                     {% endif %}
                 </div>
                 {% if accounts %}
-                {# Filtros de conta: com 145 contas numa lista rolável não dava
-                   para achar as de uma operação. Filtram a lista no cliente
-                   (sem recarregar) e o "Todas" só marca o que está visível. #}
+                {# Filtros de conta: com 145 contas numa lista rolável não #}
+                {# dava para achar as de uma operação. Filtram no cliente #}
+                {# (sem recarregar) e o "Todas" só marca o que está visível. #}
                 <div class="d-flex gap-2 mb-2 flex-wrap">
                     <input type="search" id="acc-busca" placeholder="Buscar @conta…" autocomplete="off"
                            class="form-control form-control-sm text-white border-subtle flex-grow-1"
@@ -422,9 +422,9 @@
                     <input type="datetime-local" name="start" id="start-input" class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);">
                 </div>
 
-                {# Aviso de madrugada: aparece assim que o usuário escolhe um
-                   horário entre MADRUGADA_INI e MADRUGADA_FIM, antes de enviar.
-                   Não bloqueia — a fila é dele; só deixa o risco explícito. #}
+                {# Aviso de madrugada: aparece quando o usuário escolhe um #}
+                {# horário entre MADRUGADA_INI e MADRUGADA_FIM, antes de #}
+                {# enviar. Não bloqueia — só deixa o risco explícito. #}
                 <div id="aviso-madrugada" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3"
                      style="display:none; line-height:1.5">
                     <i class="bi bi-moon-stars me-1"></i>
