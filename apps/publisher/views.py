@@ -666,11 +666,32 @@ def _composer_submit(request):
         gap_conta = interval / n_contas
     else:
         gap_conta = timedelta(seconds=90)   # sem intervalo: 90s entre contas
+
+    # NÃO sobrepor lotes na MESMA conta: se a conta já tem fila agendada, a nova
+    # campanha continua DEPOIS do último item dela (+intervalo). Sem isto, rodar
+    # o composer/campanhas várias vezes empilhava posts da mesma conta com poucos
+    # minutos de diferença (bug: agendado 30/30 min mas saía 8 em 8) porque todo
+    # lote começava "agora".
+    from django.db.models import Max as _Max
+    ultimo_por_conta = {
+        r['account_id']: r['m']
+        for r in ScheduledPost.objects.filter(
+            owner=user, account_id__in=account_ids,
+            status__in=('queued', 'processing', 'draft')
+        ).values('account_id').annotate(m=_Max('scheduled_for'))
+    }
+
     for pos_conta, account_id in enumerate(account_ids):
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
         offset_conta = gap_conta * pos_conta
+        # Base desta conta: começa em (agora + offset) OU logo após o que ela já
+        # tem agendado (+intervalo), o que for MAIS TARDE — nunca sobrepõe.
+        base_conta = start + offset_conta
+        ja = ultimo_por_conta.get(account_id)
+        if ja and interval and interval.total_seconds() > 0 and (ja + interval) > base_conta:
+            base_conta = ja + interval
 
         # Cada conta ganha (ou reaproveita) a fila com esse nome.
         fila = None
@@ -680,7 +701,7 @@ def _composer_submit(request):
 
         criados_conta = 0
         for i, vname in enumerate(queue_per_account):
-            when_dt = start + i * interval + offset_conta
+            when_dt = base_conta + i * interval
             when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
             if foi_adiado:
                 adiados += 1
@@ -700,6 +721,7 @@ def _composer_submit(request):
                 audio=audio,
                 status='queued',
                 scheduled_for=when_dt,
+                interval_minutes=interval_minutes,
                 **(story_cfg if post_type == 'STORY' else {}),
             )
             post.video_file.name = vname

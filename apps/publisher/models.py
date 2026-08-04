@@ -105,6 +105,11 @@ class ScheduledPost(models.Model):
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
     scheduled_for = models.DateTimeField()
+    # Intervalo (min) que o usuário configurou entre posts DESTA conta nesta
+    # campanha. O dispatcher usa isto como espaçamento mínimo real — assim ele
+    # respeita o que foi pedido (ex.: 30 em 30 min) em vez de um valor global.
+    # 0 = usar o padrão global (MIN_INTERVALO_POST_MIN).
+    interval_minutes = models.IntegerField(default=0)
     published_at = models.DateTimeField(null=True, blank=True)
     ig_media_id = models.CharField(max_length=100, blank=True)
     error_message = models.TextField(blank=True)

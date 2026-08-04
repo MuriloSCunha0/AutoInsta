@@ -135,11 +135,11 @@ def process_scheduled_posts():
     # legível e coerente com o anti-burst (nunca sai mais rápido que gap_min).
     reagenda_cursor = {}
 
-    def _reagenda_espacado(post, base):
+    def _reagenda_espacado(post, base, gap):
         alvo = reagenda_cursor.get(post.account_id)
         if alvo is None or alvo < base:
             alvo = base
-        reagenda_cursor[post.account_id] = alvo + timedelta(minutes=gap_min)
+        reagenda_cursor[post.account_id] = alvo + timedelta(minutes=gap)
         if post.scheduled_for < alvo:
             post.scheduled_for = alvo
             post.save(update_fields=['scheduled_for'])
@@ -187,6 +187,9 @@ def process_scheduled_posts():
         # vez (segundos de diferença) o IG identifica como SPAM e DERRUBA a conta
         # (feedback real). Vale SEMPRE — inclusive com "Forçar". Forçar ignora só
         # o TETO DIÁRIO e o cooldown de rate-limit, NUNCA o espaçamento.
+        # Usa o INTERVALO QUE O USUÁRIO CONFIGUROU no post (ex.: 30 min); só cai
+        # no padrão global quando o post não tem intervalo próprio.
+        gap_ef = post.interval_minutes or gap_min
         # Post EM VOO (processing) conta como "acabou de postar": sem isto, o gap
         # baseado só em published_at furava (o post em voo ainda não publicou, e
         # a próxima rodada disparava outro → saíam com segundos de diferença).
@@ -197,16 +200,16 @@ def process_scheduled_posts():
                               published_at__isnull=False)
                       .order_by('-published_at')
                       .values_list('published_at', flat=True).first())
-        if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_min):
+        if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_ef):
             # Espaça a partir do próximo horário permitido (último post + gap) em
             # vez de deixar vencido reprocessando a cada rodada.
-            _reagenda_espacado(post, ultimo_pub + timedelta(minutes=gap_min))
+            _reagenda_espacado(post, ultimo_pub + timedelta(minutes=gap_ef), gap_ef)
             continue
 
         # Conta em cooldown por rate limit: reagenda o post para o FIM do
         # cooldown (espaçado, sem colapsar toda a fila no mesmo instante).
         if not forcado and conta.rate_limited_until and conta.rate_limited_until > now:
-            _reagenda_espacado(post, conta.rate_limited_until)
+            _reagenda_espacado(post, conta.rate_limited_until, gap_ef)
             continue
 
         # Teto efetivo = menor entre o limite do usuário e a cota real da Meta.
@@ -221,7 +224,7 @@ def process_scheduled_posts():
                 # para o horário ficar HONESTO, não reprocessar a cada minuto e
                 # não colapsar toda a fila no mesmo instante.
                 quando = conta.livre_em() or (now + timedelta(hours=1))
-                _reagenda_espacado(post, quando)
+                _reagenda_espacado(post, quando, gap_ef)
                 continue
 
         post.status = 'processing'
