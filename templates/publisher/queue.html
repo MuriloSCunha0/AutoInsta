@@ -231,13 +231,30 @@
                     <tr class="dia-header">
                         <td colspan="7" class="border-0">
                             <i class="bi bi-calendar-event me-1"></i> {{ grupo.rotulo }}
-                            <span class="text-muted">· {{ grupo.posts|length }}</span>
+                            <span class="text-muted">· {{ grupo.total }} post{{ grupo.total|pluralize }} · {{ grupo.ciclos|length }} ciclo{{ grupo.ciclos|length|pluralize }}</span>
                         </td>
                     </tr>
-                    {% for post in grupo.posts %}
-                    <tr>
+                    {% for ciclo in grupo.ciclos %}
+                    <tr class="ciclo-header" data-target="ciclo-{{ ciclo.id }}">
                         <td class="border-0 ps-4">
-                            <input type="checkbox" name="post_ids" value="{{ post.id }}" class="form-check-input row-check">
+                            <input type="checkbox" class="form-check-input ciclo-check" data-target="ciclo-{{ ciclo.id }}" title="Selecionar o ciclo inteiro">
+                        </td>
+                        <td colspan="5" class="border-0">
+                            <i class="bi bi-chevron-right chev me-1"></i>
+                            <i class="bi bi-arrow-repeat text-purple me-1"></i>
+                            <strong class="text-white">{{ ciclo.inicio|date:"H:i" }}</strong>
+                            <span class="badge rounded-pill bg-info bg-opacity-25 text-info ms-2">{{ ciclo.posts|length }} conta{{ ciclo.posts|length|pluralize }}</span>
+                            <span class="text-muted small ms-2">{{ ciclo.posts.0.get_post_type_display }}</span>
+                            <span class="text-secondary small ms-2 d-none d-md-inline text-truncate align-bottom" style="max-width:260px;">{{ ciclo.posts.0.caption|default:"Sem legenda" }}</span>
+                        </td>
+                        <td class="text-end border-0 pe-4">
+                            <span class="text-muted small">{{ ciclo.inicio|date:"d/m" }}</span>
+                        </td>
+                    </tr>
+                    {% for post in ciclo.posts %}
+                    <tr class="ciclo-row ciclo-{{ ciclo.id }}" style="display:none;">
+                        <td class="border-0 ps-4">
+                            <input type="checkbox" name="post_ids" value="{{ post.id }}" class="form-check-input row-check" data-ciclo="ciclo-{{ ciclo.id }}">
                         </td>
                         <td class="border-0">
                             <span class="badge rounded-pill
@@ -249,7 +266,7 @@
                                 {{ post.get_status_display }}
                             </span>
                         </td>
-                        <td class="text-white border-0">{{ post.scheduled_for|date:"d/m/Y H:i" }}</td>
+                        <td class="text-white border-0">{{ post.scheduled_for|date:"H:i:s" }}</td>
                         <td class="border-0">
                             <span class="text-white">@{{ post.account.ig_username }}</span>
                             {% if post.queue %}
@@ -267,6 +284,7 @@
                                onclick="return confirm('Cancelar este post?')"><i class="bi bi-trash"></i></a>
                         </td>
                     </tr>
+                    {% endfor %}
                     {% endfor %}
                     {% endfor %}
                 </tbody>
@@ -300,6 +318,14 @@
 {% endif %}
 
 {% include 'publisher/partials/add_modal.html' %}
+
+<style>
+    .ciclo-header { cursor: pointer; background: rgba(255,255,255,0.02); }
+    .ciclo-header:hover { background: rgba(139,92,246,0.08); }
+    .ciclo-header .chev { transition: transform .15s ease; display: inline-block; }
+    .ciclo-header.aberto .chev { transform: rotate(90deg); }
+    .ciclo-row { background: rgba(255,255,255,0.015); }
+</style>
 
 <script>
 (function () {
@@ -347,6 +373,26 @@
     });
     form.addEventListener('change', (e) => {
         if (e.target.classList.contains('row-check')) { setTodos(false); refresh(); }
+    });
+
+    // Expandir/recolher um ciclo ao clicar no cabeçalho dele.
+    form.querySelectorAll('.ciclo-header').forEach((h) => {
+        h.addEventListener('click', (e) => {
+            if (e.target.closest('input')) return;   // clique no checkbox não togla
+            const tgt = h.getAttribute('data-target');
+            const aberto = h.classList.toggle('aberto');
+            form.querySelectorAll('tr.' + tgt).forEach((r) => { r.style.display = aberto ? '' : 'none'; });
+        });
+    });
+    // Checkbox do ciclo: marca/desmarca todas as contas daquele ciclo.
+    form.querySelectorAll('.ciclo-check').forEach((cc) => {
+        cc.addEventListener('change', (e) => {
+            e.stopPropagation();
+            const tgt = cc.getAttribute('data-target');
+            setTodos(false);
+            form.querySelectorAll('.row-check[data-ciclo="' + tgt + '"]').forEach((r) => { r.checked = cc.checked; });
+            refresh();
+        });
     });
 
     const marcarTodos = document.getElementById('marcar-todos');

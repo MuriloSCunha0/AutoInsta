@@ -123,11 +123,15 @@ def queue_list(request):
     paginator = Paginator(base.order_by('scheduled_for'), 100)
     page = paginator.get_page(request.GET.get('page'))
 
-    # Agrupa a página por DIA: Hoje, Amanhã, depois as datas — na ordem de
-    # postagem. Fica claro o que sai hoje e o que fica para os próximos dias.
+    # Agrupa a página por DIA (Hoje/Amanhã/data) e, dentro do dia, por CICLO.
+    # No modelo de ciclos, as contas postam juntas a cada intervalo — então
+    # posts com horários próximos (< CICLO_GAP) são o MESMO ciclo. Agrupar assim
+    # transforma a "lista seca" enorme em poucos blocos (1 por ciclo).
     from datetime import timedelta
+    CICLO_GAP = timedelta(minutes=5)
     hoje = timezone.localdate()
     grupos_dia = []
+    cid = 0
     for p in page.object_list:
         d = timezone.localtime(p.scheduled_for).date() if p.scheduled_for else hoje
         if d == hoje:
@@ -139,8 +143,18 @@ def queue_list(request):
         else:
             rotulo = d.strftime('%d/%m/%Y')
         if not grupos_dia or grupos_dia[-1]['rotulo'] != rotulo:
-            grupos_dia.append({'rotulo': rotulo, 'posts': []})
-        grupos_dia[-1]['posts'].append(p)
+            grupos_dia.append({'rotulo': rotulo, 'ciclos': [], 'total': 0})
+        dia = grupos_dia[-1]
+        dia['total'] += 1
+        ciclos = dia['ciclos']
+        if (not ciclos or not p.scheduled_for or not ciclos[-1]['ultimo']
+                or (p.scheduled_for - ciclos[-1]['ultimo']) > CICLO_GAP):
+            cid += 1
+            ciclos.append({'id': cid, 'inicio': p.scheduled_for,
+                           'ultimo': p.scheduled_for, 'posts': [p]})
+        else:
+            ciclos[-1]['posts'].append(p)
+            ciclos[-1]['ultimo'] = p.scheduled_for
 
     contagens = {
         r['status']: r['n']
