@@ -50,17 +50,25 @@ def _rodar(cmd):
         raise RuntimeError(f"ffmpeg falhou: {erro}")
 
 
-def _cmd_light(src, dst, rng):
-    """Só muda o hash: copia os streams e injeta um comentário aleatório.
-    Sem recodificar -> rápido e sem perda de qualidade."""
-    marca = uuid.UUID(int=rng.getrandbits(128)).hex
-    return [
-        FFMPEG, '-y', '-i', src,
-        '-c', 'copy',
-        '-metadata', f'comment={marca}',
-        '-movflags', '+faststart',
-        dst,
-    ]
+# MODO 'light' REMOVIDO (04/08/2026) — não recriar.
+#
+# Ele rodava `ffmpeg -c copy -metadata comment=<32 hex>` e o resultado, medido
+# com ffprobe, carregava no container MP4:
+#     encoder=Lavf61.7.103          <- assinatura do ffmpeg (o modo não passava
+#                                      -map_metadata -1, então o ffmpeg somava
+#                                      a própria tag aos metadados originais)
+#     comment=8f3a91b0c7d24e5f...   <- marca aleatória nossa
+#
+# Nenhum aparelho real produz isso. Todo upload nosso saía com a MESMA tag de
+# encoder e um `comment` aleatório sem função — um correlacionador perfeito
+# entre as contas e um sinal claro de evasão deliberada de hash.
+#
+# E não protegia de nada: com `-c copy` o bitstream de vídeo/áudio ficava byte
+# a byte idêntico ao original, então fingerprint perceptual e content-matching
+# continuavam ligando as contas. Só mudava o MD5 do arquivo.
+#
+# Se um dia for preciso "trocar o hash sem recodificar", faça um remux COM
+# `-map_metadata -1` e SEM `-metadata comment=` — nunca este.
 
 
 # handler_name plausíveis de aparelhos reais. Usar os padrões do ffmpeg
@@ -194,13 +202,17 @@ def extrair_thumbnail(video_path, dest_dir=None):
     return None
 
 
-def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
+def limpar_video(src_path, mode='none', seed=None, dest_dir=None):
     """Gera uma cópia processada do vídeo.
 
-    Retorna o caminho do arquivo processado, ou o ORIGINAL se o modo for
-    'none', se o ffmpeg não existir ou se o processamento falhar.
+    Só o modo 'ultra' processa. Retorna o caminho do arquivo processado, ou o
+    ORIGINAL se o modo não for 'ultra', se o ffmpeg não existir ou se o
+    processamento falhar.
     """
-    if mode not in ('light', 'ultra'):
+    # 'light' foi descontinuado e cai aqui como no-op (devolve o original).
+    # Blindagem: mesmo que alguma linha antiga do banco ainda peça 'light',
+    # nunca mais geramos o arquivo carimbado. Ver o comentário acima.
+    if mode not in ('ultra',):
         return src_path
 
     if not os.path.exists(src_path):
@@ -218,12 +230,9 @@ def limpar_video(src_path, mode='light', seed=None, dest_dir=None):
 
     intermediario = None
     try:
-        if mode == 'light':
-            _rodar(_cmd_light(src_path, dst, rng))
-        else:
-            passe1, passe2, intermediario = _cmds_ultra(src_path, dst, rng)
-            _rodar(passe1)
-            _rodar(passe2)
+        passe1, passe2, intermediario = _cmds_ultra(src_path, dst, rng)
+        _rodar(passe1)
+        _rodar(passe2)
 
         if os.path.exists(dst) and os.path.getsize(dst) > 0:
             logger.info('limpar_video: modo=%s -> %s', mode, os.path.basename(dst))

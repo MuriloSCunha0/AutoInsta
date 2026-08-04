@@ -183,9 +183,8 @@
             <div class="col-12">
               <label class="form-label text-muted small">Limpeza do vídeo</label>
               <select name="clean_mode" id="pm-clean" class="form-select form-select-sm text-white border-subtle" style="background:var(--bg-input);">
-                <option value="light" selected>Leve (rápido, hash diferente por conta)</option>
+                <option value="none" selected>Sem limpeza (recomendado)</option>
                 <option value="ultra">Ultra (recodifica — evita correlação, mais lento)</option>
-                <option value="none">Sem limpeza</option>
               </select>
               <small class="text-muted">Postar o mesmo conteúdo em várias contas? Ultra evita que o Instagram ligue as contas.</small>
             </div>
@@ -266,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function () {
         byId('pm-agenda-id').value = '';
         byId('pm-name').value = ''; byId('pm-hora').value = '09:00'; tipo.value = 'STORY';
         byId('pm-caption').value = ''; byId('pm-link').value = ''; byId('pm-label').value = 'CLIQUE AQUI';
-        byId('pm-espac').value = '20'; byId('pm-clean').value = 'light';
+        byId('pm-espac').value = '20'; byId('pm-clean').value = 'none';
         byId('pm-grade').checked = true;
         byId('pm-media').required = true; byId('pm-media-note').textContent = '';
         form.querySelectorAll('.pm-weekday').forEach(function (b) { b.checked = false; marcarDia(b); });
@@ -293,7 +292,9 @@ document.addEventListener('DOMContentLoaded', function () {
             byId('pm-link').value = d.link || '';
             byId('pm-label').value = d.label || 'CLIQUE AQUI';
             byId('pm-espac').value = d.espac || '20';
-            byId('pm-clean').value = d.clean || 'light';
+            // Planos antigos podem estar gravados com o modo 'light' (removido):
+            // o select não tem mais essa opção, então cai em 'none'.
+            byId('pm-clean').value = (d.clean === 'ultra') ? 'ultra' : 'none';
             byId('pm-grade').checked = (d.grade !== '0');
             byId('pm-media').required = false;
             byId('pm-media-note').textContent = 'Deixe vazio para manter a mídia atual.';

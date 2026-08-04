@@ -90,12 +90,25 @@ class ScheduledPost(models.Model):
 
     # Limpeza/diversificação do arquivo antes de publicar, para o Instagram
     # não correlacionar contas que enviam a mesma mídia.
+    #
+    # 'light' foi REMOVIDO (04/08/2026). Ele fazia remux com `-c copy` e gravava
+    # `encoder=Lavf<versao>` + `comment=<32 hex aleatorios>` no container MP4 —
+    # verificado por ffprobe. Como era `-c copy`, o bitstream ficava byte a byte
+    # igual ao original: não enganava fingerprint nenhum, só trocava o MD5. Ou
+    # seja, carimbava 100% dos uploads com uma assinatura de ferramenta de
+    # evasão e não entregava proteção alguma. Medido em produção (mesmo dono,
+    # mesmo app, mesma mídia, volume controlado): 1-5 posts em light = 19% de
+    # contas derrubadas; 21+ posts em light = 44%. Grupos puros: light 73% (30
+    # contas) × none 14% (22 contas).
+    #
+    # O valor continua sendo ACEITO na leitura para não quebrar as linhas
+    # antigas do banco, mas é normalizado para 'none' na publicação
+    # (ver publish_reel) e não aparece mais na interface.
     CLEAN_CHOICES = [
         ('none', 'Sem limpeza'),
-        ('light', 'Limpeza leve'),
         ('ultra', 'Ultra clean'),
     ]
-    clean_mode = models.CharField(max_length=10, choices=CLEAN_CHOICES, default='light')
+    clean_mode = models.CharField(max_length=10, choices=CLEAN_CHOICES, default='none')
 
     # Trilha da aba Áudios: quando definida, substitui o áudio do vídeo.
     audio = models.ForeignKey(
@@ -153,7 +166,7 @@ class PostLoop(models.Model):
     caption = models.TextField(blank=True)
     interval_minutes = models.IntegerField(default=1440)  # 1440 = 24h
     share_to_feed = models.BooleanField(default=True)
-    clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='light')
+    clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='none')
     audio = models.ForeignKey(
         'library.Audio', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='loops',
@@ -206,7 +219,7 @@ class AgendaSemanal(models.Model):
     thumbnail = models.FileField(upload_to='agenda/', max_length=500, null=True, blank=True)
     caption = models.TextField(blank=True)
     share_to_feed = models.BooleanField(default=True)
-    clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='light')
+    clean_mode = models.CharField(max_length=10, choices=ScheduledPost.CLEAN_CHOICES, default='none')
 
     # Story com link (quando post_type=STORY).
     story_link = models.URLField(max_length=500, blank=True)

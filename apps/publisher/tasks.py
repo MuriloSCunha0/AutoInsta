@@ -444,6 +444,13 @@ def publish_reel(post_id):
                 print(f"Post {post.id}: trilha '{post.audio.name}' aplicada")
 
         clean_mode = getattr(post, 'clean_mode', 'none') or 'none'
+        # 'light' foi descontinuado (ver ScheduledPost.CLEAN_CHOICES): ele só
+        # trocava o MD5 e carimbava `encoder=Lavf...` + `comment=<hex>` no MP4,
+        # o que ligava as contas entre si. Normalizamos aqui — e não por
+        # migração de dados — para que os posts JÁ agendados com 'light'
+        # publiquem o arquivo original, sem reescrever a fila do usuário.
+        if clean_mode == 'light':
+            clean_mode = 'none'
         if clean_mode != 'none' and not is_image:
             from engine.media_cleaner import limpar_video
             processado = limpar_video(

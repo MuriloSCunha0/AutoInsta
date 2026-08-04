@@ -15,6 +15,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
 
+def limpar_modo(valor):
+    """Normaliza o `clean_mode` vindo do formulário.
+
+    Só 'none' e 'ultra' existem. O antigo 'light' (removido em 04/08/2026 —
+    ver ScheduledPost.CLEAN_CHOICES) vira 'none': ele carimbava
+    `encoder=Lavf...` + `comment=<hex aleatório>` em todo MP4 sem proteger de
+    nada, e triplicava a queda de contas. Qualquer valor desconhecido também
+    cai em 'none', que é o padrão seguro.
+    """
+    return 'ultra' if (valor or '').strip() == 'ultra' else 'none'
+
+
 @csrf_exempt
 @require_POST
 def internal_upload_media(request):
@@ -482,9 +494,7 @@ def add_loop(request):
     from apps.core_utils import nome_seguro
     nome_arquivo = default_storage.save(f'loops/{nome_seguro(arquivo.name)}', arquivo) if arquivo else ''
 
-    clean_mode = request.POST.get('clean_mode', 'light')
-    if clean_mode not in ('none', 'light', 'ultra'):
-        clean_mode = 'light'
+    clean_mode = limpar_modo(request.POST.get('clean_mode'))
 
     criados = 0
     for acc_id in account_ids:
@@ -632,10 +642,8 @@ def _composer_submit(request):
         'story_link_label': (request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40],
     }
 
-    # Modo de limpeza/diversificação do arquivo (none/light/ultra).
-    clean_mode = request.POST.get('clean_mode', 'light')
-    if clean_mode not in ('none', 'light', 'ultra'):
-        clean_mode = 'light'
+    # Modo de limpeza/diversificação do arquivo (none/ultra).
+    clean_mode = limpar_modo(request.POST.get('clean_mode'))
 
     # Trilha da aba Áudios (só quando "Colocar música" está marcado).
     audio = None
@@ -926,7 +934,7 @@ def criar_agenda(request):
         caption=(request.POST.get('caption') or '').strip(),
         # Checkbox: marcado envia 'grade'; desmarcado não envia nada -> False.
         share_to_feed=request.POST.get('grade') == 'grade',
-        clean_mode=(request.POST.get('clean_mode') or 'light'),
+        clean_mode=limpar_modo(request.POST.get('clean_mode')),
         story_link=(request.POST.get('story_link') or '').strip(),
         story_link_label=(request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40],
         espacamento_min=espac,
@@ -976,7 +984,7 @@ def editar_agenda(request):
     ag.caption = (request.POST.get('caption') or '').strip()
     # Checkbox: marcado envia 'grade'; desmarcado não envia nada -> False.
     ag.share_to_feed = request.POST.get('grade') == 'grade'
-    ag.clean_mode = request.POST.get('clean_mode') or 'light'
+    ag.clean_mode = limpar_modo(request.POST.get('clean_mode'))
     ag.story_link = (request.POST.get('story_link') or '').strip()
     ag.story_link_label = (request.POST.get('story_link_label') or 'CLIQUE AQUI').strip()[:40]
     try:
