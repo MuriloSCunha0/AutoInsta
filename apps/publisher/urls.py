@@ -26,4 +26,6 @@ urlpatterns = [
     path('api/events/', views.api_events, name='api_events'),
     # Server-to-server: o braço envia mídia processada para o painel servir à Meta.
     path('internal/upload-media/', views.internal_upload_media, name='internal_upload_media'),
+    path('caption-info/<int:set_id>/', views.caption_info, name='caption_info'),
+    path('variar-preview/', views.variar_preview, name='variar_preview'),
 ]

@@ -395,7 +395,11 @@ def publish_reel(post_id):
         from django.conf import settings as _cfg_var
         if final_caption and getattr(_cfg_var, 'VARIAR_LEGENDAS', True):
             from apps.publisher.caption_utils import variar_legenda
-            final_caption = variar_legenda(final_caption, seed=f"{post.account_id}-{post.id}")
+            # A variação semântica (sinônimos/emoji/saudação) só entra se a
+            # campanha pediu (post.variar_auto); o spintax {a|b|c} vale sempre.
+            final_caption = variar_legenda(
+                final_caption, seed=f"{post.account_id}-{post.id}",
+                semantica=bool(getattr(post, 'variar_auto', True)))
 
         # Detecta imagem x vídeo pela extensão do arquivo.
         IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')

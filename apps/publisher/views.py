@@ -40,6 +40,38 @@ def internal_upload_media(request):
             out.write(chunk)
     return JsonResponse({'ok': True, 'relname': relname})
 
+
+@login_required
+def caption_info(request, set_id):
+    """Info de uma legenda salva para o composer: texto, hashtags, QUANTOS posts
+    já usam ela (para o aviso de 'muito usada') e um exemplo de variação."""
+    from django.conf import settings as _s
+    from apps.publisher.caption_utils import variar_legenda
+    cs = get_object_or_404(CaptionSet, id=set_id, owner=request.user)
+    cap = cs.captions.order_by('used_count').first()
+    text = (cap.text if cap else '') or ''
+    hashtags = (cap.hashtags if cap else '') or ''
+    uso = ScheduledPost.objects.filter(owner=request.user, caption_set=cs).count()
+    limite = getattr(_s, 'CAPTION_AVISO_USO', 10)
+    exemplo = variar_legenda(text, seed='preview-1', semantica=True) if text else ''
+    return JsonResponse({
+        'text': text, 'hashtags': hashtags, 'uso': uso,
+        'aviso': uso >= limite, 'limite': limite, 'exemplo': exemplo,
+    })
+
+
+@login_required
+@require_POST
+def variar_preview(request):
+    """Devolve 3 exemplos de variação de uma legenda escrita (para o usuário ver
+    como a variação automática mantém o sentido). Não salva nada."""
+    from apps.publisher.caption_utils import variar_legenda
+    texto = (request.POST.get('caption') or '').strip()
+    exemplos = ([variar_legenda(texto, seed=f'preview-{i}', semantica=True)
+                 for i in range(3)] if texto else [])
+    return JsonResponse({'exemplos': exemplos})
+
+
 @login_required
 def queue_list(request):
     from django.core.paginator import Paginator
@@ -527,6 +559,9 @@ def _composer_submit(request):
     library_media_ids = request.POST.getlist('library_media')
     caption = (request.POST.get('caption') or '').strip()
     caption_set_id = request.POST.get('caption_set')
+    # Variar a legenda automaticamente por conta (checkbox marcado por padrão no
+    # form; desmarcado = campo ausente = não variar).
+    variar_auto = request.POST.get('variar_auto') == 'on'
     post_type = request.POST.get('post_type', 'REELS')
     cover_library_id = request.POST.get('cover_library')
 
@@ -755,6 +790,7 @@ def _composer_submit(request):
                 status='queued',
                 scheduled_for=when_dt,
                 interval_minutes=interval_minutes,
+                variar_auto=variar_auto,
                 **(story_cfg if post_type == 'STORY' else {}),
             )
             post.video_file.name = vname

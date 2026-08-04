@@ -207,6 +207,12 @@ TETO_MAT_MEDIO = env.int("TETO_MAT_MEDIO", default=25)      # <5000 seg
 # Sincronização automática de saúde: nº de contas por rodada (a cada 15 min).
 # Menor = mais suave com a Meta; maior = ciclo completo mais rápido.
 HEALTH_SYNC_BATCH = env.int("HEALTH_SYNC_BATCH", default=12)
+# Variação automática (algoritmo local, sem IA) da legenda por conta: sinônimos
+# PT-BR + saudação + emoji + pontuação, mantendo o sentido. Deixa cada conta com
+# um texto único (legenda idêntica em massa é gatilho de remoção pelo IG).
+VARIAR_LEGENDA_SEMANTICA = env.bool("VARIAR_LEGENDA_SEMANTICA", default=True)
+# A partir de quantos posts usando a MESMA legenda o composer recomenda variar.
+CAPTION_AVISO_USO = env.int("CAPTION_AVISO_USO", default=10)
 # Posts atrasados além disso (horas) são EXPIRADOS em vez de publicados: quando a
 # conta volta (sync/reconexão), não sobe a fila antiga de uma vez (rajada de
 # conteúdo velho = spam). Também estabiliza os horários da fila.

@@ -75,24 +75,45 @@
 
             <!-- Legenda -->
             <div class="card p-4">
-                <h6 class="text-white mb-3"><i class="bi bi-chat-quote text-purple me-2"></i> Legenda</h6>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-white mb-0"><i class="bi bi-chat-quote text-purple me-2"></i> Legenda</h6>
+                    {% if caption_sets %}
+                    <select id="caption-set-select" name="caption_set" class="form-select form-select-sm text-white border-subtle w-auto" style="background: var(--bg-input);">
+                        <option value="">Banco de legendas…</option>
+                        {% for cs in caption_sets %}
+                        <option value="{{ cs.id }}">{{ cs.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                </div>
                 <textarea name="caption" rows="4" maxlength="2200" id="caption-input"
                           class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);"
-                          placeholder="Escreva a legenda. Variáveis: {nome_conta}, {dia_semana}, {data_hoje}. Variação: {oi|olá|e aí}"></textarea>
-                <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-2" style="line-height:1.5">
-                    <i class="bi bi-shuffle me-1"></i> <strong>Legenda variada automaticamente por conta</strong> — cada conta posta uma versão única (o Instagram remove o texto de posts idênticos em massa). Para variar de verdade, use <code>{oi|olá|e aí}</code> que cada conta escolhe uma opção.
+                          placeholder="Escreva a legenda, ou escolha uma do banco acima. Variáveis: {nome_conta}, {dia_semana}, {data_hoje}. Variação manual: {oi|olá|e aí}"></textarea>
+
+                <!-- Aviso: legenda muito usada -->
+                <div id="caption-uso-aviso" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-2" style="display:none; line-height:1.5">
+                    <i class="bi bi-exclamation-triangle me-1"></i> Essa legenda já foi usada em <strong><span id="caption-uso-n">0</span> posts</strong>. Postar o mesmo texto em massa faz o Instagram <strong>remover a legenda</strong>. Recomendamos variar automaticamente (mantendo o sentido).
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        {% if caption_sets %}
-                        <select name="caption_set" class="form-select form-select-sm text-white border-subtle d-inline-block w-auto" style="background: var(--bg-input);">
-                            <option value="">Banco de legendas…</option>
-                            {% for cs in caption_sets %}
-                            <option value="{{ cs.id }}">{{ cs.name }}</option>
-                            {% endfor %}
-                        </select>
-                        {% endif %}
+
+                <!-- Variação automática -->
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="variar_auto" name="variar_auto" checked>
+                        <label class="form-check-label small text-white" for="variar_auto">
+                            <i class="bi bi-shuffle me-1 text-purple"></i> Variar a legenda por conta (mantém o sentido, muda o texto)
+                        </label>
                     </div>
+                    <button type="button" id="btn-ver-variacao" class="btn btn-sm btn-outline-secondary py-0">
+                        <i class="bi bi-eye"></i> Ver exemplos
+                    </button>
+                </div>
+                <div id="variacao-preview" class="small text-muted mb-2" style="display:none; background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px; line-height:1.6"></div>
+
+                <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-0" style="line-height:1.5">
+                    <i class="bi bi-info-circle me-1"></i> Cada conta posta uma versão <strong>única</strong> da legenda (sinônimos, saudação e emojis). Para variação manual do texto, use <code>{oi|olá|e aí}</code>.
+                </div>
+
+                <div class="d-flex justify-content-end mt-2">
                     <small class="text-muted"><span id="caption-count">0</span>/2200</small>
                 </div>
 
@@ -101,7 +122,7 @@
                 </div>
 
                 <label class="form-label text-muted mt-3">Hashtags</label>
-                <textarea name="hashtags" rows="2" class="form-control text-white border-subtle"
+                <textarea name="hashtags" rows="2" id="hashtags-input" class="form-control text-white border-subtle"
                           style="background: var(--bg-input);" placeholder="#reels #conteudo #marca"></textarea>
                 <small class="text-muted">Anexadas ao final da legenda de cada post.</small>
             </div>
@@ -504,6 +525,55 @@
     const captionCount = document.getElementById('caption-count');
     if (caption && captionCount) {
         caption.addEventListener('input', () => { captionCount.textContent = caption.value.length; });
+    }
+
+    // ── Legenda: banco de legendas + aviso de uso + variar ──────────────────
+    const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+    const setSel = document.getElementById('caption-set-select');
+    const hashtagsInput = document.getElementById('hashtags-input');
+    const usoAviso = document.getElementById('caption-uso-aviso');
+    const usoN = document.getElementById('caption-uso-n');
+    const variarAuto = document.getElementById('variar_auto');
+    const btnVer = document.getElementById('btn-ver-variacao');
+    const preview = document.getElementById('variacao-preview');
+
+    // Ao escolher uma legenda salva: carrega o texto (editável) + hashtags e,
+    // se ela já for muito usada, avisa e liga a variação automática.
+    if (setSel) {
+        setSel.addEventListener('change', () => {
+            const id = setSel.value;
+            if (usoAviso) usoAviso.style.display = 'none';
+            if (!id) return;
+            fetch(`/publisher/caption-info/${id}/`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (caption && d.text) { caption.value = d.text; if (captionCount) captionCount.textContent = caption.value.length; }
+                    if (hashtagsInput && d.hashtags) hashtagsInput.value = d.hashtags;
+                    if (d.aviso && usoAviso && usoN) {
+                        usoN.textContent = d.uso;
+                        usoAviso.style.display = '';
+                        if (variarAuto) variarAuto.checked = true;  // recomenda variar
+                    }
+                }).catch(() => {});
+        });
+    }
+
+    // Botão "Ver exemplos": mostra 3 variações do texto atual.
+    if (btnVer && preview) {
+        btnVer.addEventListener('click', () => {
+            const texto = (caption && caption.value || '').trim();
+            if (!texto) { preview.style.display = ''; preview.innerHTML = '<span class="text-warning">Escreva ou escolha uma legenda primeiro.</span>'; return; }
+            preview.style.display = '';
+            preview.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando exemplos…';
+            const fd = new FormData(); fd.append('caption', texto); fd.append('csrfmiddlewaretoken', csrf);
+            fetch('/publisher/variar-preview/', {method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.exemplos || !d.exemplos.length) { preview.innerHTML = '<span class="text-muted">Sem variação (legenda vazia).</span>'; return; }
+                    preview.innerHTML = '<div class="text-purple mb-1"><i class="bi bi-shuffle"></i> Exemplos de como cada conta vai postar:</div>' +
+                        d.exemplos.map(e => '<div class="mb-1">• ' + (e || '').replace(/</g,'&lt;') + '</div>').join('');
+                }).catch(() => { preview.innerHTML = '<span class="text-danger">Erro ao gerar exemplos.</span>'; });
+        });
     }
 
     recount();

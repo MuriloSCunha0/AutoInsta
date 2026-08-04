@@ -110,6 +110,10 @@ class ScheduledPost(models.Model):
     # respeita o que foi pedido (ex.: 30 em 30 min) em vez de um valor global.
     # 0 = usar o padrão global (MIN_INTERVALO_POST_MIN).
     interval_minutes = models.IntegerField(default=0)
+    # Variar a legenda automaticamente por conta na publicação (sinônimos/emoji/
+    # saudação mantendo o sentido). Cada conta posta um texto único -> reduz o
+    # gatilho de remoção da legenda pelo IG (texto idêntico em massa).
+    variar_auto = models.BooleanField(default=True)
     published_at = models.DateTimeField(null=True, blank=True)
     ig_media_id = models.CharField(max_length=100, blank=True)
     error_message = models.TextField(blank=True)
