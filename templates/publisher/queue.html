@@ -250,8 +250,20 @@
                                 <span class="badge rounded-pill bg-success bg-opacity-25 text-success"><i class="bi bi-check-circle me-1"></i>publicado</span>
                                 {% elif ciclo.n_pub %}
                                 <span class="badge rounded-pill bg-success bg-opacity-25 text-success">{{ ciclo.n_pub }}/{{ ciclo.n }} publicado</span>
+                                {% elif ciclo.n_parados == ciclo.n %}
+                                {# Ciclo inteiro parado por causa das contas — #}
+                                {# não é fila travada, é conta pausada. #}
+                                <span class="badge rounded-pill bg-secondary bg-opacity-25 text-secondary">
+                                    <i class="bi bi-pause-circle me-1"></i>{% for rotulo, n in ciclo.paradas %}{{ rotulo }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                                </span>
                                 {% else %}
                                 <span class="badge rounded-pill bg-warning bg-opacity-25 text-warning"><i class="bi bi-hourglass-split me-1"></i>na fila</span>
+                                {% endif %}
+                                {% if ciclo.n_parados and ciclo.n_parados != ciclo.n %}
+                                <span class="badge rounded-pill bg-secondary bg-opacity-25 text-secondary"
+                                      title="Estes posts não saem porque a conta está parada — a fila não travou.">
+                                    <i class="bi bi-pause-circle me-1"></i>{{ ciclo.n_parados }} {% for rotulo, n in ciclo.paradas %}{{ rotulo }}{% if not forloop.last %}/{% endif %}{% endfor %}
+                                </span>
                                 {% endif %}
                                 {% if ciclo.n_fail %}<span class="badge rounded-pill bg-danger bg-opacity-25 text-danger">{{ ciclo.n_fail }} falhou</span>{% endif %}
                             </div>
@@ -270,6 +282,17 @@
                             <input type="checkbox" name="post_ids" value="{{ post.id }}" class="form-check-input row-check" data-ciclo="ciclo-{{ ciclo.id }}">
                         </td>
                         <td class="border-0">
+                            {# Conta parada (pausada / de molho / caída / limitada):
+                               mostra o MOTIVO em vez de "na fila". Antes o post
+                               ficava eternamente "na fila" com o horário no
+                               passado e o usuário achava que a fila travou. #}
+                            {% with parada=post.account.motivo_parada %}
+                            {% if parada and post.status in 'queued,processing' %}
+                            <span class="badge rounded-pill bg-secondary bg-opacity-25 text-secondary"
+                                  title="{{ parada.1 }}">
+                                <i class="bi bi-pause-circle me-1"></i>{{ parada.0 }}
+                            </span>
+                            {% else %}
                             <span class="badge rounded-pill
                                 {% if post.status == 'queued' %}bg-warning bg-opacity-25 text-warning
                                 {% elif post.status == 'published' %}bg-success bg-opacity-25 text-success
@@ -278,10 +301,19 @@
                                 {% else %}bg-secondary bg-opacity-25 text-secondary{% endif %}">
                                 {{ post.get_status_display }}
                             </span>
+                            {% endif %}
+                            {% endwith %}
                         </td>
                         <td class="text-white border-0">{{ post.scheduled_for|date:"H:i:s" }}</td>
                         <td class="border-0">
                             <span class="text-white">@{{ post.account.ig_username }}</span>
+                            {% with parada=post.account.motivo_parada %}
+                            {% if parada and post.status in 'queued,processing' %}
+                            <div class="text-secondary" style="font-size:0.68rem;">
+                                <i class="bi bi-info-circle"></i> {{ parada.1 }}
+                            </div>
+                            {% endif %}
+                            {% endwith %}
                             {% if post.queue %}
                             <div class="text-muted" style="font-size:0.7rem;">
                                 <i class="bi bi-list-ol"></i> {{ post.queue.name }}{% if post.queue.paused %} (pausada){% endif %}

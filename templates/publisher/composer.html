@@ -135,6 +135,26 @@
                 </div>
                 <div id="variacao-preview" class="small text-muted mb-2" style="display:none; background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px; line-height:1.6"></div>
 
+                {# Sem legenda: aviso na hora, antes de enviar. Já saíram
+                   milhares de Reels mudos porque ninguém percebeu o campo em
+                   branco. Não bloqueia — Story nem aceita legenda. #}
+                <div id="aviso-sem-legenda" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-2"
+                     style="display:none; line-height:1.5">
+                    <i class="bi bi-chat-left-dots me-1"></i>
+                    <strong>Sem legenda.</strong> Estes posts vão sair só com o vídeo, sem nenhum texto.
+                </div>
+
+                {# Spintax com opção vazia: `{oi|}` sorteia "oi" OU nada. Se for
+                   a legenda inteira, parte das contas publicaria mudo. O
+                   publicador tem rede de segurança, mas avisar aqui é melhor. #}
+                <div id="aviso-spintax-vazio" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-2"
+                     style="display:none; line-height:1.5">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>Atenção ao spintax:</strong> há uma opção vazia (ex.: <code>{oi|}</code>).
+                    Isso faz parte das contas publicarem <strong>sem esse trecho</strong>.
+                    Se for a legenda inteira, elas publicariam sem texto nenhum.
+                </div>
+
                 <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success small mb-0" style="line-height:1.5">
                     <i class="bi bi-info-circle me-1"></i> Cada conta posta uma versão <strong>única</strong> da legenda (sinônimos, saudação e emojis). Para variação manual do texto, use <code>{oi|olá|e aí}</code>.
                 </div>
@@ -706,6 +726,38 @@
     if (caption && captionCount) {
         caption.addEventListener('input', () => { captionCount.textContent = caption.value.length; });
     }
+
+    // ── Avisos de legenda: vazia e spintax com opção vazia ──────────────────
+    const avisoSemLeg = document.getElementById('aviso-sem-legenda');
+    const avisoSpintax = document.getElementById('aviso-spintax-vazio');
+    const hashtagsEl = document.getElementById('hashtags-input');
+    const setSelEl = document.getElementById('caption-set-select');
+
+    function checarLegenda() {
+        const txt = (caption && caption.value || '').trim();
+        const tags = (hashtagsEl && hashtagsEl.value || '').trim();
+        const banco = (setSelEl && setSelEl.value || '');
+        const tipo = form.querySelector('input[name="post_type"]:checked');
+        const ehStory = tipo && tipo.value === 'STORY';
+
+        // Story não aceita legenda pela API oficial — não faz sentido avisar.
+        if (avisoSemLeg) {
+            avisoSemLeg.style.display = (!txt && !tags && !banco && !ehStory) ? '' : 'none';
+        }
+        // Procura {a|} , {|b} , { | } — qualquer grupo com uma opção vazia.
+        if (avisoSpintax) {
+            let temVazia = false;
+            (txt.match(/\{[^{}]*\|[^{}]*\}/g) || []).forEach((g) => {
+                const partes = g.slice(1, -1).split('|');
+                if (partes.some((p) => !p.trim())) temVazia = true;
+            });
+            avisoSpintax.style.display = temVazia ? '' : 'none';
+        }
+    }
+    if (caption) caption.addEventListener('input', checarLegenda);
+    if (hashtagsEl) hashtagsEl.addEventListener('input', checarLegenda);
+    form.addEventListener('change', checarLegenda);
+    checarLegenda();
 
     // ── Legenda: banco de legendas + aviso de uso + variar ──────────────────
     const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';

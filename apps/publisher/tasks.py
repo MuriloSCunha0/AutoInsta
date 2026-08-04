@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import timedelta
 
@@ -5,6 +6,8 @@ from celery import shared_task
 from django.utils import timezone
 from .models import ScheduledPost, PostLoop
 from engine.client import InstagramEngine
+
+logger_pub = logging.getLogger('apps.publisher')
 
 
 @shared_task
@@ -440,12 +443,23 @@ def publish_reel(post_id):
         # por conta+post (retry gera a MESMA legenda). Ligado por padrão.
         from django.conf import settings as _cfg_var
         if final_caption and getattr(_cfg_var, 'VARIAR_LEGENDAS', True):
-            from apps.publisher.caption_utils import variar_legenda
+            from apps.publisher.caption_utils import variar_legenda, _so_invisivel
             # A variação semântica (sinônimos/emoji/saudação) só entra se a
             # campanha pediu (post.variar_auto); o spintax {a|b|c} vale sempre.
+            antes = final_caption
             final_caption = variar_legenda(
-                final_caption, seed=f"{post.account_id}-{post.id}",
+                antes, seed=f"{post.account_id}-{post.id}",
                 semantica=bool(getattr(post, 'variar_auto', True)))
+            # 2ª rede (a 1ª está dentro de variar_legenda): publicar sem texto
+            # uma campanha que TINHA texto é sempre erro nosso. Se algum dia a
+            # variação zerar de novo, o post sai com a legenda original em vez
+            # de sair mudo — e o log denuncia para a gente corrigir.
+            if _so_invisivel(final_caption):
+                logger_pub.error(
+                    'Post %s (@%s): a variação zerou a legenda — publicando o '
+                    'texto original. Legenda de entrada: %r',
+                    post.id, post.account.ig_username, antes[:120])
+                final_caption = antes
 
         # Detecta imagem x vídeo pela extensão do arquivo.
         IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
@@ -773,6 +787,18 @@ def publish_reel(post_id):
             if de_molho:
                 conta.pausada = True
                 conta.save(update_fields=['rate_limited_until', 'meta_limit_count', 'pausada'])
+                # ESTE post precisa sair de 'processing' ANTES de reagendar a
+                # fila: ele é quem disparou o "de molho" e continuava marcado
+                # como "publicando..." — a tela mostrava um post em andamento
+                # que nunca terminava e só voltava pela rede de segurança de 15
+                # min. Foi o caso relatado: post das 15:35 ainda "publicando"
+                # às 15:56. Devolvendo à fila aqui, ele entra no reagendamento
+                # de amanhã junto com os outros.
+                post.status = 'queued'
+                post.processing_since = None
+                post.error_message = ('Conta de molho: a Meta limitou 2x seguidas. '
+                                      'Reagendado para amanhã no mesmo horário.')
+                post.save(update_fields=['status', 'processing_since', 'error_message'])
                 # Reagenda a fila inteira da conta para amanhã, mesmo horário.
                 movidos = conta.reagendar_fila_amanha()
                 print(f"Post {post_id}: rate limit 2x; @{conta.ig_username} DE MOLHO — "

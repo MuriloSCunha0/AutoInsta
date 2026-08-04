@@ -310,6 +310,48 @@ class InstagramAccount(models.Model):
             return False
         return self._publicados_24h().count() >= teto
 
+    # Estados em que a conta precisa de RECONEXÃO para voltar a publicar.
+    ESTADOS_CAIDOS = ('session_expired', 'challenge_required', '2fa_required',
+                      'error', 'banned')
+
+    @property
+    def de_molho(self):
+        """A Meta limitou 2x seguidas e a conta foi posta de molho.
+
+        É diferente de "pausada pelo usuário": aqui o sistema pausou sozinho e
+        reagendou a fila para amanhã.
+        """
+        return bool(self.pausada and (self.meta_limit_count or 0) >= 2)
+
+    @property
+    def motivo_parada(self):
+        """Por que esta conta NÃO está publicando agora — ou None se está ok.
+
+        Existe para a fila poder dizer "pausada"/"de molho" em vez de deixar o
+        post como um "na fila" eterno: o usuário via o horário passar e achava
+        que a fila tinha travado, quando na verdade a conta estava parada de
+        propósito. Devolve (rotulo, explicacao).
+        """
+        if self.banned_by_admin:
+            return ('bloqueada', 'Conta bloqueada pela administração.')
+        if self.de_molho:
+            return ('de molho',
+                    'A Meta limitou esta conta 2x seguidas. O sistema pausou a '
+                    'fila e reagendou os posts para amanhã no mesmo horário. '
+                    'A fila não está travada.')
+        if self.pausada:
+            return ('pausada',
+                    'Conta pausada. Os posts ficam guardados e saem quando você '
+                    'despausar — a fila não está travada.')
+        if self.status in self.ESTADOS_CAIDOS:
+            return ('conta caiu',
+                    'A conta precisa ser reconectada para voltar a publicar.')
+        if self.em_cooldown:
+            return ('limitada',
+                    'Limite de publicações da Meta. Volta sozinha quando o '
+                    'cooldown acabar — não precisa fazer nada.')
+        return None
+
     @property
     def proximo_post(self):
         """O PRÓXIMO post a sair desta conta (o mais próximo no futuro/vencido),

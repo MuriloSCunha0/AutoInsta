@@ -188,6 +188,19 @@ def queue_list(request):
             ciclo['legenda'] = (ps[0].caption or '') if ps else ''
             ciclo['contas_preview'] = [p.account.ig_username for p in ps[:3]]
             ciclo['contas_resto'] = max(0, len(ps) - 3)
+            # Quantos posts do ciclo estão parados porque a CONTA está parada
+            # (pausada / de molho / caída / limitada). Sem isso o ciclo mostrava
+            # "na fila" com o horário no passado e parecia fila travada.
+            paradas = {}
+            for p in ps:
+                if p.status not in ('queued', 'processing', 'draft'):
+                    continue
+                motivo = p.account.motivo_parada
+                if motivo:
+                    paradas[motivo[0]] = paradas.get(motivo[0], 0) + 1
+            # [('de molho', 3), ('pausada', 1)] — ordenado do maior para o menor
+            ciclo['paradas'] = sorted(paradas.items(), key=lambda kv: -kv[1])
+            ciclo['n_parados'] = sum(paradas.values())
 
     contagens = {
         r['status']: r['n']
@@ -682,6 +695,17 @@ def _composer_submit(request):
     hashtags = (request.POST.get('hashtags') or '').strip()
     if hashtags:
         caption = f"{caption}\n\n{hashtags}".strip()
+
+    # Campanha SEM legenda nenhuma: não bloqueia (Story nem aceita legenda, e
+    # tem quem poste só o vídeo de propósito), mas avisa. Em produção havia
+    # 4.926 Reels publicados sem uma palavra e outros 46 mil na fila assim —
+    # quase sempre é o usuário achando que a legenda tinha sido preenchida.
+    if not caption and post_type != 'STORY' and not caption_set_id:
+        messages.warning(
+            request,
+            'Esta campanha foi criada SEM legenda — os Reels vão sair só com o '
+            'vídeo, sem nenhum texto. Se não era isso, edite os posts na fila '
+            'ou refaça a campanha com a legenda preenchida.')
 
     # Repetir cada mídia: sobe 1 vídeo, cria N posts (sem duplicar arquivo).
     try:

@@ -180,6 +180,17 @@ def variar_semantica(texto, rng):
     return corpo + cauda
 
 
+def _so_invisivel(texto):
+    """O texto sobrou só com espaço/quebra/caracteres invisíveis?
+
+    Não basta `.strip()`: a variação pode deixar zero-width space (U+200B),
+    word joiner (U+2060) e afins, que o Instagram trata como legenda vazia.
+    """
+    if not texto:
+        return True
+    return not texto.strip('​‌‍⁠﻿ \t\r\n')
+
+
 def variar_legenda(caption, seed, semantica=None):
     """Devolve a legenda variada e determinística por conta+post.
 
@@ -201,4 +212,14 @@ def variar_legenda(caption, seed, semantica=None):
         semantica = getattr(settings, 'VARIAR_LEGENDA_SEMANTICA', True)
     if semantica:
         out = variar_semantica(out, rng)
+
+    # REDE DE SEGURANÇA: a variação NUNCA pode zerar uma legenda que o usuário
+    # escreveu. Spintax com opção vazia — `{oi|}`, `{a|}`, `{ | }` — é legítimo
+    # no meio do texto ("oi {amigo|}" vira "oi" ou "oi amigo"), mas quando o
+    # spintax é a legenda INTEIRA o ramo vazio apagava tudo. Como o sorteio é
+    # por conta (seed = conta+post), uma parte das contas publicava com texto e
+    # a outra sem — foi o relato de "algumas postagens estão indo sem legenda".
+    # Aqui, se sobrou só espaço/invisível, devolvemos o texto original.
+    if _so_invisivel(out):
+        return caption
     return out
