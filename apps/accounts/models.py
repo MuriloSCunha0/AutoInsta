@@ -56,6 +56,30 @@ class User(AbstractUser):
     instagram_app_secret_enc = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Abas do painel escondidas deste usuário (chaves de apps.accounts.abas,
+    # separadas por vírgula). Vazio = vê tudo. Ver `abas_ocultas_set`.
+    abas_ocultas = models.TextField(blank=True, default='')
+
+    # ── Abas do painel ───────────────────────────────────────────────────────
+
+    @property
+    def abas_ocultas_set(self):
+        """As abas escondidas, como conjunto. Staff enxerga TUDO.
+
+        Deixar o staff fora da regra evita o tiro no pé de um admin esconder
+        uma aba de si mesmo e perder o caminho de volta.
+        """
+        if self.is_staff or self.is_superuser:
+            return set()
+        return {c for c in (self.abas_ocultas or '').split(',') if c.strip()}
+
+    def set_abas_ocultas(self, chaves):
+        from apps.accounts.abas import limpar
+        self.abas_ocultas = ','.join(limpar(chaves))
+
+    def pode_ver_aba(self, chave):
+        return chave not in self.abas_ocultas_set
+
     # ── Limites (0 = ilimitado) ──────────────────────────────────────────────
     # Ficam no modelo, e não espalhados pelas views, porque a conta nasce em
     # QUATRO lugares diferentes (token colado, sessionid, extensão e OAuth) —

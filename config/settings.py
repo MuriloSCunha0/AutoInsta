@@ -73,6 +73,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    # Depois do AuthenticationMiddleware: precisa do request.user resolvido.
+    "apps.accounts.middleware.AbasOcultasMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -92,6 +94,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.notifications.context_processors.notifications",
+                "apps.accounts.context_processors.abas",
             ],
         },
     },

@@ -319,9 +319,12 @@ def user_detail(request, user_id):
         # porque quase sempre é engano de digitação.
         alvo.max_ig_accounts = contas
         alvo.max_meta_apps = apps_meta
-        alvo.save(update_fields=['max_ig_accounts', 'max_meta_apps'])
+        # As abas marcadas são as que ficam ESCONDIDAS. O form manda a lista
+        # completa do que foi marcado, então desmarcar volta a liberar.
+        alvo.set_abas_ocultas(request.POST.getlist('abas_ocultas'))
+        alvo.save(update_fields=['max_ig_accounts', 'max_meta_apps', 'abas_ocultas'])
 
-        messages.success(request, f'Limites de {alvo.username} atualizados.')
+        messages.success(request, f'Acesso de {alvo.username} atualizado.')
         if contas and contas < usadas:
             messages.warning(
                 request,
@@ -335,12 +338,22 @@ def user_detail(request, user_id):
                 f'{usados} que ele já tem.')
         return redirect('management:user_detail', user_id=alvo.id)
 
+    from apps.accounts.abas import por_grupo
+
     contas = (InstagramAccount.objects.filter(owner=alvo)
               .select_related('meta_app').order_by('ig_username'))
+    ocultas = {c for c in (alvo.abas_ocultas or '').split(',') if c}
+    grupos_abas = [
+        (grupo, [{'chave': ch, 'rotulo': rot, 'oculta': ch in ocultas}
+                 for ch, rot in itens])
+        for grupo, itens in por_grupo()
+    ]
     return render(request, 'management/user_detail.html', {
         'alvo': alvo,
         'contas': contas,
         'total_contas': contas.count(),
         'ativas': contas.filter(status='active').count(),
         'apps': alvo.meta_apps.all(),
+        'grupos_abas': grupos_abas,
+        'n_ocultas': len(ocultas),
     })

@@ -86,8 +86,43 @@
                         </div>
                     </div>
                 </div>
+                <hr class="border-subtle my-4">
+
+                <h6 class="text-white mb-1"><i class="bi bi-eye-slash text-purple me-2"></i> Abas escondidas</h6>
+                <p class="text-muted small mb-3">
+                    Marque o que este usuário <strong>não</strong> deve ver.
+                    A aba some do menu <em>e</em> o acesso pela URL é bloqueado.
+                    {% if alvo.is_staff %}
+                    <br><span class="text-warning"><i class="bi bi-info-circle"></i>
+                    Este usuário é <strong>staff</strong> — staff sempre enxerga tudo,
+                    então estas marcações não têm efeito nele.</span>
+                    {% endif %}
+                </p>
+
+                {% for grupo, itens in grupos_abas %}
+                <div class="mb-2">
+                    <div class="text-muted text-uppercase mb-1" style="font-size:.64rem; letter-spacing:.5px;">{{ grupo }}</div>
+                    <div class="d-flex flex-wrap gap-3">
+                        {% for a in itens %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="abas_ocultas"
+                                   value="{{ a.chave }}" id="aba-{{ a.chave }}"
+                                   {% if a.oculta %}checked{% endif %}>
+                            <label class="form-check-label small text-white" for="aba-{{ a.chave }}">{{ a.rotulo }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="text-muted small mt-2" style="font-size:.68rem;">
+                    <i class="bi bi-shield-check"></i>
+                    <strong>Configurações</strong> nunca pode ser escondida — sem ela o usuário
+                    ficaria sem trocar a senha nem sair.
+                </div>
+
                 <button type="submit" class="btn btn-primary mt-3">
-                    <i class="bi bi-check2 me-1"></i> Salvar limites
+                    <i class="bi bi-check2 me-1"></i> Salvar limites e acesso
                 </button>
             </form>
         </div>

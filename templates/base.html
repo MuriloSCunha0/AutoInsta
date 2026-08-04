@@ -53,90 +53,90 @@
                     </div>
                 </a>
             </div>
-            
+
             <nav class="side-links">
                 <div class="nav-category">Geral</div>
-                <a href="{% url 'analytics:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == 'analytics' %}active{% endif %}">
+                {% if 'dashboard' not in abas_ocultas %}<a href="{% url 'analytics:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == 'analytics' %}active{% endif %}">
                     <i class="bi bi-grid-1x2-fill"></i> <span class="nav-text">Dashboard</span>
-                </a>
+                </a>{% endif %}
                 
                 <div class="nav-category">Publicação</div>
-                <a href="{% url 'publisher:composer' %}" class="{% if request.resolver_match.url_name == 'composer' %}active{% endif %}">
+                {% if 'composer' not in abas_ocultas %}<a href="{% url 'publisher:composer' %}" class="{% if request.resolver_match.url_name == 'composer' %}active{% endif %}">
                     <i class="bi bi-send-plus-fill"></i> <span class="nav-text">Postar</span>
-                </a>
-                <a href="{% url 'publisher:queue' %}" class="{% if request.resolver_match.url_name == 'queue' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'fila' not in abas_ocultas %}<a href="{% url 'publisher:queue' %}" class="{% if request.resolver_match.url_name == 'queue' %}active{% endif %}">
                     <i class="bi bi-list-check"></i> <span class="nav-text">Fila de Posts</span>
-                </a>
-                <a href="{% url 'publisher:historico' %}" class="{% if request.resolver_match.url_name == 'historico' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'publicados' not in abas_ocultas %}<a href="{% url 'publisher:historico' %}" class="{% if request.resolver_match.url_name == 'historico' %}active{% endif %}">
                     <i class="bi bi-check2-circle"></i> <span class="nav-text">Publicados</span>
-                </a>
-                <a href="{% url 'publisher:loops' %}" class="{% if request.resolver_match.url_name == 'loops' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'loops' not in abas_ocultas %}<a href="{% url 'publisher:loops' %}" class="{% if request.resolver_match.url_name == 'loops' %}active{% endif %}">
                     <i class="bi bi-arrow-repeat"></i> <span class="nav-text">Loop</span>
-                </a>
-                <a href="{% url 'publisher:stories' %}" class="{% if request.resolver_match.url_name == 'stories' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'stories' not in abas_ocultas %}<a href="{% url 'publisher:stories' %}" class="{% if request.resolver_match.url_name == 'stories' %}active{% endif %}">
                     <i class="bi bi-play-btn"></i> <span class="nav-text">Stories</span>
-                </a>
-                <a href="{% url 'publisher:schedule' %}" class="{% if request.resolver_match.url_name == 'schedule' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'agenda' not in abas_ocultas %}<a href="{% url 'publisher:schedule' %}" class="{% if request.resolver_match.url_name == 'schedule' %}active{% endif %}">
                     <i class="bi bi-calendar3"></i> <span class="nav-text">Agendamentos</span>
-                </a>
+                </a>{% endif %}
 
                 <div class="nav-category">Conteúdo</div>
-                <a href="{% url 'library:media' %}" class="{% if request.resolver_match.url_name == 'media' %}active{% endif %}">
+                {% if 'biblioteca' not in abas_ocultas %}<a href="{% url 'library:media' %}" class="{% if request.resolver_match.url_name == 'media' %}active{% endif %}">
                     <i class="bi bi-collection-play-fill"></i> <span class="nav-text">Biblioteca</span>
-                </a>
-                <a href="{% url 'library:captions' %}" class="{% if request.resolver_match.url_name == 'captions' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'legendas' not in abas_ocultas %}<a href="{% url 'library:captions' %}" class="{% if request.resolver_match.url_name == 'captions' %}active{% endif %}">
                     <i class="bi bi-chat-quote-fill"></i> <span class="nav-text">Legendas</span>
-                </a>
-                <a href="{% url 'library:audios' %}" class="{% if request.resolver_match.url_name == 'audios' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'audios' not in abas_ocultas %}<a href="{% url 'library:audios' %}" class="{% if request.resolver_match.url_name == 'audios' %}active{% endif %}">
                     <i class="bi bi-music-note-beamed"></i> <span class="nav-text">Áudios</span>
-                </a>
-                <a href="{% url 'library:downloader' %}" class="{% if request.resolver_match.url_name == 'downloader' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'downloader' not in abas_ocultas %}<a href="{% url 'library:downloader' %}" class="{% if request.resolver_match.url_name == 'downloader' %}active{% endif %}">
                     <i class="bi bi-cloud-arrow-down-fill"></i> <span class="nav-text">Downloader</span>
-                </a>
-                <a href="{% url 'library:cta' %}" class="{% if request.resolver_match.url_name == 'cta' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'cta' not in abas_ocultas %}<a href="{% url 'library:cta' %}" class="{% if request.resolver_match.url_name == 'cta' %}active{% endif %}">
                     <i class="bi bi-magic"></i> <span class="nav-text">Gerador de CTA</span>
-                </a>
-                <a href="{% url 'pressel:lista' %}" class="{% if request.resolver_match.namespace == 'pressel' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'pressel' not in abas_ocultas %}<a href="{% url 'pressel:lista' %}" class="{% if request.resolver_match.namespace == 'pressel' %}active{% endif %}">
                     <i class="bi bi-window-stack"></i> <span class="nav-text">Pressels</span>
-                </a>
+                </a>{% endif %}
 
                 <div class="nav-category">Análise</div>
-                <a href="{% url 'analytics:performance' %}" class="{% if request.resolver_match.url_name == 'performance' %}active{% endif %}">
+                {% if 'performance' not in abas_ocultas %}<a href="{% url 'analytics:performance' %}" class="{% if request.resolver_match.url_name == 'performance' %}active{% endif %}">
                     <i class="bi bi-bar-chart-fill"></i> <span class="nav-text">Performance</span>
-                </a>
-                <a href="{% url 'analytics:top_posts' %}" class="{% if request.resolver_match.url_name == 'top_posts' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'top_posts' not in abas_ocultas %}<a href="{% url 'analytics:top_posts' %}" class="{% if request.resolver_match.url_name == 'top_posts' %}active{% endif %}">
                     <i class="bi bi-trophy-fill"></i> <span class="nav-text">Top Posts</span>
-                </a>
+                </a>{% endif %}
 
                 <div class="nav-category">Gestão</div>
-                <a href="{% url 'instagram:gestao' %}" class="{% if request.resolver_match.url_name == 'gestao' %}active{% endif %}">
+                {% if 'gestao_contas' not in abas_ocultas %}<a href="{% url 'instagram:gestao' %}" class="{% if request.resolver_match.url_name == 'gestao' %}active{% endif %}">
                     <i class="bi bi-toggles"></i> <span class="nav-text">Gestão de contas</span>
-                </a>
-                <a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.url_name == 'list' and request.resolver_match.namespace == 'instagram' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'contas' not in abas_ocultas %}<a href="{% url 'instagram:list' %}" class="{% if request.resolver_match.url_name == 'list' and request.resolver_match.namespace == 'instagram' %}active{% endif %}">
                     <i class="bi bi-instagram"></i> <span class="nav-text">Contas</span>
-                </a>
-                <a href="{% url 'analytics:health' %}" class="{% if request.resolver_match.url_name == 'health' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'saude' not in abas_ocultas %}<a href="{% url 'analytics:health' %}" class="{% if request.resolver_match.url_name == 'health' %}active{% endif %}">
                     <i class="bi bi-heart-pulse-fill"></i> <span class="nav-text">Saúde</span>
-                </a>
-                <a href="{% url 'instagram:proxies' %}" class="{% if request.resolver_match.url_name == 'proxies' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'proxies' not in abas_ocultas %}<a href="{% url 'instagram:proxies' %}" class="{% if request.resolver_match.url_name == 'proxies' %}active{% endif %}">
                     <i class="bi bi-hdd-network-fill"></i> <span class="nav-text">Proxies</span>
-                </a>
+                </a>{% endif %}
 
                 <div class="nav-category">Crescimento</div>
-                <a href="{% url 'instagram:warmup' %}" class="{% if request.resolver_match.url_name == 'warmup' %}active{% endif %}">
+                {% if 'aquecimento' not in abas_ocultas %}<a href="{% url 'instagram:warmup' %}" class="{% if request.resolver_match.url_name == 'warmup' %}active{% endif %}">
                     <i class="bi bi-fire"></i> <span class="nav-text">Aquecimento</span>
-                </a>
-                <a href="{% url 'instagram:bulk_edit' %}" class="{% if request.resolver_match.url_name == 'bulk_edit' %}active{% endif %}">
+                </a>{% endif %}
+                {% if 'bulk_edit' not in abas_ocultas %}<a href="{% url 'instagram:bulk_edit' %}" class="{% if request.resolver_match.url_name == 'bulk_edit' %}active{% endif %}">
                     <i class="bi bi-pencil-square"></i> <span class="nav-text">Edição em Massa</span>
-                </a>
+                </a>{% endif %}
 
                 <div class="nav-category">Sistema</div>
                 <a href="{% url 'accounts:settings' %}" class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
                     <i class="bi bi-gear-fill"></i> <span class="nav-text">Configurações</span>
                 </a>
-                <a href="{% url 'notifications:alertas' %}" class="{% if request.resolver_match.url_name == 'alertas' %}active{% endif %}">
+                {% if 'alertas' not in abas_ocultas %}<a href="{% url 'notifications:alertas' %}" class="{% if request.resolver_match.url_name == 'alertas' %}active{% endif %}">
                     <i class="bi bi-bell-fill"></i> <span class="nav-text">Alertas</span>
-                </a>
+                </a>{% endif %}
                 <a href="{% url 'analytics:logs' %}" class="{% if request.resolver_match.url_name == 'logs' %}active{% endif %}">
                     <i class="bi bi-journal-text"></i> <span class="nav-text">Histórico</span>
                 </a>
