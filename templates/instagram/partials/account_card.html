@@ -179,15 +179,36 @@
                 {% if account.meta_limit_count >= 2 %}
                 <strong>Conta de molho</strong>
                 <div class="small">A Meta limitou 2x — pausei a fila e reagendei pra amanhã no mesmo horário.</div>
+                <div class="small text-muted mt-1" style="font-size:.66rem;">
+                    {% with n=account.fila_ativa.count %}
+                    {% if n %}São <strong>{{ n }} post(s)</strong> esperando. Retomar volta a publicar de onde parou;
+                    apagar limpa tudo e a conta recomeça do zero.{% else %}Não há posts esperando.{% endif %}
+                    {% endwith %}
+                </div>
                 {% else %}
                 <strong>Conta pausada</strong>
                 <div class="small">A fila dela está parada. As outras seguem.</div>
                 {% endif %}
-                <form hx-post="{% url 'instagram:toggle_pausada' account.id %}"
-                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-light py-0"><i class="bi bi-play-fill"></i> Retomar fila</button>
-                </form>
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                    <form hx-post="{% url 'instagram:toggle_pausada' account.id %}"
+                          hx-target="#account-{{ account.id }}" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-light py-0"><i class="bi bi-play-fill"></i> Retomar fila</button>
+                    </form>
+                    {% with n=account.fila_ativa.count %}
+                    {% if n %}
+                    <form hx-post="{% url 'instagram:zerar_fila' account.id %}"
+                          hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+                          hx-confirm="Apagar os {{ n }} post(s) na fila de @{{ account.ig_username }}? Não dá para desfazer.">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                                title="Remove todos os posts que ainda não foram publicados desta conta">
+                            <i class="bi bi-trash"></i> Apagar fila ({{ n }})
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% endwith %}
+                </div>
             </div>
         </div>
         {% elif account.esta_limitada and not account.ignorar_limites %}

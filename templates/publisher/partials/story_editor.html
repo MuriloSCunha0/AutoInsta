@@ -15,6 +15,13 @@ Reutilizável: incluído no Composer e na aba Stories.
     <div class="story-editor-grid">
         {# Quadro 9:16 com a imagem + overlays arrastáveis #}
         <div class="story-frame" id="story-frame">
+            {# Olho: esconde o texto SÓ no preview, para conferir a mídia por #}
+            {# baixo. Não mexe no que é publicado (o hidden segue preenchido). #}
+            <button type="button" class="story-eye" id="story-eye"
+                    title="Ocultar o texto no preview (não altera o que será publicado)"
+                    aria-pressed="false">
+                <i class="bi bi-eye-slash-fill"></i>
+            </button>
             <div class="story-frame-empty" id="story-frame-empty">
                 <i class="bi bi-image"></i>
                 <span>Escolha uma foto acima<br>para ver o preview</span>
@@ -97,19 +104,45 @@ Reutilizável: incluído no Composer e na aba Stories.
 /* container-type: o editor se adapta à LARGURA DELE, não da tela — então
    empilha na coluna estreita do Composer e fica lado-a-lado na aba Stories. */
 .story-editor { container-type: inline-size; }
-.story-editor-grid { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; align-items: start; }
+/* Largura do quadro: cresce conforme o espaço disponível. O @container mede o
+   .story-editor (o pai), então a variável tem que morar num FILHO dele. */
+.story-editor-grid {
+    --story-w: 320px;
+    display: grid; grid-template-columns: var(--story-w) minmax(0, 1fr);
+    gap: 18px; align-items: start;
+}
+@container (max-width: 780px) { .story-editor-grid { --story-w: 260px; } }
+@container (max-width: 560px) { .story-editor-grid { --story-w: 220px; } }
 /* Container estreito (Composer): empilha, preview centralizado em cima. */
 @container (max-width: 400px) {
-    .story-editor-grid { grid-template-columns: 1fr; }
+    .story-editor-grid { grid-template-columns: 1fr; --story-w: 240px; }
     .story-frame { margin-inline: auto; }
 }
 /* Fallback p/ navegadores sem container queries: empilha em tela estreita. */
-@media (max-width: 520px) { .story-editor-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+    .story-editor-grid { grid-template-columns: 1fr; --story-w: 240px; }
+    .story-frame { margin-inline: auto; }
+}
 .story-frame {
-    position: relative; width: 170px; aspect-ratio: 9/16; border-radius: 14px; overflow: hidden;
+    position: relative; width: var(--story-w, 320px); aspect-ratio: 9/16;
+    border-radius: 14px; overflow: hidden;
     background: #05070f center/cover no-repeat; border: 1px solid var(--border-subtle);
     user-select: none; touch-action: none;
 }
+/* Botão de ocultar o texto — flutua no canto do quadro. */
+.story-eye {
+    position: absolute; top: 8px; right: 8px; z-index: 5;
+    width: 30px; height: 30px; padding: 0; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,.25); border-radius: 999px;
+    background: rgba(0,0,0,.55); color: #fff; font-size: .8rem;
+    cursor: pointer; backdrop-filter: blur(4px); transition: background .15s, opacity .15s;
+    opacity: .75;
+}
+.story-eye:hover { background: rgba(0,0,0,.8); opacity: 1; }
+.story-eye[aria-pressed="true"] { background: var(--bs-purple, #7c3aed); border-color: transparent; opacity: 1; }
+/* Texto escondido: só no preview. Os inputs hidden continuam preenchidos. */
+.story-frame.sem-texto .story-text-box { display: none !important; }
 .story-frame-empty {
     position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 8px; color: var(--text-muted); font-size: .72rem; text-align: center;
@@ -188,10 +221,31 @@ Reutilizável: incluído no Composer e na aba Stories.
         // Preview limpo: o box de texto só aparece quando há texto.
         if (textBox) textBox.style.display = t.trim() ? '' : 'none';
     }
+
+    // ── Escala da fonte no preview ──────────────────────────────────────────
+    // O backend queima o texto com  font = size_preview * (largura_imagem / 190)
+    // (engine/story_render.py, _PREVIEW_W). Se o preview desenhar o texto com o
+    // valor CRU do slider, ele só bate quando o quadro tem exatamente 190px —
+    // e o quadro era 170px, então o texto saía ~12% MAIOR do que o preview
+    // mostrava. Agora escalamos pela largura REAL do quadro, então o preview
+    // bate com o resultado em qualquer tamanho de tela.
+    var PREVIEW_W = 190;
+    function aplicarTamanho() {
+        var base = parseFloat(inSize && inSize.value) || 28;
+        var escala = (frame.clientWidth || PREVIEW_W) / PREVIEW_W;
+        textSpan.style.fontSize = (base * escala).toFixed(1) + 'px';
+        if (linkChip) linkChip.style.fontSize = (10 * escala).toFixed(1) + 'px';
+        if (sizeVal) sizeVal.textContent = base;
+        if (h.size) h.size.value = base;
+    }
+
     inText && inText.addEventListener('input', applyText);
     inColor && inColor.addEventListener('input', function () { textSpan.style.color = inColor.value; h.color.value = inColor.value; });
     inBg && inBg.addEventListener('change', applyBg);
-    inSize && inSize.addEventListener('input', function () { textSpan.style.fontSize = inSize.value + 'px'; sizeVal.textContent = inSize.value; h.size.value = inSize.value; });
+    inSize && inSize.addEventListener('input', aplicarTamanho);
+    // O quadro muda de largura com a janela/layout: reescala junto.
+    if (window.ResizeObserver) { new ResizeObserver(aplicarTamanho).observe(frame); }
+    else { window.addEventListener('resize', aplicarTamanho); }
     function textoBotao() { return ((inLinkLabel && inLinkLabel.value.trim()) || 'CLIQUE AQUI').toUpperCase(); }
     function atualizarChip() {
         var has = inLink && inLink.value.trim().length > 0;
@@ -201,11 +255,26 @@ Reutilizável: incluído no Composer e na aba Stories.
     inLink && inLink.addEventListener('input', atualizarChip);
     inLinkLabel && inLinkLabel.addEventListener('input', atualizarChip);
 
+    // ── Ocultar o texto no PREVIEW ──────────────────────────────────────────
+    // Só esconde visualmente, para conferir a mídia por baixo enquanto edita.
+    // O texto continua no input e nos hidden — o story publica igual.
+    var eye = document.getElementById('story-eye');
+    if (eye) eye.addEventListener('click', function () {
+        var escondido = frame.classList.toggle('sem-texto');
+        eye.setAttribute('aria-pressed', escondido ? 'true' : 'false');
+        eye.innerHTML = escondido
+            ? '<i class="bi bi-eye-fill"></i>'
+            : '<i class="bi bi-eye-slash-fill"></i>';
+        eye.title = escondido
+            ? 'Mostrar o texto no preview (ele será publicado de qualquer forma)'
+            : 'Ocultar o texto no preview (não altera o que será publicado)';
+    });
+
     // Estado inicial
     textSpan.style.color = '#ffffff';
-    textSpan.style.fontSize = '28px';
     applyBg();
     applyText();   // sem texto → o box some (preview limpo, sem "Seu texto aqui")
+    aplicarTamanho();
 
     // Seletor Normal x Com link: mostra/esconde o campo de link e o marcador.
     var linkBlock = document.getElementById('story-link-block');
