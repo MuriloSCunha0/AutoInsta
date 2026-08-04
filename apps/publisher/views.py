@@ -62,6 +62,23 @@ def caption_info(request, set_id):
 
 @login_required
 @require_POST
+def salvar_legenda_banco(request):
+    """Salva a legenda escrita no composer direto no Banco de legendas (cria um
+    CaptionSet + a 1ª variação). Devolve o id/nome para o composer atualizar o
+    dropdown sem recarregar."""
+    from apps.library.models import Caption
+    nome = (request.POST.get('nome') or '').strip()[:200]
+    texto = (request.POST.get('caption') or '').strip()
+    hashtags = (request.POST.get('hashtags') or '').strip()
+    if not nome or not texto:
+        return JsonResponse({'ok': False, 'error': 'Informe um nome e a legenda.'}, status=400)
+    cs = CaptionSet.objects.create(owner=request.user, name=nome)
+    Caption.objects.create(caption_set=cs, text=texto, hashtags=hashtags)
+    return JsonResponse({'ok': True, 'id': cs.id, 'nome': cs.name})
+
+
+@login_required
+@require_POST
 def variar_preview(request):
     """Devolve 3 exemplos de variação de uma legenda escrita (para o usuário ver
     como a variação automática mantém o sentido). Não salva nada."""

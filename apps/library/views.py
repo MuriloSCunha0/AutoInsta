@@ -14,10 +14,20 @@ def captions_list(request):
 @login_required
 def add_caption(request):
     if request.method == 'POST':
-        name = request.POST.get('name')
-        description = request.POST.get('description', '')
+        name = (request.POST.get('name') or '').strip()
+        description = (request.POST.get('description') or '').strip()
+        text = (request.POST.get('text') or '').strip()
+        hashtags = (request.POST.get('hashtags') or '').strip()
         if name:
-            CaptionSet.objects.create(owner=request.user, name=name, description=description)
+            cs = CaptionSet.objects.create(owner=request.user, name=name, description=description)
+            # Salva o TEXTO junto (antes só criava o conjunto vazio — o usuário
+            # tinha de "Editar" e adicionar a variação, o que ninguém fazia, e a
+            # legenda "não aparecia" no composer).
+            if text:
+                Caption.objects.create(caption_set=cs, text=text, hashtags=hashtags)
+                messages.success(request, f'Legenda "{name}" salva.')
+            else:
+                messages.success(request, f'Conjunto "{name}" criado. Adicione a legenda em "Editar".')
     return redirect('library:captions')
 
 @login_required

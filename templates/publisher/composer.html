@@ -103,9 +103,14 @@
                             <i class="bi bi-shuffle me-1 text-purple"></i> Variar a legenda por conta (mantém o sentido, muda o texto)
                         </label>
                     </div>
-                    <button type="button" id="btn-ver-variacao" class="btn btn-sm btn-outline-secondary py-0">
-                        <i class="bi bi-eye"></i> Ver exemplos
-                    </button>
+                    <div class="d-flex gap-1">
+                        <button type="button" id="btn-salvar-banco" class="btn btn-sm btn-outline-primary py-0" title="Salvar esta legenda no Banco de legendas para reusar">
+                            <i class="bi bi-bookmark-plus"></i> Salvar no banco
+                        </button>
+                        <button type="button" id="btn-ver-variacao" class="btn btn-sm btn-outline-secondary py-0">
+                            <i class="bi bi-eye"></i> Ver exemplos
+                        </button>
+                    </div>
                 </div>
                 <div id="variacao-preview" class="small text-muted mb-2" style="display:none; background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:8px 12px; line-height:1.6"></div>
 
@@ -555,6 +560,35 @@
                         if (variarAuto) variarAuto.checked = true;  // recomenda variar
                     }
                 }).catch(() => {});
+        });
+    }
+
+    // Botão "Salvar no banco": salva a legenda escrita para reusar depois.
+    const btnSalvar = document.getElementById('btn-salvar-banco');
+    if (btnSalvar) {
+        btnSalvar.addEventListener('click', () => {
+            const texto = (caption && caption.value || '').trim();
+            if (!texto) { alert('Escreva a legenda antes de salvar.'); return; }
+            const nome = prompt('Nome para essa legenda no banco:', (texto.slice(0, 30)) + '…');
+            if (!nome) return;
+            const fd = new FormData();
+            fd.append('nome', nome); fd.append('caption', texto);
+            fd.append('hashtags', (hashtagsInput && hashtagsInput.value || '').trim());
+            fd.append('csrfmiddlewaretoken', csrf);
+            btnSalvar.disabled = true;
+            fetch('/publisher/salvar-legenda-banco/', {method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.json())
+                .then(d => {
+                    btnSalvar.disabled = false;
+                    if (!d.ok) { alert(d.error || 'Não foi possível salvar.'); return; }
+                    if (setSel) {
+                        const opt = document.createElement('option');
+                        opt.value = d.id; opt.textContent = d.nome; opt.selected = true;
+                        setSel.appendChild(opt);
+                    }
+                    btnSalvar.innerHTML = '<i class="bi bi-check2"></i> Salva!';
+                    setTimeout(() => { btnSalvar.innerHTML = '<i class="bi bi-bookmark-plus"></i> Salvar no banco'; }, 2000);
+                }).catch(() => { btnSalvar.disabled = false; alert('Erro ao salvar.'); });
         });
     }
 

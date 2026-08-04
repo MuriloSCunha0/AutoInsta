@@ -28,4 +28,5 @@ urlpatterns = [
     path('internal/upload-media/', views.internal_upload_media, name='internal_upload_media'),
     path('caption-info/<int:set_id>/', views.caption_info, name='caption_info'),
     path('variar-preview/', views.variar_preview, name='variar_preview'),
+    path('salvar-legenda-banco/', views.salvar_legenda_banco, name='salvar_legenda_banco'),
 ]

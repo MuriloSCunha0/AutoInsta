@@ -62,8 +62,17 @@
                         <input type="text" name="name" class="form-control text-white border-subtle" style="background: var(--bg-input);" required placeholder="Ex: Legendas de Vendas">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">Descrição</label>
-                        <textarea name="description" class="form-control text-white border-subtle" style="background: var(--bg-input);" rows="3" placeholder="Opcional"></textarea>
+                        <label class="form-label text-muted">Legenda</label>
+                        <textarea name="text" class="form-control text-white border-subtle" style="background: var(--bg-input);" rows="4" placeholder="Escreva a legenda. Use {oi|olá|e aí} para variar."></textarea>
+                        <small class="text-muted">Você pode adicionar mais variações depois em "Editar".</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Hashtags <span class="text-muted">(opcional)</span></label>
+                        <textarea name="hashtags" class="form-control text-white border-subtle" style="background: var(--bg-input);" rows="2" placeholder="#reels #conteudo"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Descrição <span class="text-muted">(opcional)</span></label>
+                        <input type="text" name="description" class="form-control text-white border-subtle" style="background: var(--bg-input);" placeholder="Para você se organizar">
                     </div>
                 </div>
                 <div class="modal-footer border-0">
