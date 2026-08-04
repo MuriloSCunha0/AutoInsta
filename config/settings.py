@@ -189,6 +189,13 @@ MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
 # publicava até 2/min por conta (rajada robótica) — o IG zera o alcance disso.
 # 40min => no máx ~1 post/40min por conta (natural, humano). Ajustável por env.
 MIN_INTERVALO_POST_MIN = env.int("MIN_INTERVALO_POST_MIN", default=30)
+# O horário AGENDADO é a fonte da verdade: um post que está no seu horário sai na
+# hora, mesmo que o anterior tenha saído alguns minutos atrasado. Só é tratado
+# como backlog (e reespaçado 30/30) quando está atrasado além desta tolerância.
+TOLERANCIA_ATRASO_MIN = env.int("TOLERANCIA_ATRASO_MIN", default=10)
+# Piso anti-rajada REAL: nunca duas publicações da mesma conta com menos que isto
+# de diferença de verdade (protege se o post anterior saiu muito atrasado).
+MIN_BURST_FLOOR_MIN = env.int("MIN_BURST_FLOOR_MIN", default=10)
 # Posts atrasados além disso (horas) são EXPIRADOS em vez de publicados: quando a
 # conta volta (sync/reconexão), não sobe a fila antiga de uma vez (rajada de
 # conteúdo velho = spam). Também estabiliza os horários da fila.

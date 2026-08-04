@@ -275,31 +275,45 @@ def bulk_posts(request):
                   retry_count=0, error_message='')
         messages.success(request, f'{n} publicação(ões) recolocada(s) na fila.')
     elif acao == 'forcar':
-        # "Forçar": recoloca os posts na fila para AGORA e limpa o cooldown das
-        # contas — mas NÃO dispara em BURST. O dispatcher publica de forma PACED
-        # (MAX_DISPATCH_POR_RODADA por rodada, ~30s). Antes isto disparava até 100
-        # publish_reel de uma vez; esse burst no mesmo app é lido pela Meta como
-        # atividade coordenada e leva à INVALIDAÇÃO de tokens (visto em produção).
+        # "Forçar": reancora a fila de cada conta em AGORA, mas ESPAÇADA 30/30
+        # (a 1ª sai agora, a 2ª em +30 min, a 3ª +60...). Nunca em burst: postar a
+        # sequência toda em segundos é lido pela Meta como atividade coordenada e
+        # INVALIDA tokens (visto em produção). Também limpa o cooldown para as
+        # contas saírem logo. Se a conta publicou algo há pouco, o dispatcher ainda
+        # segura a 1ª até 30 min depois dessa última (piso anti-rajada real).
         from datetime import timedelta
-        limite_voo = timezone.now() - timedelta(minutes=15)
+        from django.conf import settings as _s
+        gap_padrao = getattr(_s, 'MIN_INTERVALO_POST_MIN', 30)
+        agora = timezone.now()
+        limite_voo = agora - timedelta(minutes=15)
         qs = qs.exclude(status='processing', processing_since__gte=limite_voo)
         ids = list(qs.values_list('id', flat=True))
         n = len(ids)
-        # Limpa o cooldown das contas envolvidas (para saírem logo), sem burst.
         contas_ids = list(
             ScheduledPost.objects.filter(id__in=ids)
             .values_list('account_id', flat=True).distinct()
         )
+        # Limpa o cooldown das contas envolvidas (para saírem logo), sem burst.
         InstagramAccount.objects.filter(
             id__in=contas_ids, rate_limited_until__isnull=False
         ).update(rate_limited_until=None)
-        ScheduledPost.objects.filter(id__in=ids).update(
-            status='queued', scheduled_for=timezone.now(),
-            retry_count=0, error_message='')
+        # Reancora cada conta em AGORA, espaçando pelo intervalo de cada post.
+        for aid in contas_ids:
+            posts = list(ScheduledPost.objects.filter(id__in=ids, account_id=aid)
+                         .order_by('scheduled_for', 'created_at'))
+            quando = agora
+            for p in posts:
+                p.scheduled_for = quando
+                p.status = 'queued'
+                p.retry_count = 0
+                p.error_message = ''
+                p.save(update_fields=['scheduled_for', 'status',
+                                      'retry_count', 'error_message'])
+                quando = quando + timedelta(minutes=(p.interval_minutes or gap_padrao))
         messages.warning(
             request,
-            f'{n} publicação(ões) recolocada(s) para AGORA. O sistema publica de '
-            'forma ESPAÇADA (anti-bloqueio) — não tudo de uma vez.')
+            f'{n} publicação(ões) recolocada(s): a 1ª de cada conta sai AGORA e as '
+            'seguintes de 30 em 30 min (espaçado, anti-bloqueio) — nunca tudo de uma vez.')
     else:
         messages.error(request, 'Ação inválida.')
 

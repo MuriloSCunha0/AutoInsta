@@ -200,11 +200,25 @@ def process_scheduled_posts():
                               published_at__isnull=False)
                       .order_by('-published_at')
                       .values_list('published_at', flat=True).first())
+        # REGRA: o horário AGENDADO é a fonte da verdade. Um post no seu horário
+        # sai na hora marcada — o espaçamento de 30 min já foi embutido quando a
+        # campanha foi criada. Não empurramos um post que está no horário só
+        # porque o anterior saiu alguns minutos atrasado. O intervalo só é
+        # aplicado "arbitrariamente" quando é REAGENDAMENTO:
+        #   - BACKLOG: post atrasado (conta ficou fora e voltou, ou Forçar
+        #     drenando a fila) → reespaça 30/30 a partir da última publicação
+        #     real, para não sair em rajada;
+        #   - PISO anti-rajada real: nunca 2 publicações da mesma conta com menos
+        #     de MIN_BURST_FLOOR_MIN de diferença de verdade (ex.: o post anterior
+        #     saiu muito atrasado), mesmo que o horário agendado já tenha chegado.
         if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_ef):
-            # Espaça a partir do próximo horário permitido (último post + gap) em
-            # vez de deixar vencido reprocessando a cada rodada.
-            _reagenda_espacado(post, ultimo_pub + timedelta(minutes=gap_ef), gap_ef)
-            continue
+            tol = timedelta(minutes=getattr(_cfg, 'TOLERANCIA_ATRASO_MIN', 10))
+            piso = timedelta(minutes=getattr(_cfg, 'MIN_BURST_FLOOR_MIN', 10))
+            atrasado = (now - post.scheduled_for) > tol
+            if atrasado or (now - ultimo_pub) < piso:
+                _reagenda_espacado(post, ultimo_pub + timedelta(minutes=gap_ef), gap_ef)
+                continue
+            # senão: está no horário agendado e sem rajada real → publica na hora.
 
         # Conta em cooldown por rate limit: reagenda o post para o FIM do
         # cooldown (espaçado, sem colapsar toda a fila no mesmo instante).
