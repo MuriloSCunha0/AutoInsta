@@ -188,7 +188,7 @@ MAX_DISPATCH_POR_RODADA = env.int("MAX_DISPATCH_POR_RODADA", default=8)
 # Intervalo MÍNIMO (min) entre publicações da MESMA conta. Sem isto, o dispatcher
 # publicava até 2/min por conta (rajada robótica) — o IG zera o alcance disso.
 # 40min => no máx ~1 post/40min por conta (natural, humano). Ajustável por env.
-MIN_INTERVALO_POST_MIN = env.int("MIN_INTERVALO_POST_MIN", default=40)
+MIN_INTERVALO_POST_MIN = env.int("MIN_INTERVALO_POST_MIN", default=30)
 # Posts atrasados além disso (horas) são EXPIRADOS em vez de publicados: quando a
 # conta volta (sync/reconexão), não sobe a fila antiga de uma vez (rajada de
 # conteúdo velho = spam). Também estabiliza os horários da fila.
