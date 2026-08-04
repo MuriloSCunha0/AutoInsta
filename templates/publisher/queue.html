@@ -190,6 +190,12 @@
             </div>
         </div>
 
+        {% if not conta_atual %}
+        <div class="alert border-0 bg-info bg-opacity-10 text-info small m-3 mb-0" style="line-height:1.5">
+            <i class="bi bi-info-circle me-1"></i> A fila mostra <strong>todas as contas misturadas</strong> — por isso os horários em sequência são de <strong>contas diferentes</strong>. Cada conta posta no <strong>seu</strong> intervalo (ex.: 30 min). Para conferir uma conta só, clique nela em <strong>"Conta"</strong> acima.
+        </div>
+        {% endif %}
+
         <div id="todos-banner" class="alert alert-info border-0 bg-info bg-opacity-10 text-info small m-3 mb-0" style="display:none;">
             <span id="todos-off">
                 As <strong id="pagina-n">0</strong> desta página estão selecionadas.
