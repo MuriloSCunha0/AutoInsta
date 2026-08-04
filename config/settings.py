@@ -207,6 +207,11 @@ TETO_MAT_MEDIO = env.int("TETO_MAT_MEDIO", default=25)      # <5000 seg
 # Sincronização automática de saúde: nº de contas por rodada (a cada 15 min).
 # Menor = mais suave com a Meta; maior = ciclo completo mais rápido.
 HEALTH_SYNC_BATCH = env.int("HEALTH_SYNC_BATCH", default=12)
+# No modelo de CICLOS, as contas postam JUNTAS a cada ciclo. Para não bater todas
+# no MESMO segundo (sufocar o app da Meta), damos um passo de poucos SEGUNDOS
+# entre as contas dentro do ciclo — janela total limitada a ~60s (continua "no
+# mesmo momento", só não no mesmo instante exato).
+STAGGER_CICLO_SEG = env.int("STAGGER_CICLO_SEG", default=5)
 # Variação automática (algoritmo local, sem IA) da legenda por conta: sinônimos
 # PT-BR + saudação + emoji + pontuação, mantendo o sentido. Deixa cada conta com
 # um texto único (legenda idêntica em massa é gatilho de remoção pelo IG).

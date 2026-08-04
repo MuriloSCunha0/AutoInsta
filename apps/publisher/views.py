@@ -768,7 +768,15 @@ def _composer_submit(request):
         if ultimo_geral + interval > base_comum:
             base_comum = ultimo_geral + interval
 
-    for account_id in account_ids:
+    # Passo de poucos SEGUNDOS entre as contas DENTRO do ciclo (todas ~no mesmo
+    # momento, só não no mesmo segundo exato — evita saturar o app da Meta).
+    # Janela total limitada a ~60s, independente do nº de contas.
+    from django.conf import settings as _cfg_stag
+    n_contas_sel = max(len(account_ids), 1)
+    passo_seg = min(getattr(_cfg_stag, 'STAGGER_CICLO_SEG', 5), max(1, 60 // n_contas_sel))
+    passo = timedelta(seconds=passo_seg)
+
+    for pos_conta, account_id in enumerate(account_ids):
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
@@ -781,7 +789,7 @@ def _composer_submit(request):
 
         criados_conta = 0
         for i, vname in enumerate(queue_per_account):
-            when_dt = base_comum + i * interval
+            when_dt = base_comum + i * interval + passo * pos_conta
             when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
             if foi_adiado:
                 adiados += 1
