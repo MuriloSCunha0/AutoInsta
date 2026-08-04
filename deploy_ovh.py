@@ -40,12 +40,12 @@ cd /opt/sandraoflow
 echo '==> [painel] 1/4 sincronizando codigo'
 git fetch origin -q && git reset --hard origin/main && git log --oneline -1
 CF="sudo docker compose -f docker-compose.prod.yml -f docker-compose.painel.yml"
-echo '==> [painel] 2/4 build'
-$CF build web
+echo '==> [painel] 2/4 build (web + worker + beat: cada um tem build proprio)'
+$CF build web celery_worker celery_beat
 echo '==> [painel] 3/4 migracoes (container efemero)'
 $CF run --rm -T --no-deps web sh -c "python fix_db.py && python manage.py migrate --noinput"
 echo '==> [painel] 4/4 recria beat/web/worker + reload Caddy (a quente)'
-$CF up -d --no-deps celery_beat web celery_worker
+$CF up -d --build --no-deps celery_beat web celery_worker
 $CF exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || $CF up -d --no-deps caddy
 echo '==> [painel] OK'
 """
