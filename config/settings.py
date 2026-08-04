@@ -223,6 +223,14 @@ CAPTION_AVISO_USO = env.int("CAPTION_AVISO_USO", default=10)
 # conteúdo velho = spam). Também estabiliza os horários da fila.
 MAX_ATRASO_POST_HORAS = env.int("MAX_ATRASO_POST_HORAS", default=6)
 
+# Faixa de MADRUGADA (hora local). Publicar aqui é o padrão mais robótico que
+# existe: conta real não posta às 4h todo dia. Medido em produção: a curva de
+# publicação por hora estava PLANA nas 24h, com tanto post às 4h quanto ao meio-
+# dia. Não bloqueamos (o usuário manda), mas avisamos ao agendar e ao criar a
+# fila. MADRUGADA_INI=0 e MADRUGADA_FIM=5 => avisa de 00:00 até 04:59.
+MADRUGADA_INI = env.int("MADRUGADA_INI", default=0)
+MADRUGADA_FIM = env.int("MADRUGADA_FIM", default=5)
+
 # Aquecimento humano: janela de horas ATIVAS (local) e gap aleatório (min) entre
 # ações. Fora da janela o warm-up não age (humano não curte às 4h).
 WARMUP_HORA_INI = env.int("WARMUP_HORA_INI", default=8)

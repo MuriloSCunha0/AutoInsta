@@ -136,19 +136,73 @@ def garantir_midia_local(fieldfile):
     return tmp, True
 
 
+def e_madrugada(quando):
+    """O horário cai na faixa de madrugada (hora LOCAL do usuário)?
+
+    Publicar de madrugada é o sinal mais robótico que existe — conta real não
+    posta às 4h todo dia. Medido em produção: a curva de publicações por hora
+    estava plana nas 24h, com tanto post às 4h quanto ao meio-dia.
+
+    Não bloqueia nada; serve para AVISAR no composer e ao criar a fila.
+    """
+    from django.conf import settings
+    from django.utils import timezone
+
+    if not quando:
+        return False
+    ini = getattr(settings, 'MADRUGADA_INI', 0)
+    fim = getattr(settings, 'MADRUGADA_FIM', 5)
+    try:
+        hora = timezone.localtime(quando).hour if timezone.is_aware(quando) else quando.hour
+    except (AttributeError, ValueError):
+        return False
+    if ini <= fim:
+        return ini <= hora < fim
+    # Faixa que cruza a meia-noite (ex.: 22 -> 5).
+    return hora >= ini or hora < fim
+
+
+def aviso_madrugada(horarios):
+    """Devolve um aviso (str) se algum horário da lista cair na madrugada.
+
+    Recebe uma lista de datetimes (os horários que a fila vai usar) e devolve
+    None quando está tudo bem — assim a view só precisa repassar o texto.
+    """
+    from django.conf import settings
+
+    quantos = sum(1 for h in horarios if e_madrugada(h))
+    if not quantos:
+        return None
+    ini = getattr(settings, 'MADRUGADA_INI', 0)
+    fim = getattr(settings, 'MADRUGADA_FIM', 5)
+    return (
+        f'Atenção: {quantos} publicação(ões) ficaram entre {ini:02d}h e {fim:02d}h. '
+        'Postar de madrugada todo dia é um dos sinais que o Instagram mais usa '
+        'para identificar automação — conta real não posta nesse horário. '
+        'Se der, concentre a fila entre 07h e 23h.'
+    )
+
+
 def msg_meta_amigavel(msg):
     """Traduz o erro CRU da Meta (JSON com 'OAuthException' etc.) numa frase
     clara pro usuário — o dict cru assusta e confunde no card."""
     m = (msg or '').lower()
+    # LIMITE PRIMEIRO. A Meta manda os erros de limite (codes 4/9/17/32/613) com
+    # o MESMO `type: OAuthException` de um token inválido. Com o teste de token
+    # antes — casando com 'oauthexception' solto — uma conta apenas LIMITADA
+    # recebia "veja se a conta está SUSPENSA" e o dono achava que tinha caído.
+    # Foi a confusão relatada pelo usuário iorio: 3 contas em 'error' cujo token
+    # respondia HTTP 200 na Graph API, só com a cota em 50/100.
+    from apps.publisher.tasks import _e_rate_limit
+    if _e_rate_limit(msg):
+        return ('Limite de publicações da Meta atingido — a conta está OK, só '
+                'precisa esperar. A fila retoma sozinha depois do cooldown.')
     if ('cannot access the app' in m or 'log in to www.instagram.com' in m
-            or 'error validating access token' in m or "'code': 190" in m
-            or 'oauthexception' in m):
+            or 'error validating access token' in m or "'code': 190" in m):
         return ('Entre no instagram.com com esta conta e veja o que aparece: '
                 'se a conta estiver SUSPENSA, recorra ali mesmo (o token novo só '
                 'funciona depois que ela voltar); se estiver normal, gere um token '
                 'novo e cole em "Atualizar token".')
-    if 'rate limit' in m or 'too many' in m or '2207042' in m or 'número máximo' in m:
-        return 'Limite de publicações da Meta atingido — volta sozinha após o cooldown.'
     if 'does not exist' in m or 'unsupported post request' in m:
         return 'ID da conta desatualizado — o sistema corrige e republica sozinho.'
     # Fallback: tira o dict cru e devolve uma frase curta e legível.

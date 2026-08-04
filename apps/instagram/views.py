@@ -424,8 +424,20 @@ def _sync_meta_account(account):
         erro = data.get('error') or {}
         msg = erro.get('message', 'Token inválido ou expirado.')
         logger.warning('Sync Meta falhou (acc=%s): %s', account.id, erro)
-        account.status = _classificar_falha(erro, msg)
         from apps.core_utils import msg_meta_amigavel
+        from apps.publisher.tasks import _e_rate_limit
+
+        # LIMITE não é queda. A Meta responde os erros de limite com o mesmo
+        # `type: OAuthException` de um token inválido; marcar a conta como
+        # caída aqui a tira do ar sem motivo (ela volta sozinha em minutos) e
+        # ainda mostra "veja se está SUSPENSA" para o dono. Só registramos o
+        # aviso e mantemos o status atual.
+        if _e_rate_limit(f"{msg} {erro}"):
+            account.last_error = msg_meta_amigavel(msg)
+            account.save(update_fields=['last_error'])
+            return False, msg
+
+        account.status = _classificar_falha(erro, msg)
         account.last_error = msg_meta_amigavel(msg)
         account.save(update_fields=['status', 'last_error'])
         return False, msg

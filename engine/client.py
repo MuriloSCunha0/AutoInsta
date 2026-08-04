@@ -535,6 +535,14 @@ class InstagramEngine:
                     res = requests.post(f"{base}/media", data=payload, timeout=30)
                     data = res.json()
         if 'id' not in data:
+            # Loga o erro CRU (code + error_subcode + message + fbtrace_id). Sem
+            # isto só sobrava a tradução amigável de msg_meta_amigavel, e ficava
+            # impossível saber QUAL erro a Meta devolveu — numa investigação real
+            # foi preciso consultar a Graph API na mão para descobrir que um
+            # bloco de contas estava em checkpoint (190) e outro apenas no
+            # limite de publicação (code 4/9). São tratamentos opostos.
+            logger.error("publish_meta_api ERRO CRU @%s (ig_user_id=%s): %s",
+                         self.account.ig_username, ig_user_id, data.get('error', data))
             raise Exception(f"Erro ao criar contêiner Meta: {data.get('error', data)}")
         creation_id = data['id']
 
@@ -585,6 +593,8 @@ class InstagramEngine:
         pub_data = pub_res.json()
 
         if 'id' not in pub_data:
+            logger.error("media_publish ERRO CRU @%s (creation_id=%s): %s",
+                         self.account.ig_username, creation_id, pub_data.get('error', pub_data))
             raise Exception(f"Erro ao publicar mídia via Meta: {pub_data.get('error', pub_data)}")
 
         return {'id': pub_data['id'], 'creation_id': creation_id}

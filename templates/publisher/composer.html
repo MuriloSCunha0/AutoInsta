@@ -20,16 +20,50 @@
                     Vídeo (MP4/MOV) para Reels · imagem ou vídeo para Post e Story. Pode selecionar vários.
                 </small>
 
-                {% if library_media %}
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label text-muted mb-0">Da biblioteca</label>
-                    <label class="text-muted small mb-0" style="cursor:pointer;">
-                        <input type="checkbox" id="lib-all" class="form-check-input me-1"> Selecionar todas
+                {# Capa fica AQUI, colada no upload. Antes era um card separado, #}
+                {# depois da grade da biblioteca — com dezenas de vídeos na grade #}
+                {# ela ia parar lá no fim da página, perto da legenda. #}
+                <div class="border-subtle rounded p-3 mb-3" style="background: rgba(255,255,255,.02); border: 1px solid var(--border-subtle);">
+                    <label class="form-label text-muted mb-2">
+                        <i class="bi bi-image text-purple me-1"></i> Capa do Reel <span class="text-muted small">(opcional)</span>
                     </label>
+                    <input type="file" name="cover" accept="image/*"
+                           class="form-control form-control-sm text-white border-subtle mb-2" style="background: var(--bg-input);">
+                    {% if library_covers %}
+                    <select name="cover_library" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input);">
+                        <option value="">— Ou escolha uma capa da biblioteca —</option>
+                        {% for cover in library_covers %}
+                        <option value="{{ cover.id }}">{{ cover.original_name|default:"capa" }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
                 </div>
-                <div class="row row-cols-3 row-cols-md-4 g-2 mt-1">
+
+                {% if library_media %}
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <label class="form-label text-muted mb-0">Da biblioteca</label>
+                    <div class="d-flex align-items-center gap-2">
+                        {# Filtro por pasta da biblioteca: com centenas de mídias, #}
+                        {# rolar a grade inteira para achar um vídeo era inviável. #}
+                        {% if media_folders %}
+                        <select id="lib-folder-filter" class="form-select form-select-sm text-white border-subtle w-auto"
+                                style="background: var(--bg-input); font-size:.75rem;">
+                            <option value="">Todas as pastas</option>
+                            {% for f in media_folders %}
+                            <option value="{{ f.id }}">{{ f.name }}</option>
+                            {% endfor %}
+                            <option value="none">— Sem pasta —</option>
+                        </select>
+                        {% endif %}
+                        <label class="text-muted small mb-0" style="cursor:pointer;">
+                            <input type="checkbox" id="lib-all" class="form-check-input me-1"> Selecionar todas
+                        </label>
+                    </div>
+                </div>
+                <div class="text-muted small mt-1" id="lib-count" style="font-size:.7rem;"></div>
+                <div class="row row-cols-3 row-cols-md-4 g-2 mt-1" id="lib-grid">
                     {% for asset in library_media %}
-                    <div class="col">
+                    <div class="col lib-item" data-folder="{{ asset.folder_id|default:'none' }}">
                         <label class="media-pick d-block position-relative" style="cursor: pointer;">
                             <input type="checkbox" name="library_media" value="{{ asset.id }}"
                                    class="form-check-input position-absolute top-0 start-0 m-1 lib-video-check" style="z-index: 2;">
@@ -57,21 +91,8 @@
                 {% endif %}
             </div>
 
-            <!-- Capa -->
-            <div class="card p-4 mb-4">
-                <h6 class="text-white mb-3"><i class="bi bi-image text-purple me-2"></i> Capa do Reel <span class="text-muted small">(opcional)</span></h6>
-                <input type="file" name="cover" accept="image/*"
-                       class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);">
-                {% if library_covers %}
-                <label class="form-label text-muted mt-2">Ou usar da biblioteca</label>
-                <select name="cover_library" class="form-select text-white border-subtle" style="background: var(--bg-input);">
-                    <option value="">— Nenhuma —</option>
-                    {% for cover in library_covers %}
-                    <option value="{{ cover.id }}">{{ cover.original_name|default:"capa" }}</option>
-                    {% endfor %}
-                </select>
-                {% endif %}
-            </div>
+            {# A Capa do Reel subiu para dentro do card "Mídia", logo abaixo do
+               campo de upload — ver o comentário lá em cima. #}
 
             <!-- Legenda -->
             <div class="card p-4">
@@ -147,9 +168,45 @@
                     {% endif %}
                 </div>
                 {% if accounts %}
-                <div style="max-height: 240px; overflow-y: auto;">
+                {# Filtros de conta: com 145 contas numa lista rolável não dava
+                   para achar as de uma operação. Filtram a lista no cliente
+                   (sem recarregar) e o "Todas" só marca o que está visível. #}
+                <div class="d-flex gap-2 mb-2 flex-wrap">
+                    <input type="search" id="acc-busca" placeholder="Buscar @conta…" autocomplete="off"
+                           class="form-control form-control-sm text-white border-subtle flex-grow-1"
+                           style="background: var(--bg-input); min-width:120px;">
+                    {% if pastas %}
+                    <select id="acc-filtro-pasta" class="form-select form-select-sm text-white border-subtle w-auto"
+                            style="background: var(--bg-input); font-size:.75rem;">
+                        <option value="">Todas as pastas</option>
+                        {% for p in pastas %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+                        <option value="none">— Sem pasta —</option>
+                    </select>
+                    {% endif %}
+                    {% if modelos %}
+                    <select id="acc-filtro-modelo" class="form-select form-select-sm text-white border-subtle w-auto"
+                            style="background: var(--bg-input); font-size:.75rem;">
+                        <option value="">Todos os modelos</option>
+                        {% for m in modelos %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+                    </select>
+                    {% endif %}
+                    <select id="acc-filtro-status" class="form-select form-select-sm text-white border-subtle w-auto"
+                            style="background: var(--bg-input); font-size:.75rem;">
+                        <option value="">Todos os status</option>
+                        <option value="active">Só ativas</option>
+                        <option value="off">Só com problema</option>
+                    </select>
+                </div>
+                <div class="text-muted small mb-1" id="acc-count" style="font-size:.7rem;"></div>
+                <div style="max-height: 240px; overflow-y: auto;" id="acc-lista">
                     {% for acc in accounts %}
-                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle acc-row" data-pendentes="{{ acc.pendentes }}" style="cursor: pointer;">
+                    <label class="d-flex align-items-center gap-2 py-2 border-bottom border-subtle acc-row"
+                           data-pendentes="{{ acc.pendentes }}"
+                           data-pasta="{{ acc.pasta_id|default:'none' }}"
+                           data-modelo="{{ acc.modelo|default:'' }}"
+                           data-status="{{ acc.status }}"
+                           data-user="{{ acc.ig_username|lower }}"
+                           style="cursor: pointer;">
                         <input type="checkbox" name="accounts" value="{{ acc.id }}" class="form-check-input acc-check">
                         {# Foto da conta (item 3): ajuda a distinguir as contas na hora de postar. #}
                         <span class="composer-acc-pic">
@@ -342,7 +399,19 @@
 
                 <div id="schedule-fields" style="display: none;">
                     <label class="form-label text-muted">Começar em</label>
-                    <input type="datetime-local" name="start" class="form-control text-white border-subtle mb-3" style="background: var(--bg-input);">
+                    <input type="datetime-local" name="start" id="start-input" class="form-control text-white border-subtle mb-2" style="background: var(--bg-input);">
+                </div>
+
+                {# Aviso de madrugada: aparece assim que o usuário escolhe um
+                   horário entre MADRUGADA_INI e MADRUGADA_FIM, antes de enviar.
+                   Não bloqueia — a fila é dele; só deixa o risco explícito. #}
+                <div id="aviso-madrugada" class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning small mb-3"
+                     style="display:none; line-height:1.5">
+                    <i class="bi bi-moon-stars me-1"></i>
+                    <strong>Isso vai publicar de madrugada.</strong>
+                    Conta real não posta às 3h da manhã todo dia — esse é um dos padrões
+                    que o Instagram mais usa para identificar automação.
+                    Se puder, prefira entre <strong>07h e 23h</strong>.
                 </div>
 
                 <label class="form-label text-muted">Parar em <span class="text-muted">(opcional)</span></label>
@@ -445,21 +514,135 @@
     form.addEventListener('change', recount);
     if (upload) upload.addEventListener('change', recount);
 
-    // Selecionar todas as mídias da biblioteca
+    // ── Aviso de MADRUGADA ao escolher o horário ────────────────────────────
+    // A faixa vem do servidor (settings.MADRUGADA_INI/FIM) para o aviso da tela
+    // e o do backend nunca divergirem.
+    const MADR_INI = {{ madrugada_ini|default:0 }};
+    const MADR_FIM = {{ madrugada_fim|default:5 }};
+    const avisoMadr = document.getElementById('aviso-madrugada');
+    const startInput = document.getElementById('start-input');
+    const intervalInput = form.querySelector('[name=interval_minutes]');
+
+    function horaEhMadrugada(h) {
+        return (MADR_INI <= MADR_FIM) ? (h >= MADR_INI && h < MADR_FIM)
+                                      : (h >= MADR_INI || h < MADR_FIM);
+    }
+
+    function checarMadrugada() {
+        if (!avisoMadr) return;
+        const agendado = document.getElementById('mode-schedule');
+        let bateu = false;
+        // Horário de início escolhido pelo usuário.
+        if (agendado && agendado.checked && startInput && startInput.value) {
+            const d = new Date(startInput.value);
+            if (!isNaN(d)) bateu = horaEhMadrugada(d.getHours());
+        }
+        // "Publicar agora" com fila longa também atravessa a madrugada: projeta
+        // os horários pelo intervalo × quantidade de posts por conta.
+        if (!bateu) {
+            const nMidias = form.querySelectorAll('.lib-video-check:checked').length
+                          + ((upload && upload.files) ? upload.files.length : 0);
+            const gap = parseInt((intervalInput && intervalInput.value) || '0', 10);
+            if (nMidias > 1 && gap > 0) {
+                const inicio = (agendado && agendado.checked && startInput && startInput.value)
+                    ? new Date(startInput.value) : new Date();
+                for (let i = 0; i < nMidias && i < 500; i++) {
+                    const t = new Date(inicio.getTime() + i * gap * 60000);
+                    if (horaEhMadrugada(t.getHours())) { bateu = true; break; }
+                }
+            }
+        }
+        avisoMadr.style.display = bateu ? '' : 'none';
+    }
+    if (startInput) startInput.addEventListener('change', checarMadrugada);
+    if (intervalInput) intervalInput.addEventListener('input', checarMadrugada);
+    form.addEventListener('change', checarMadrugada);
+    checarMadrugada();
+
+    // ── Filtro de MÍDIAS por pasta da biblioteca ────────────────────────────
+    // Some da grade quem não é da pasta escolhida. Ao esconder, desmarcamos —
+    // senão o usuário enviaria mídia que nem está vendo.
+    const libFolder = document.getElementById('lib-folder-filter');
+    const libCount = document.getElementById('lib-count');
+    function filtrarMidias() {
+        const alvo = libFolder ? libFolder.value : '';
+        let visiveis = 0;
+        form.querySelectorAll('.lib-item').forEach((item) => {
+            const ok = !alvo || item.getAttribute('data-folder') === alvo;
+            item.style.display = ok ? '' : 'none';
+            if (ok) { visiveis++; }
+            else {
+                const box = item.querySelector('.lib-video-check');
+                if (box) box.checked = false;
+            }
+        });
+        if (libCount) libCount.textContent = `${visiveis} mídia(s) nesta pasta`;
+        recount();
+    }
+    if (libFolder) { libFolder.addEventListener('change', filtrarMidias); filtrarMidias(); }
+
+    // Selecionar todas as mídias da biblioteca (só as VISÍVEIS no filtro).
     const libAll = document.getElementById('lib-all');
     if (libAll) {
         libAll.addEventListener('change', () => {
-            form.querySelectorAll('.lib-video-check').forEach((c) => { c.checked = libAll.checked; });
+            form.querySelectorAll('.lib-item').forEach((item) => {
+                if (item.style.display === 'none') return;
+                const box = item.querySelector('.lib-video-check');
+                if (box) box.checked = libAll.checked;
+            });
             recount();
         });
     }
 
-    // Selecionar todas as contas
+    // ── Filtro de CONTAS por pasta / modelo / status / busca ────────────────
+    const accBusca = document.getElementById('acc-busca');
+    const accPasta = document.getElementById('acc-filtro-pasta');
+    const accModelo = document.getElementById('acc-filtro-modelo');
+    const accStatus = document.getElementById('acc-filtro-status');
+    const accCount = document.getElementById('acc-count');
+
+    function linhasVisiveis() {
+        return [...form.querySelectorAll('.acc-row')].filter((r) => r.style.display !== 'none');
+    }
+
+    function filtrarContas() {
+        const termo = (accBusca && accBusca.value || '').trim().toLowerCase();
+        const pasta = accPasta ? accPasta.value : '';
+        const modelo = accModelo ? accModelo.value : '';
+        const status = accStatus ? accStatus.value : '';
+        let visiveis = 0;
+        form.querySelectorAll('.acc-row').forEach((row) => {
+            const st = row.getAttribute('data-status');
+            let ok = true;
+            if (termo) ok = ok && (row.getAttribute('data-user') || '').includes(termo);
+            if (pasta) ok = ok && row.getAttribute('data-pasta') === pasta;
+            if (modelo) ok = ok && row.getAttribute('data-modelo') === modelo;
+            if (status === 'active') ok = ok && st === 'active';
+            if (status === 'off') ok = ok && st !== 'active';
+            row.style.display = ok ? '' : 'none';
+            if (ok) { visiveis++; }
+            else {
+                // Escondeu, desmarca: publicar numa conta que sumiu do filtro
+                // seria uma surpresa ruim.
+                const box = row.querySelector('.acc-check');
+                if (box) box.checked = false;
+            }
+        });
+        if (accCount) accCount.textContent = `${visiveis} conta(s) no filtro`;
+        recount();
+    }
+    [accBusca, accPasta, accModelo, accStatus].forEach((el) => {
+        if (el) el.addEventListener('input', filtrarContas);
+    });
+    if (accBusca || accPasta || accModelo || accStatus) filtrarContas();
+
+    // Selecionar todas as contas (só as VISÍVEIS no filtro).
     const toggleAll = document.getElementById('toggle-all-accounts');
     if (toggleAll) {
         toggleAll.addEventListener('click', () => {
-            const boxes = form.querySelectorAll('.acc-check');
-            const allOn = [...boxes].every((b) => b.checked);
+            const rows = linhasVisiveis();
+            const boxes = rows.map((r) => r.querySelector('.acc-check')).filter(Boolean);
+            const allOn = boxes.length > 0 && boxes.every((b) => b.checked);
             boxes.forEach((b) => { b.checked = !allOn; });
             recount();
         });
@@ -544,6 +727,23 @@
             fetch(`/publisher/caption-info/${id}/`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
                 .then(r => r.json())
                 .then(d => {
+                    // Banco de legendas VAZIO: antes não acontecia nada e parecia
+                    // que a tela tinha travado. Agora explicamos e mandamos o
+                    // usuário para o lugar certo.
+                    if (d.vazio) {
+                        if (preview) {
+                            preview.style.display = '';
+                            preview.innerHTML =
+                                '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>' +
+                                'O banco <strong>' + (d.nome || 'selecionado') + '</strong> está vazio — ' +
+                                'não tem nenhuma legenda cadastrada dentro dele.</span>' +
+                                '<div class="mt-1">Escreva a legenda aqui embaixo e clique em ' +
+                                '<strong>Salvar no banco</strong>, ou cadastre em ' +
+                                '<a href="{% url 'library:captions' %}" class="text-info">Biblioteca → Legendas</a>.</div>';
+                        }
+                        return;
+                    }
+                    if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
                     if (caption && d.text) { caption.value = d.text; if (captionCount) captionCount.textContent = caption.value.length; }
                     if (hashtagsInput && d.hashtags) hashtagsInput.value = d.hashtags;
                     if (d.aviso && usoAviso && usoN) {

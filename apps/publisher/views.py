@@ -69,6 +69,13 @@ def caption_info(request, set_id):
     return JsonResponse({
         'text': text, 'hashtags': hashtags, 'uso': uso,
         'aviso': uso >= limite, 'limite': limite, 'exemplo': exemplo,
+        # Um CaptionSet pode existir SEM nenhuma legenda dentro (é só a "pasta").
+        # Nesse caso o composer não tinha o que preencher e ficava mudo — o
+        # usuário escolhia a legenda, nada acontecia, e "Ver exemplos" respondia
+        # "escreva ou escolha uma legenda primeiro". Parecia bug. Agora dizemos
+        # explicitamente que o banco está vazio para a tela poder explicar.
+        'vazio': not text,
+        'nome': cs.name,
     })
 
 
@@ -592,14 +599,32 @@ def composer(request):
                                         filter=Q(scheduledpost__status__in=['queued', 'processing'])))
               .order_by('pendentes', 'ig_username'))  # as sem agendados primeiro
 
+    # Filtros da tela de postar: com mais de cem contas e centenas de mídias,
+    # rolar as listas era inviável. Os filtros são aplicados no cliente (sem
+    # recarregar), então aqui só entregamos as opções.
+    from django.conf import settings
+    from apps.instagram.models import Pasta
+    from apps.library.models import MediaFolder
+
+    modelos = sorted(
+        m for m in InstagramAccount.objects.filter(owner=user)
+        .exclude(modelo='').values_list('modelo', flat=True).distinct() if m
+    )
+
     context = {
         'accounts': contas,
+        'pastas': Pasta.objects.filter(owner=user).order_by('name'),
+        'modelos': modelos,
+        'media_folders': MediaFolder.objects.filter(owner=user).order_by('name'),
         # Story e Post de feed aceitam IMAGEM também — não filtramos só vídeo.
         'library_media': MediaAsset.objects.filter(owner=user),
         'library_covers': MediaAsset.objects.filter(owner=user, kind='image'),
         'caption_sets': CaptionSet.objects.filter(owner=user),
         'audios': Audio.objects.filter(owner=user),
         'post_types': ScheduledPost.TYPE_CHOICES,
+        # Faixa de madrugada: a tela avisa com os MESMOS limites do backend.
+        'madrugada_ini': getattr(settings, 'MADRUGADA_INI', 0),
+        'madrugada_fim': getattr(settings, 'MADRUGADA_FIM', 5),
         # Nomes de fila já usados, para sugerir no campo.
         'filas_existentes': sorted(set(
             PostQueue.objects.filter(owner=user).values_list('name', flat=True))),
@@ -786,6 +811,7 @@ def _composer_submit(request):
     skipped = 0
     adiados = 0
     por_conta = []  # [(username, quantos)] para o resumo da campanha
+    horarios_criados = []  # para avisar se a fila caiu na madrugada
 
     # NÃO sobrepor lotes: se alguma conta já tem fila, o novo ciclo começa DEPOIS
     # do último post já agendado (+intervalo) — assim ninguém posta 2x no mesmo
@@ -855,14 +881,23 @@ def _composer_submit(request):
             post.save()
             created += 1
             criados_conta += 1
+            horarios_criados.append(when_dt)
 
         if criados_conta:
             por_conta.append((account.ig_username, criados_conta))
+
+    # Aviso de MADRUGADA: não bloqueia (a fila é do usuário), mas avisa alto —
+    # publicar de 00h às 05h todo dia é o padrão mais robótico que existe.
+    from apps.core_utils import aviso_madrugada
+    aviso_noturno = aviso_madrugada(horarios_criados)
+    if aviso_noturno:
+        messages.warning(request, aviso_noturno)
 
     # Resumo da campanha para a tela de sucesso (como no Murphy).
     total_contas = InstagramAccount.objects.filter(owner=user, status='active').count()
     n_contas = len(por_conta)
     request.session['campanha_ok'] = {
+        'aviso_madrugada': aviso_noturno,
         'created': created,
         'skipped': skipped,
         'adiados': adiados,

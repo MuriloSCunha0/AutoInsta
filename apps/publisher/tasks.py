@@ -253,17 +253,54 @@ def process_scheduled_posts():
             post.queue.save(update_fields=['last_dispatch'])
 
 
+def _tem_code(msg, code):
+    """A mensagem da Meta carrega este `code`?
+
+    O erro chega como texto (str(exception)) e a serialização varia conforme o
+    caminho — dict do requests, JSON cru ou a forma curta que a própria Meta usa
+    no `message`. Cobrimos todas para não depender do formato:
+        {'code': 190}   {"code": 190}   (#190)   code 190   code: 190
+    """
+    m = (msg or '').lower()
+    return any(p in m for p in (
+        f"'code': {code}", f'"code": {code}', f'(#{code})',
+        f'code {code}', f'code: {code}',
+    ))
+
+
 def _e_rate_limit(msg):
-    """A mensagem de erro indica limite de publicações da Meta?"""
+    """A mensagem de erro indica LIMITE de publicação da Meta (temporário)?
+
+    ATENÇÃO: a Meta devolve os erros de limite com `"type": "OAuthException"`,
+    o MESMO tipo de um token inválido. Só o `code` separa os dois:
+
+        code 4   — Application request limit reached
+        code 9   — usuário atingiu o número máximo de publicações
+        code 17  — User request limit reached
+        code 32  — Page request limit reached
+        code 613 — Calls to this api have exceeded the rate limit
+        code 190 — token realmente inválido  <- ESTE não é limite
+
+    Por isso `_e_app_invalido` NÃO pode casar com 'oauthexception' solto, e esta
+    função é avaliada ANTES dela. Era o bug relatado pelo usuário iorio: contas
+    perfeitamente saudáveis (token respondendo 200, cota 50/100) apareciam como
+    "conta caiu — veja se está SUSPENSA", travando a fila sem necessidade.
+    """
     m = (msg or '').lower()
     return (
         'too many actions' in m
         or '2207042' in m
-        or "'code': 9" in m
         or 'número máximo' in m
         or 'numero maximo' in m
+        or 'maximum number of' in m
         or 'application request limit' in m
+        or 'user request limit' in m
+        or 'page request limit' in m
+        or 'exceeded the rate limit' in m
         or 'rate limit' in m
+        or 'limit reached' in m
+        # Códigos de limite da Meta (vêm como OAuthException, igual ao 190).
+        or any(_tem_code(msg, c) for c in (4, 9, 17, 32, 613))
     )
 
 
@@ -289,13 +326,22 @@ def _e_app_invalido(msg):
     responder 'cannot access the app till you log in to www.instagram.com'.
     Cada retry é uma nova chamada a um app bloqueado — inútil e prejudicial
     (satura o worker e agrava a restrição). Aqui a gente reconhece e para.
+
+    NÃO casar com 'oauthexception' solto: a Meta usa esse mesmo tipo para os
+    erros de LIMITE (codes 4/9/17/32/613), que são temporários e não exigem
+    reconectar nada. Marcar uma conta saudável como caída trava a fila dela e
+    mostra "veja se a conta está SUSPENSA" sem motivo (bug relatado pelo
+    usuário iorio: 3 contas em 'error' cujo token respondia 200 na Graph API).
+    Só assinaturas EXCLUSIVAS de token/app inválido entram aqui.
     """
     m = (msg or '').lower()
+    if _e_rate_limit(msg):
+        return False           # limite temporário nunca é token inválido
     return (
         'cannot access the app' in m
         or 'error validating access token' in m
-        or "'code': 190" in m
-        or 'oauthexception' in m
+        or 'invalid oauth access token' in m
+        or _tem_code(msg, 190)
         or 'session has been invalidated' in m
         or 'session has expired' in m
     )
@@ -672,6 +718,11 @@ def publish_reel(post_id):
             except Exception:
                 pass
 
+        # Este ramo vem antes do de rate limit, mas `_e_app_invalido` já devolve
+        # False quando a mensagem é de LIMITE — a Meta manda os dois como
+        # OAuthException, e sem essa checagem toda conta que só bateu no limite
+        # caía aqui e aparecia como "caiu / pode estar SUSPENSA", com a fila
+        # travada à toa (bug do usuário iorio).
         elif _e_app_invalido(msg):
             # App/token restringido pela Meta (ex.: 190 "cannot access the app").
             # Retry NÃO resolve e só piora — para de martelar: marca a conta como
