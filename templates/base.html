@@ -218,6 +218,16 @@
     <!-- Container de notificações (toasts) -->
     <div class="toast-container" id="toast-container"></div>
 
+    {% if messages %}
+    <script>
+      window.addEventListener('DOMContentLoaded', function () {
+        {% for message in messages %}
+        if (window.showToast) window.showToast("{{ message|escapejs }}", "{{ message.tags|default:'info' }}");
+        {% endfor %}
+      });
+    </script>
+    {% endif %}
+
     <!-- Navegação inferior (mobile) -->
     <nav class="mobile-nav">
         <div class="mobile-links">

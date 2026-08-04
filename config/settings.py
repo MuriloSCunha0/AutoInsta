@@ -262,7 +262,7 @@ CELERY_BEAT_SCHEDULE = {
         # 15s (era 30s): quando chega a hora do post, ele é pego mais rápido.
         # Não adiciona chamadas à Meta — só checa o banco com mais frequência.
         "task": "apps.publisher.tasks.process_scheduled_posts",
-        "schedule": 15.0,
+        "schedule": 10.0,
     },
     # Aquecimento HUMANO: o dispatcher roda a cada 5 min e decide 0-1 ação por
     # conta (o espaçamento humano é feito por gap aleatório + jitter, não aqui).
@@ -400,11 +400,11 @@ VARIAR_LEGENDAS = env.bool("VARIAR_LEGENDAS", default=True)
 # propósito: o Reel quase sempre já terminou de processar nela, então gastamos
 # 1 consulta em vez de 8. É o principal corte de chamadas ao app Meta.
 # Ajustável por .env sem novo deploy (lista separada por vírgula).
-# Primeira consulta em 15s (era 30): o Reel costuma processar em ~10-25s, então a
-# maioria fica pronta já na 1ª checagem — publica ~15s mais rápido, sem estourar o
-# nº de chamadas (a maioria ainda resolve em 1-2 consultas). Cumulativo: 15,27,45,75,120,180.
-META_POLL_REEL = env.list("META_POLL_REEL", cast=int, default=[15, 12, 18, 30, 45, 60])
-META_POLL_IMAGE = env.list("META_POLL_IMAGE", cast=int, default=[10, 12, 20, 30])
+# Primeira consulta em 8s (era 15/30): publica o mais rápido possível assim que o
+# Reel fica pronto. Cumulativo: 8,16,28,48,78,138. Reels rápidos saem em ~8-16s;
+# se ainda estiver processando, as próximas consultas cobrem sem estourar chamadas.
+META_POLL_REEL = env.list("META_POLL_REEL", cast=int, default=[8, 8, 12, 20, 30, 60])
+META_POLL_IMAGE = env.list("META_POLL_IMAGE", cast=int, default=[5, 8, 12, 20])
 
 # Web Push (PWA) — chaves VAPID. Geradas uma vez e postas no .env.
 # Sem elas, o Web Push fica desligado (o alerta ainda aparece no sino).
