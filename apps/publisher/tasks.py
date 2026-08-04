@@ -125,6 +125,24 @@ def process_scheduled_posts():
     # próximas rodadas (a cada ~30s). Ajustável por env sem deploy.
     from django.conf import settings as _cfg
     MAX_POR_RODADA = getattr(_cfg, 'MAX_DISPATCH_POR_RODADA', 8)
+    gap_min = getattr(_cfg, 'MIN_INTERVALO_POST_MIN', 40)
+
+    # Ao reagendar posts de uma conta LIMITADA, NÃO colapsar todos no mesmo
+    # instante. Bug relatado: o usuário agenda de 30 em 30 min, a conta fica
+    # limitada (cooldown/teto) e a fila inteira era jogada para o MESMO horário
+    # (rate_limited_until / livre_em) → "momentos muito próximos". Aqui cada post
+    # da mesma conta é espaçado por gap_min a partir da base, preservando uma fila
+    # legível e coerente com o anti-burst (nunca sai mais rápido que gap_min).
+    reagenda_cursor = {}
+
+    def _reagenda_espacado(post, base):
+        alvo = reagenda_cursor.get(post.account_id)
+        if alvo is None or alvo < base:
+            alvo = base
+        reagenda_cursor[post.account_id] = alvo + timedelta(minutes=gap_min)
+        if post.scheduled_for < alvo:
+            post.scheduled_for = alvo
+            post.save(update_fields=['scheduled_for'])
 
     despachadas = set()
     for post in due:
@@ -169,8 +187,6 @@ def process_scheduled_posts():
         # vez (segundos de diferença) o IG identifica como SPAM e DERRUBA a conta
         # (feedback real). Vale SEMPRE — inclusive com "Forçar". Forçar ignora só
         # o TETO DIÁRIO e o cooldown de rate-limit, NUNCA o espaçamento.
-        from django.conf import settings as _cfg2
-        gap_min = getattr(_cfg2, 'MIN_INTERVALO_POST_MIN', 40)
         # Post EM VOO (processing) conta como "acabou de postar": sem isto, o gap
         # baseado só em published_at furava (o post em voo ainda não publicou, e
         # a próxima rodada disparava outro → saíam com segundos de diferença).
@@ -182,14 +198,15 @@ def process_scheduled_posts():
                       .order_by('-published_at')
                       .values_list('published_at', flat=True).first())
         if ultimo_pub and (now - ultimo_pub) < timedelta(minutes=gap_min):
+            # Espaça a partir do próximo horário permitido (último post + gap) em
+            # vez de deixar vencido reprocessando a cada rodada.
+            _reagenda_espacado(post, ultimo_pub + timedelta(minutes=gap_min))
             continue
 
         # Conta em cooldown por rate limit: reagenda o post para o FIM do
-        # cooldown (em vez de deixar vencido, martelando a cada rodada).
+        # cooldown (espaçado, sem colapsar toda a fila no mesmo instante).
         if not forcado and conta.rate_limited_until and conta.rate_limited_until > now:
-            if post.scheduled_for < conta.rate_limited_until:
-                post.scheduled_for = conta.rate_limited_until
-                post.save(update_fields=['scheduled_for'])
+            _reagenda_espacado(post, conta.rate_limited_until)
             continue
 
         # Teto efetivo = menor entre o limite do usuário e a cota real da Meta.
@@ -200,13 +217,11 @@ def process_scheduled_posts():
                 account=conta, status='published', published_at__gte=janela_24h
             ).count()
             if publicados_24h >= limite:
-                # Reagenda para quando uma vaga da janela de 24h abrir — assim
-                # o horário do post fica HONESTO e ele não fica "vencido"
-                # reprocessando a cada minuto.
+                # Reagenda para quando uma vaga da janela de 24h abrir — espaçado,
+                # para o horário ficar HONESTO, não reprocessar a cada minuto e
+                # não colapsar toda a fila no mesmo instante.
                 quando = conta.livre_em() or (now + timedelta(hours=1))
-                if post.scheduled_for < quando:
-                    post.scheduled_for = quando
-                    post.save(update_fields=['scheduled_for'])
+                _reagenda_espacado(post, quando)
                 continue
 
         post.status = 'processing'
