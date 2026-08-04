@@ -51,3 +51,7 @@ create_*.py
 /login-novo.png
 /page-*.png
 /register-novo.png
+
+# Banco temporario das rodadas de teste locais (DATABASE_URL=sqlite:///tmp_test.db)
+tmp_test.db
+tmp_demo.db

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Pressels | SandraoFlow{% endblock %}
+{% block page_title %}Pressels{% endblock %}
+
+{% block top_actions %}
+<a href="{% url 'pressel:nova' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i> Nova pressel
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card p-4 mb-4">
+    <h6 class="text-white mb-1"><i class="bi bi-window-stack text-purple me-2"></i> Suas páginas</h6>
+    <p class="text-muted small mb-0">
+        Monte a página, veja a prévia ao vivo e baixe o <strong>HTML pronto</strong> — um arquivo só,
+        com as imagens já embutidas. É só arrastar no Netlify, Vercel ou qualquer hospedagem estática.
+    </p>
+</div>
+
+{% if pressels %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+    {% for p in pressels %}
+    <div class="col">
+        <div class="card p-3 h-100 d-flex flex-column">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div style="width:56px; height:56px; border-radius:12px; overflow:hidden; background:#05070f; flex-shrink:0;">
+                    {% if p.foto_perfil %}
+                    <img src="{{ p.foto_perfil.url }}" alt="" style="width:100%; height:100%; object-fit:cover;">
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100 text-muted"><i class="bi bi-image"></i></div>
+                    {% endif %}
+                </div>
+                <div class="min-w-0 flex-grow-1">
+                    <div class="text-white text-truncate fw-semibold">{{ p.nome }}</div>
+                    <div class="text-muted text-truncate" style="font-size:.72rem;">
+                        {{ p.nome_exibicao }} · {{ p.cards|length }} card(s)
+                    </div>
+                </div>
+            </div>
+            <div class="text-muted mb-3" style="font-size:.7rem;">
+                <i class="bi bi-clock-history"></i> atualizada {{ p.atualizado_em|timesince }} atrás
+            </div>
+            <div class="d-flex flex-wrap gap-1 mt-auto">
+                <a href="{% url 'pressel:editar' p.id %}" class="btn btn-sm btn-outline-primary py-0">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+                <a href="{% url 'pressel:baixar' p.id %}" class="btn btn-sm btn-outline-success py-0">
+                    <i class="bi bi-download"></i> Baixar HTML
+                </a>
+                <form method="post" action="{% url 'pressel:duplicar' p.id %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-files"></i></button>
+                </form>
+                <form method="post" action="{% url 'pressel:excluir' p.id %}"
+                      onsubmit="return confirm('Excluir a pressel &quot;{{ p.nome|escapejs }}&quot;?');">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card p-5 text-center">
+    <i class="bi bi-window-plus text-muted mb-3" style="font-size:2.5rem;"></i>
+    <p class="text-muted mb-3">Nenhuma pressel ainda.</p>
+    <div>
+        <a href="{% url 'pressel:nova' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Criar a primeira
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

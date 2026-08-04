@@ -1,0 +1,112 @@
+{% load pressel_extras %}<!DOCTYPE html>
+{% comment %}
+A PÁGINA DA PRESSEL — estrutura e CSS copiados do modelo aprovado, com os
+textos/cores/imagens trocados por variáveis. É o MESMO template usado para:
+  - a prévia dentro do painel (src = URL do MEDIA);
+  - o arquivo baixado (src = data URI, para o HTML ser um arquivo único).
+Quem decide qual é o `img` é a view/o exportador.
+{% endcomment %}
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ p.titulo_pagina }}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial, sans-serif;}
+body{background:#050505;color:white;overflow-x:hidden;min-height:100vh;}
+.bg{
+position:fixed;inset:0;
+{% if img.fundo %}background:url("{{ img.fundo }}") center center/cover no-repeat;{% endif %}
+filter:blur({{ p.desfoque_fundo }}px) brightness({{ p.brilho_fundo|virgula_ponto }});
+transform:scale(1.15);z-index:-2;}
+.overlay{position:fixed;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.25),rgba(0,0,0,.8));z-index:-1;}
+.container{width:90%;max-width:420px;margin:auto;padding:40px 0 60px;text-align:center;}
+.model{width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.2);box-shadow:0 0 40px rgba(255,0,120,.4);}
+.online{margin-top:18px;display:flex;align-items:center;justify-content:center;gap:8px;color:#d8ffd8;font-size:14px;}
+.dot{width:10px;height:10px;background:#00ff66;border-radius:50%;animation:pulse 1.2s infinite;}
+@keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.5);opacity:.4;}100%{transform:scale(1);}}
+h1{margin-top:18px;font-size:34px;}
+.desc{margin-top:14px;font-size:15px;color:#ddd;}
+.highlight{color:#ff4fa3;font-weight:bold;}
+.cta{margin-top:20px;display:flex;align-items:center;width:100%;padding:16px 18px;border-radius:16px;color:white;text-decoration:none;font-size:16px;font-weight:600;transition:.3s;border:none;gap:16px;}
+.cta:first-of-type{margin-top:28px;}
+.cta-icon{width:56px;height:56px;min-width:56px;background:rgba(255,255,255,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;font-size:28px;}
+.cta-icon img{width:42px;height:42px;object-fit:contain;}
+.cta-content{flex:1;text-align:left;}
+.cta-content .cta-title{display:block;font-size:16px;font-weight:700;margin-bottom:2px;}
+.cta-content .cta-subtitle{display:block;font-size:13px;color:rgba(255,255,255,0.7);font-weight:400;}
+.cta-1{background:linear-gradient(135deg,{{ p.btn1_cor_a }},{{ p.btn1_cor_b }});box-shadow:0 0 20px {{ p.btn1_cor_a|hex_rgba:'0.4' }};}
+.cta-1:hover{transform:translateX(4px);box-shadow:0 0 30px {{ p.btn1_cor_a|hex_rgba:'0.6' }};}
+.cta-2{background:linear-gradient(135deg,{{ p.btn2_cor_a }},{{ p.btn2_cor_b }});box-shadow:0 0 20px {{ p.btn2_cor_a|hex_rgba:'0.3' }};}
+.cta-2:hover{transform:translateX(4px);box-shadow:0 0 30px {{ p.btn2_cor_a|hex_rgba:'0.5' }};}
+.content-preview{margin-top:42px;text-align:left;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.card{position:relative;overflow:hidden;border-radius:18px;height:160px;background:#111;border:1px solid rgba(255,255,255,.08);}
+.blur-img{width:100%;height:100%;object-fit:cover;filter:blur({{ p.desfoque_cards }}px) brightness(0.90);transform:scale(1.1);transition:.4s;}
+.card:hover .blur-img{filter:blur({{ p.desfoque_cards_hover }}px) brightness(0.90);}
+.blur{position:absolute;left:0;right:0;bottom:0;height:48px;background:linear-gradient(to top,rgba(0,0,0,.82),rgba(0,0,0,0));}
+.card span{position:absolute;left:12px;right:12px;bottom:12px;font-size:13px;font-weight:bold;}
+.bottom-text{margin-top:30px;color:#8d8d8d;font-size:12px;}
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="overlay"></div>
+
+<div class="container">
+
+{% if img.perfil %}<img src="{{ img.perfil }}" class="model" alt="">{% endif %}
+
+{% if p.mostrar_online %}
+<div class="online">
+<div class="dot"></div>
+<span>{{ p.texto_online }}</span>
+</div>
+{% endif %}
+
+<h1>{{ p.nome_exibicao }}</h1>
+
+<div class="desc">{{ p.descricao_html }}</div>
+
+{% if p.btn1_ativo %}
+<a class="cta cta-1" href="{{ p.btn1_link|default:'#' }}" target="_blank" rel="noopener nofollow">
+    <div class="cta-icon">{% if img.btn1 %}<img src="{{ img.btn1 }}" alt="">{% else %}✈️{% endif %}</div>
+    <div class="cta-content">
+        <span class="cta-title">{{ p.btn1_titulo }}</span>
+        <span class="cta-subtitle">{{ p.btn1_subtitulo }}</span>
+    </div>
+</a>
+{% endif %}
+
+{% if p.btn2_ativo %}
+<a class="cta cta-2" href="{{ p.btn2_link|default:'#' }}" target="_blank" rel="noopener nofollow">
+    <div class="cta-icon">{% if img.btn2 %}<img src="{{ img.btn2 }}" alt="">{% else %}🔥{% endif %}</div>
+    <div class="cta-content">
+        <span class="cta-title">{{ p.btn2_titulo }}</span>
+        <span class="cta-subtitle">{{ p.btn2_subtitulo }}</span>
+    </div>
+</a>
+{% endif %}
+
+{% if cards %}
+<div class="content-preview">
+<h2>{{ p.titulo_cards }}</h2>
+<div class="grid">
+{% for c in cards %}
+<div class="card">
+    {% if c.src %}<img src="{{ c.src }}" class="blur-img" alt="">{% endif %}
+    <div class="blur"></div>
+    <span>{{ c.texto }}</span>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
+
+{% if p.rodape %}<div class="bottom-text">{{ p.rodape }}</div>{% endif %}
+
+</div>
+
+</body>
+</html>

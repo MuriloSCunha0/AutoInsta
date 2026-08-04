@@ -26,6 +26,7 @@ urlpatterns = [
     path("instagram/", include("apps.instagram.urls", namespace="instagram")),
     path("publisher/", include("apps.publisher.urls", namespace="publisher")),
     path("library/", include("apps.library.urls", namespace="library")),
+    path("pressel/", include("apps.pressel.urls", namespace="pressel")),
     path("analytics/", include("apps.analytics.urls", namespace="analytics")),
     path("notifications/", include("apps.notifications.urls", namespace="notifications")),
     path("management/", include("apps.management.urls", namespace="management")),

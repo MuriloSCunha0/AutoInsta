@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.instagram.apps.InstagramConfig",
     "apps.publisher.apps.PublisherConfig",
     "apps.library.apps.LibraryConfig",
+    "apps.pressel.apps.PresselConfig",
     "apps.analytics.apps.AnalyticsConfig",
     "apps.notifications.apps.NotificationsConfig",
     "apps.management.apps.ManagementConfig",

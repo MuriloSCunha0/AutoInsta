@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}{{ p.nome }} | Pressel{% endblock %}
+{% block page_title %}Editar pressel{% endblock %}
+
+{% block top_actions %}
+<a href="{% url 'pressel:baixar' p.id %}" class="btn btn-success">
+    <i class="bi bi-download me-1"></i> Baixar HTML
+</a>
+<a href="{% url 'pressel:lista' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Voltar
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .pressel-cols { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .pressel-cols { grid-template-columns: 1fr; } }
+  .previa-wrap { position: sticky; top: 16px; }
+  .previa-frame {
+      width: 100%; height: 700px; border: 1px solid var(--border-subtle);
+      border-radius: 14px; background: #050505;
+  }
+  .bloco { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .bloco > h6 { font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; }
+  .campo { margin-bottom: 10px; }
+  .campo label { font-size: .72rem; color: var(--text-muted); display: block; margin-bottom: 3px; }
+  .campo .helptext, .campo .form-text { font-size: .66rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" id="pressel-form">
+{% csrf_token %}
+<div class="pressel-cols">
+
+  {# ── Coluna esquerda: os campos ───────────────────────────────────── #}
+  <div>
+    {% if form.errors %}
+    <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger small">
+      <i class="bi bi-exclamation-triangle me-1"></i> Confira os campos: {{ form.errors }}
+    </div>
+    {% endif %}
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-tag text-purple me-1"></i> Identificação</h6>
+      <div class="campo">{{ form.nome.label_tag }}{{ form.nome }}<div class="helptext">{{ form.nome.help_text }}</div></div>
+      <div class="campo">{{ form.titulo_pagina.label_tag }}{{ form.titulo_pagina }}<div class="helptext">{{ form.titulo_pagina.help_text }}</div></div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-image text-purple me-1"></i> Fundo</h6>
+      <div class="campo">{{ form.imagem_fundo.label_tag }}{{ form.imagem_fundo }}
+        <div class="helptext">Se ficar vazio, usamos a foto de perfil como fundo (igual ao modelo).</div>
+      </div>
+      <div class="d-flex gap-2">
+        <div class="campo flex-grow-1">{{ form.desfoque_fundo.label_tag }}{{ form.desfoque_fundo }}
+          <div class="helptext">{{ form.desfoque_fundo.help_text }}</div></div>
+        <div class="campo flex-grow-1">{{ form.brilho_fundo.label_tag }}{{ form.brilho_fundo }}
+          <div class="helptext">{{ form.brilho_fundo.help_text }}</div></div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-person-circle text-purple me-1"></i> Topo</h6>
+      <div class="campo">{{ form.foto_perfil.label_tag }}{{ form.foto_perfil }}</div>
+      <div class="campo">{{ form.nome_exibicao.label_tag }}{{ form.nome_exibicao }}</div>
+      <div class="campo">{{ form.descricao.label_tag }}{{ form.descricao }}
+        <div class="helptext">{{ form.descricao.help_text }}</div></div>
+      <div class="form-check form-switch">
+        {{ form.mostrar_online }}
+        <label class="form-check-label small text-white" for="{{ form.mostrar_online.id_for_label }}">Mostrar "online agora"</label>
+      </div>
+      <div class="campo mt-2">{{ form.texto_online.label_tag }}{{ form.texto_online }}</div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-hand-index-thumb text-purple me-1"></i> Botão 1</h6>
+      <div class="form-check form-switch mb-2">
+        {{ form.btn1_ativo }}
+        <label class="form-check-label small text-white" for="{{ form.btn1_ativo.id_for_label }}">Mostrar este botão</label>
+      </div>
+      <div class="campo">{{ form.btn1_titulo.label_tag }}{{ form.btn1_titulo }}</div>
+      <div class="campo">{{ form.btn1_subtitulo.label_tag }}{{ form.btn1_subtitulo }}</div>
+      <div class="campo">{{ form.btn1_link.label_tag }}{{ form.btn1_link }}</div>
+      <div class="campo">{{ form.btn1_icone.label_tag }}{{ form.btn1_icone }}</div>
+      <div class="d-flex gap-2">
+        <div class="campo">{{ form.btn1_cor_a.label_tag }}{{ form.btn1_cor_a }}</div>
+        <div class="campo">{{ form.btn1_cor_b.label_tag }}{{ form.btn1_cor_b }}</div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-hand-index-thumb text-purple me-1"></i> Botão 2</h6>
+      <div class="form-check form-switch mb-2">
+        {{ form.btn2_ativo }}
+        <label class="form-check-label small text-white" for="{{ form.btn2_ativo.id_for_label }}">Mostrar este botão</label>
+      </div>
+      <div class="campo">{{ form.btn2_titulo.label_tag }}{{ form.btn2_titulo }}</div>
+      <div class="campo">{{ form.btn2_subtitulo.label_tag }}{{ form.btn2_subtitulo }}</div>
+      <div class="campo">{{ form.btn2_link.label_tag }}{{ form.btn2_link }}</div>
+      <div class="campo">{{ form.btn2_icone.label_tag }}{{ form.btn2_icone }}</div>
+      <div class="d-flex gap-2">
+        <div class="campo">{{ form.btn2_cor_a.label_tag }}{{ form.btn2_cor_a }}</div>
+        <div class="campo">{{ form.btn2_cor_b.label_tag }}{{ form.btn2_cor_b }}</div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-grid text-purple me-1"></i> Grade de conteúdos</h6>
+      <div class="campo">{{ form.titulo_cards.label_tag }}{{ form.titulo_cards }}</div>
+      <div class="d-flex gap-2">
+        <div class="campo flex-grow-1">{{ form.desfoque_cards.label_tag }}{{ form.desfoque_cards }}
+          <div class="helptext">{{ form.desfoque_cards.help_text }}</div></div>
+        <div class="campo flex-grow-1">{{ form.desfoque_cards_hover.label_tag }}{{ form.desfoque_cards_hover }}
+          <div class="helptext">{{ form.desfoque_cards_hover.help_text }}</div></div>
+      </div>
+      {% for campo_img, campo_txt in cards_form %}
+      <div class="d-flex gap-2 align-items-end border-top border-subtle pt-2 mt-2">
+        <div class="campo flex-grow-1 mb-0">{{ campo_img.label_tag }}{{ campo_img }}</div>
+        <div class="campo flex-grow-1 mb-0">{{ campo_txt.label_tag }}{{ campo_txt }}</div>
+      </div>
+      {% endfor %}
+      <div class="helptext mt-2">Card sem imagem e sem texto não aparece na página.</div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-card-text text-purple me-1"></i> Rodapé</h6>
+      <div class="campo mb-0">{{ form.rodape.label_tag }}{{ form.rodape }}</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">
+      <i class="bi bi-check2 me-1"></i> Salvar e atualizar prévia
+    </button>
+  </div>
+
+  {# ── Coluna direita: prévia ao vivo ───────────────────────────────── #}
+  <div class="previa-wrap">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="text-white mb-0"><i class="bi bi-phone text-purple me-1"></i> Prévia</h6>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="recarregar-previa">
+          <i class="bi bi-arrow-clockwise"></i> Recarregar
+        </button>
+      </div>
+      <iframe id="previa" class="previa-frame" src="{% url 'pressel:previa' p.id %}" title="Prévia da pressel"></iframe>
+      <div class="text-muted mt-2" style="font-size:.68rem;">
+        <i class="bi bi-info-circle"></i> A prévia mostra o que foi <strong>salvo</strong>.
+        Clique em Salvar para ver as mudanças.
+      </div>
+      <a href="{% url 'pressel:baixar' p.id %}" class="btn btn-success btn-sm mt-3">
+        <i class="bi bi-download me-1"></i> Baixar HTML pronto
+      </a>
+      <div class="text-muted mt-2" style="font-size:.68rem;">
+        Arquivo único, com as imagens embutidas — funciona sozinho em qualquer hospedagem.
+      </div>
+    </div>
+  </div>
+
+</div>
+</form>
+
+<script>
+document.getElementById('recarregar-previa').addEventListener('click', function () {
+    var f = document.getElementById('previa');
+    // ?t= evita o cache do iframe depois de salvar.
+    f.src = f.src.split('?')[0] + '?t=' + Date.now();
+});
+</script>
+{% endblock %}
