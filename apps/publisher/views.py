@@ -648,9 +648,12 @@ def _composer_submit(request):
         start = timezone.now()
 
     try:
-        interval_minutes = max(int(request.POST.get('interval_minutes', 5)), 0)
+        interval_minutes = int(request.POST.get('interval_minutes') or 0)
     except (TypeError, ValueError):
-        interval_minutes = 5
+        interval_minutes = 0
+    # Sem intervalo configurado → 30 min por padrão (cada conta posta de 30 em 30).
+    if interval_minutes <= 0:
+        interval_minutes = 30
     interval = timedelta(minutes=interval_minutes)
 
     # ── Coleta de mídias: uploads + biblioteca (vídeo OU imagem) ─
@@ -737,26 +740,20 @@ def _composer_submit(request):
         usados_no_dia[(conta.id, timezone.localtime(quando).date())] += 1
         return quando, adiado
 
-    # ── Criação dos jobs (cada conta posta 1 item por intervalo) ─
+    # ── Criação dos jobs — modelo em CICLOS ──────────────────────
+    # TODAS as contas postam JUNTAS a cada ciclo: o ciclo i sai em
+    # base_comum + i*intervalo para TODAS as contas selecionadas. Contas
+    # DIFERENTES no mesmo horário é o esperado (é o "ciclo"); a MESMA conta nunca
+    # posta 2 vídeos no mesmo momento, porque seus vídeos ficam 1 ciclo (=1
+    # intervalo) apart. Sem escalonamento entre contas.
     created = 0
     skipped = 0
     adiados = 0
     por_conta = []  # [(username, quantos)] para o resumo da campanha
-    n_contas = max(len(account_ids), 1)
-    # Escalonamento ENTRE contas: espalha cada conta DENTRO do intervalo para que
-    # não publiquem todas no MESMO instante. Antes, media[i] de TODAS as contas
-    # caía no mesmo horário (fila "na mesma hora" + mini-burst). Agora cada conta
-    # ganha um deslocamento próprio.
-    if interval and interval.total_seconds() > 0:
-        gap_conta = interval / n_contas
-    else:
-        gap_conta = timedelta(seconds=90)   # sem intervalo: 90s entre contas
 
-    # NÃO sobrepor lotes na MESMA conta: se a conta já tem fila agendada, a nova
-    # campanha continua DEPOIS do último item dela (+intervalo). Sem isto, rodar
-    # o composer/campanhas várias vezes empilhava posts da mesma conta com poucos
-    # minutos de diferença (bug: agendado 30/30 min mas saía 8 em 8) porque todo
-    # lote começava "agora".
+    # NÃO sobrepor lotes: se alguma conta já tem fila, o novo ciclo começa DEPOIS
+    # do último post já agendado (+intervalo) — assim ninguém posta 2x no mesmo
+    # instante e as contas seguem em sincronia (ciclos alinhados).
     from django.db.models import Max as _Max
     ultimo_por_conta = {
         r['account_id']: r['m']
@@ -765,18 +762,16 @@ def _composer_submit(request):
             status__in=('queued', 'processing', 'draft')
         ).values('account_id').annotate(m=_Max('scheduled_for'))
     }
+    base_comum = start
+    if interval and interval.total_seconds() > 0 and ultimo_por_conta:
+        ultimo_geral = max(ultimo_por_conta.values())
+        if ultimo_geral + interval > base_comum:
+            base_comum = ultimo_geral + interval
 
-    for pos_conta, account_id in enumerate(account_ids):
+    for account_id in account_ids:
         account = InstagramAccount.objects.filter(id=account_id, owner=user).first()
         if not account:
             continue
-        offset_conta = gap_conta * pos_conta
-        # Base desta conta: começa em (agora + offset) OU logo após o que ela já
-        # tem agendado (+intervalo), o que for MAIS TARDE — nunca sobrepõe.
-        base_conta = start + offset_conta
-        ja = ultimo_por_conta.get(account_id)
-        if ja and interval and interval.total_seconds() > 0 and (ja + interval) > base_conta:
-            base_conta = ja + interval
 
         # Cada conta ganha (ou reaproveita) a fila com esse nome.
         fila = None
@@ -786,7 +781,7 @@ def _composer_submit(request):
 
         criados_conta = 0
         for i, vname in enumerate(queue_per_account):
-            when_dt = base_conta + i * interval
+            when_dt = base_comum + i * interval
             when_dt, foi_adiado = encaixar_no_limite(when_dt, account)
             if foi_adiado:
                 adiados += 1
