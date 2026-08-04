@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}Gerador de CTA | SandraoFlow{% endblock %}
+{% block page_title %}Gerador de CTA{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cta-cols { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .cta-cols { grid-template-columns: 1fr; } }
+  .bloco { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .campo { margin-bottom: 10px; }
+  .campo label { font-size: .72rem; color: var(--text-muted); display: block; margin-bottom: 3px; }
+  .pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 210px; overflow-y: auto; }
+  .pick-grid label { cursor: pointer; }
+  .pick-grid img { width: 100%; aspect-ratio: 9/16; object-fit: cover; border-radius: 8px;
+                   border: 2px solid transparent; display: block; }
+  .pick-grid input { display: none; }
+  .pick-grid input:checked + img { border-color: var(--bs-purple, #7c3aed); }
+  .arte-final { width: 100%; border-radius: 14px; border: 1px solid var(--border-subtle); display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card p-4 mb-4">
+    <h6 class="text-white mb-1"><i class="bi bi-magic text-purple me-2"></i> Arte de chamada para o story</h6>
+    <p class="text-muted small mb-0">
+        Monta uma imagem <strong>9:16</strong> com o adesivo desenhado por cima da sua foto.
+        Como o adesivo fica <em>na imagem</em>, funciona em <strong>qualquer conta</strong> —
+        inclusive as que publicam só pela API oficial, que não aceita figurinha nativa.
+        A arte é salva na Biblioteca e já pode ser postada.
+    </p>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+{% csrf_token %}
+<div class="cta-cols">
+
+  <div>
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-image text-purple me-1"></i> Imagem de fundo</h6>
+      <div class="campo">
+        <label>Enviar uma foto</label>
+        <input type="file" name="imagem" accept="image/*"
+               class="form-control form-control-sm text-white border-subtle" style="background: var(--bg-input);">
+      </div>
+      {% if imagens %}
+      <div class="campo">
+        <label>Ou escolher da biblioteca</label>
+        <div class="pick-grid">
+          {% for a in imagens %}
+          <label>
+            <input type="radio" name="imagem_biblioteca" value="{{ a.id }}">
+            <img src="{{ a.file.url }}" alt="{{ a.original_name }}">
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="campo mb-0">
+        <label>Escurecer o fundo: <span id="v-escurecer">25</span>%
+          <span class="text-muted">(ajuda o texto a ler)</span></label>
+        <input type="range" name="escurecer" min="0" max="0.85" step="0.05" value="0.25"
+               class="form-range" oninput="document.getElementById('v-escurecer').textContent=Math.round(this.value*100)">
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-type text-purple me-1"></i> Texto de cima</h6>
+      <div class="campo">
+        <label>Chamada (deixe vazio para não ter texto)</label>
+        <textarea name="titulo" rows="2" maxlength="200"
+                  class="form-control form-control-sm text-white border-subtle"
+                  style="background: var(--bg-input);"
+                  placeholder="Ex: Liberei o conteúdo de hoje"></textarea>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <div class="campo">
+          <label>Cor</label>
+          <input type="color" name="titulo_cor" value="#ffffff" class="form-control form-control-color" style="height:34px;">
+        </div>
+        <div class="campo flex-grow-1">
+          <label>Tamanho: <span id="v-tam">72</span>px</label>
+          <input type="range" name="titulo_tamanho" min="24" max="160" value="72" class="form-range"
+                 oninput="document.getElementById('v-tam').textContent=this.value">
+        </div>
+        <div class="campo flex-grow-1">
+          <label>Altura na tela: <span id="v-ty">16</span>%</label>
+          <input type="range" name="titulo_y" min="0.02" max="0.95" step="0.01" value="0.16" class="form-range"
+                 oninput="document.getElementById('v-ty').textContent=Math.round(this.value*100)">
+        </div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-sticky text-purple me-1"></i> Adesivo</h6>
+      <div class="campo">
+        <label>Tipo</label>
+        <select name="tipo" id="cta-tipo" class="form-select form-select-sm text-white border-subtle"
+                style="background: var(--bg-input);">
+          {% for valor, rotulo in tipos %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label id="lbl-sticker">Texto do adesivo</label>
+        <input type="text" name="sticker_texto" maxlength="80"
+               class="form-control form-control-sm text-white border-subtle"
+               style="background: var(--bg-input);" placeholder="CLIQUE AQUI">
+      </div>
+      <div class="d-flex gap-2" id="campos-opcoes" style="display:none !important;">
+        <div class="campo flex-grow-1">
+          <label id="lbl-a">Opção 1</label>
+          <input type="text" name="opcao_a" maxlength="40"
+                 class="form-control form-control-sm text-white border-subtle"
+                 style="background: var(--bg-input);" placeholder="SIM">
+        </div>
+        <div class="campo flex-grow-1" id="campo-b">
+          <label>Opção 2</label>
+          <input type="text" name="opcao_b" maxlength="40"
+                 class="form-control form-control-sm text-white border-subtle"
+                 style="background: var(--bg-input);" placeholder="CLARO">
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <div class="campo flex-grow-1">
+          <label>Altura na tela: <span id="v-sy">62</span>%</label>
+          <input type="range" name="sticker_y" min="0.02" max="0.95" step="0.01" value="0.62" class="form-range"
+                 oninput="document.getElementById('v-sy').textContent=Math.round(this.value*100)">
+        </div>
+        <div class="campo flex-grow-1">
+          <label>Tamanho: <span id="v-se">100</span>%</label>
+          <input type="range" name="sticker_escala" min="0.4" max="2" step="0.05" value="1" class="form-range"
+                 oninput="document.getElementById('v-se').textContent=Math.round(this.value*100)">
+        </div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <h6 class="text-muted mb-3"><i class="bi bi-folder text-purple me-1"></i> Onde salvar</h6>
+      <div class="d-flex gap-2">
+        <div class="campo flex-grow-1">
+          <label>Nome do arquivo</label>
+          <input type="text" name="nome" maxlength="80" value="cta"
+                 class="form-control form-control-sm text-white border-subtle" style="background: var(--bg-input);">
+        </div>
+        <div class="campo flex-grow-1">
+          <label>Pasta da biblioteca</label>
+          <select name="pasta" class="form-select form-select-sm text-white border-subtle" style="background: var(--bg-input);">
+            <option value="">— Sem pasta —</option>
+            {% for f in folders %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">
+      <i class="bi bi-magic me-1"></i> Gerar arte
+    </button>
+  </div>
+
+  <div>
+    <div class="card p-3">
+      <h6 class="text-white mb-2"><i class="bi bi-phone text-purple me-1"></i> Resultado</h6>
+      {% if gerada %}
+      <img src="{{ gerada.file.url }}" class="arte-final" alt="Arte gerada">
+      <div class="d-flex gap-1 mt-2">
+        <a href="{{ gerada.file.url }}" download class="btn btn-sm btn-outline-success py-0 flex-grow-1">
+          <i class="bi bi-download"></i> Baixar
+        </a>
+        <a href="{% url 'publisher:composer' %}" class="btn btn-sm btn-outline-primary py-0 flex-grow-1">
+          <i class="bi bi-send"></i> Postar
+        </a>
+      </div>
+      <div class="text-muted mt-2" style="font-size:.68rem;">
+        Já está na Biblioteca — é só escolher no Composer.
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-image" style="font-size:2.2rem; opacity:.4;"></i>
+        <div class="small mt-2">A arte aparece aqui depois de gerar.</div>
+      </div>
+      {% endif %}
+      <div class="alert alert-secondary bg-secondary bg-opacity-10 border-0 text-muted small mt-3 mb-0" style="font-size:.68rem; line-height:1.5;">
+        <i class="bi bi-info-circle me-1"></i>
+        O adesivo é <strong>desenhado na imagem</strong>: chama atenção, mas não é clicável.
+        Para o link funcionar de verdade, use o <strong>story-link</strong> na aba Stories
+        (exige conta conectada por sessão).
+      </div>
+    </div>
+  </div>
+
+</div>
+</form>
+
+<script>
+// Cada tipo de adesivo usa campos diferentes — mostra só o que faz sentido.
+(function () {
+    var tipo = document.getElementById('cta-tipo');
+    var opcoes = document.getElementById('campos-opcoes');
+    var campoB = document.getElementById('campo-b');
+    var lblSticker = document.getElementById('lbl-sticker');
+    var lblA = document.getElementById('lbl-a');
+    var inSticker = document.querySelector('[name=sticker_texto]');
+
+    var CFG = {
+        link:     {opcoes: false, sticker: 'Texto do botão',     ph: 'CLIQUE AQUI'},
+        enquete:  {opcoes: true,  b: true,  sticker: 'Pergunta', ph: 'Você quer ver?', a: 'Opção 1'},
+        pergunta: {opcoes: true,  b: false, sticker: 'Pergunta', ph: 'Me pergunta o que quiser', a: 'Texto do campo'},
+        contagem: {opcoes: true,  b: false, sticker: 'Título',   ph: 'ACABA EM', a: 'Tempo (ex: 00:30:00)'},
+        nenhum:   {opcoes: false, sticker: '(sem adesivo)',      ph: ''}
+    };
+
+    function aplicar() {
+        var c = CFG[tipo.value] || CFG.link;
+        opcoes.style.setProperty('display', c.opcoes ? 'flex' : 'none', 'important');
+        if (campoB) campoB.style.display = c.b ? '' : 'none';
+        lblSticker.textContent = c.sticker;
+        if (lblA && c.a) lblA.textContent = c.a;
+        if (inSticker) inSticker.placeholder = c.ph;
+        if (inSticker) inSticker.disabled = (tipo.value === 'nenhum');
+    }
+    tipo.addEventListener('change', aplicar);
+    aplicar();
+})();
+</script>
+{% endblock %}

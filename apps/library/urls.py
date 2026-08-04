@@ -18,6 +18,8 @@ urlpatterns = [
     path('media/upload/', views.upload_media, name='upload_media'),
     path('media/bulk/', views.bulk_media, name='bulk_media'),
     path('media/delete/<int:asset_id>/', views.delete_media, name='delete_media'),
+    # Gerador de CTA (arte 9:16 com adesivo estilo Instagram)
+    path('cta/', views.cta_generator, name='cta'),
     # Downloader de perfil
     path('downloader/', views.downloader, name='downloader'),
     path('downloader/start/', views.start_download, name='start_download'),

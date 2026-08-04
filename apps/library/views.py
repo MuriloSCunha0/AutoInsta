@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.conf import settings
 from .models import CaptionSet, Caption, Audio, MediaFolder, MediaAsset, ProfileDownload
@@ -325,3 +326,129 @@ def delete_download(request, job_id):
         job.zip_file.delete(save=False)
     job.delete()
     return redirect('library:downloader')
+
+
+# =============================================================================
+# Gerador de CTA — arte 9:16 com adesivo no estilo do Instagram
+# =============================================================================
+# Por que existe: para levar tráfego ao link, o story precisa de chamada visual.
+# O adesivo NATIVO só existe quando a conta publica pela engine (sessão); pela
+# API oficial não dá para anexar figurinha. Aqui a chamada é desenhada NA
+# imagem, então funciona em qualquer conta — inclusive as só-token.
+#
+# A arte gerada entra na Biblioteca como imagem, então já pode ser postada como
+# story/feed pelo Composer sem passo intermediário.
+
+@login_required
+def cta_generator(request):
+    """Tela do gerador. O POST gera a arte e guarda na biblioteca."""
+    import os
+    import tempfile
+
+    from engine.cta_render import TIPOS
+
+    ultima = None
+    if request.method == 'POST':
+        ultima = _gerar_cta(request)
+        if ultima:
+            return redirect(f"{reverse('library:cta')}?ok={ultima.id}")
+
+    ok_id = request.GET.get('ok')
+    gerada = MediaAsset.objects.filter(id=ok_id, owner=request.user).first() if ok_id else None
+
+    return render(request, 'library/cta.html', {
+        'tipos': TIPOS,
+        'gerada': gerada,
+        'folders': MediaFolder.objects.filter(owner=request.user),
+        # Só imagens: a arte é montada sobre uma foto.
+        'imagens': MediaAsset.objects.filter(owner=request.user, kind='image')
+                                     .order_by('-created_at')[:60],
+    })
+
+
+def _num(request, campo, padrao, minimo, maximo):
+    try:
+        v = float(request.POST.get(campo, padrao))
+    except (TypeError, ValueError):
+        v = padrao
+    return max(minimo, min(v, maximo))
+
+
+def _gerar_cta(request):
+    """Monta a arte e devolve o MediaAsset criado (ou None se falhar)."""
+    import os
+    import tempfile
+
+    from django.core.files.base import ContentFile
+
+    from apps.core_utils import garantir_midia_local
+    from engine.cta_render import gerar_cta
+
+    # A imagem de fundo vem de um upload novo OU de uma imagem da biblioteca.
+    base_local, base_temp = None, False
+    enviada = request.FILES.get('imagem')
+    escolhida_id = (request.POST.get('imagem_biblioteca') or '').strip()
+
+    try:
+        if enviada:
+            fd, base_local = tempfile.mkstemp(
+                suffix=os.path.splitext(enviada.name)[1] or '.jpg')
+            with os.fdopen(fd, 'wb') as fh:
+                for chunk in enviada.chunks():
+                    fh.write(chunk)
+            base_temp = True
+        elif escolhida_id:
+            asset = MediaAsset.objects.filter(
+                id=escolhida_id, owner=request.user, kind='image').first()
+            if asset:
+                base_local, base_temp = garantir_midia_local(asset.file)
+
+        destino_dir = os.path.join(settings.MEDIA_ROOT, 'cta')
+        fd, destino = tempfile.mkstemp(suffix='.jpg', dir=_criar_dir(destino_dir))
+        os.close(fd)
+
+        gerar_cta(
+            base_local,
+            tipo=(request.POST.get('tipo') or 'link').strip(),
+            titulo=(request.POST.get('titulo') or '').strip()[:200],
+            titulo_cor=(request.POST.get('titulo_cor') or '#ffffff').strip()[:9],
+            titulo_tamanho=int(_num(request, 'titulo_tamanho', 72, 24, 160)),
+            titulo_y=_num(request, 'titulo_y', 0.16, 0.02, 0.95),
+            sticker_texto=(request.POST.get('sticker_texto') or '').strip()[:80],
+            opcao_a=(request.POST.get('opcao_a') or '').strip()[:40],
+            opcao_b=(request.POST.get('opcao_b') or '').strip()[:40],
+            sticker_y=_num(request, 'sticker_y', 0.62, 0.02, 0.95),
+            sticker_escala=_num(request, 'sticker_escala', 1.0, 0.4, 2.0),
+            escurecer=_num(request, 'escurecer', 0.25, 0.0, 0.85),
+            destino=destino,
+        )
+
+        nome = (request.POST.get('nome') or 'cta').strip()[:80] or 'cta'
+        with open(destino, 'rb') as fh:
+            conteudo = fh.read()
+        asset = MediaAsset(owner=request.user, kind='image',
+                           original_name=f'{nome}.jpg',
+                           size_bytes=len(conteudo))
+        pasta_id = (request.POST.get('pasta') or '').strip()
+        if pasta_id:
+            asset.folder = MediaFolder.objects.filter(
+                id=pasta_id, owner=request.user).first()
+        asset.file.save(f'{nome}.jpg', ContentFile(conteudo), save=True)
+        messages.success(request, 'Arte gerada e salva na Biblioteca.')
+        return asset
+    except Exception as e:
+        messages.error(request, f'Não consegui gerar a arte: {e}')
+        return None
+    finally:
+        for tmp in ((base_local if base_temp else None),):
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+
+
+def _criar_dir(caminho):
+    import os
+    os.makedirs(caminho, exist_ok=True)
+    return caminho

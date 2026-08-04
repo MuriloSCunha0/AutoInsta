@@ -93,6 +93,9 @@
                 <a href="{% url 'library:downloader' %}" class="{% if request.resolver_match.url_name == 'downloader' %}active{% endif %}">
                     <i class="bi bi-cloud-arrow-down-fill"></i> <span class="nav-text">Downloader</span>
                 </a>
+                <a href="{% url 'library:cta' %}" class="{% if request.resolver_match.url_name == 'cta' %}active{% endif %}">
+                    <i class="bi bi-magic"></i> <span class="nav-text">Gerador de CTA</span>
+                </a>
                 <a href="{% url 'pressel:lista' %}" class="{% if request.resolver_match.namespace == 'pressel' %}active{% endif %}">
                     <i class="bi bi-window-stack"></i> <span class="nav-text">Pressels</span>
                 </a>
