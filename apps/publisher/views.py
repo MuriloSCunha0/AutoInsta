@@ -156,6 +156,20 @@ def queue_list(request):
             ciclos[-1]['posts'].append(p)
             ciclos[-1]['ultimo'] = p.scheduled_for
 
+    # Resumo por ciclo: nº de contas, status (na fila x publicado x falhou) e
+    # uma prévia das contas — pra ver o essencial SEM expandir o ciclo.
+    for dia in grupos_dia:
+        for ciclo in dia['ciclos']:
+            ps = ciclo['posts']
+            ciclo['n'] = len(ps)
+            ciclo['n_pub'] = sum(1 for p in ps if p.status == 'published')
+            ciclo['n_fail'] = sum(1 for p in ps if p.status == 'failed')
+            ciclo['n_fila'] = sum(1 for p in ps if p.status in ('queued', 'processing', 'draft'))
+            ciclo['tipo'] = ps[0].get_post_type_display() if ps else ''
+            ciclo['legenda'] = (ps[0].caption or '') if ps else ''
+            ciclo['contas_preview'] = [p.account.ig_username for p in ps[:3]]
+            ciclo['contas_resto'] = max(0, len(ps) - 3)
+
     contagens = {
         r['status']: r['n']
         for r in ScheduledPost.objects.filter(owner=request.user)

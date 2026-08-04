@@ -239,15 +239,28 @@
                         <td class="border-0 ps-4">
                             <input type="checkbox" class="form-check-input ciclo-check" data-target="ciclo-{{ ciclo.id }}" title="Selecionar o ciclo inteiro">
                         </td>
-                        <td colspan="5" class="border-0">
-                            <i class="bi bi-chevron-right chev me-1"></i>
-                            <i class="bi bi-arrow-repeat text-purple me-1"></i>
-                            <strong class="text-white">{{ ciclo.inicio|date:"H:i" }}</strong>
-                            <span class="badge rounded-pill bg-info bg-opacity-25 text-info ms-2">{{ ciclo.posts|length }} conta{{ ciclo.posts|length|pluralize }}</span>
-                            <span class="text-muted small ms-2">{{ ciclo.posts.0.get_post_type_display }}</span>
-                            <span class="text-secondary small ms-2 d-none d-md-inline text-truncate align-bottom" style="max-width:260px;">{{ ciclo.posts.0.caption|default:"Sem legenda" }}</span>
+                        <td colspan="5" class="border-0 py-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <i class="bi bi-chevron-right chev"></i>
+                                <i class="bi bi-clock-fill text-purple"></i>
+                                <strong class="text-white" style="font-size:.95rem;">{{ ciclo.inicio|date:"H:i" }}</strong>
+                                <span class="badge rounded-pill bg-info bg-opacity-25 text-info"><i class="bi bi-people-fill me-1"></i>{{ ciclo.n }}</span>
+                                <span class="badge rounded-pill bg-secondary bg-opacity-25 text-secondary">{{ ciclo.tipo }}</span>
+                                {% if ciclo.n_pub == ciclo.n %}
+                                <span class="badge rounded-pill bg-success bg-opacity-25 text-success"><i class="bi bi-check-circle me-1"></i>publicado</span>
+                                {% elif ciclo.n_pub %}
+                                <span class="badge rounded-pill bg-success bg-opacity-25 text-success">{{ ciclo.n_pub }}/{{ ciclo.n }} publicado</span>
+                                {% else %}
+                                <span class="badge rounded-pill bg-warning bg-opacity-25 text-warning"><i class="bi bi-hourglass-split me-1"></i>na fila</span>
+                                {% endif %}
+                                {% if ciclo.n_fail %}<span class="badge rounded-pill bg-danger bg-opacity-25 text-danger">{{ ciclo.n_fail }} falhou</span>{% endif %}
+                            </div>
+                            <div class="text-muted mt-1 text-truncate" style="font-size:.72rem; max-width:640px;">
+                                <i class="bi bi-person me-1"></i>{% for u in ciclo.contas_preview %}@{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if ciclo.contas_resto %} +{{ ciclo.contas_resto }}{% endif %}
+                                {% if ciclo.legenda %}<span class="mx-1">·</span><i class="bi bi-chat-quote me-1"></i>{{ ciclo.legenda|truncatechars:60 }}{% else %}<span class="mx-1">·</span><span class="fst-italic">sem legenda</span>{% endif %}
+                            </div>
                         </td>
-                        <td class="text-end border-0 pe-4">
+                        <td class="text-end border-0 pe-4 align-top">
                             <span class="text-muted small">{{ ciclo.inicio|date:"d/m" }}</span>
                         </td>
                     </tr>
