@@ -196,6 +196,14 @@ TOLERANCIA_ATRASO_MIN = env.int("TOLERANCIA_ATRASO_MIN", default=10)
 # Piso anti-rajada REAL: nunca duas publicações da mesma conta com menos que isto
 # de diferença de verdade (protege se o post anterior saiu muito atrasado).
 MIN_BURST_FLOOR_MIN = env.int("MIN_BURST_FLOOR_MIN", default=10)
+# Teto AUTOMÁTICO por maturidade da conta. DESLIGADO por padrão: quem controla o
+# limite diário é o usuário (daily_post_limit, default 100) — o sistema não corta
+# sozinho. O que derrubava contas era o espaçamento curto (já corrigido), não o
+# volume. Ligue (TETO_MATURIDADE_ATIVO=True) para reativar a proteção automática.
+TETO_MATURIDADE_ATIVO = env.bool("TETO_MATURIDADE_ATIVO", default=False)
+TETO_MAT_NOVO = env.int("TETO_MAT_NOVO", default=5)        # <300 seg e <40 posts
+TETO_MAT_PEQUENO = env.int("TETO_MAT_PEQUENO", default=12)  # <1000 seg
+TETO_MAT_MEDIO = env.int("TETO_MAT_MEDIO", default=25)      # <5000 seg
 # Posts atrasados além disso (horas) são EXPIRADOS em vez de publicados: quando a
 # conta volta (sync/reconexão), não sobe a fila antiga de uma vez (rajada de
 # conteúdo velho = spam). Também estabiliza os horários da fila.

@@ -262,18 +262,24 @@ class InstagramAccount(models.Model):
 
     @property
     def teto_maturidade(self):
-        """Teto de postagem pela MATURIDADE da conta (seguidores + nº de posts).
-        Conta NOVA/pequena que posta muito tem o alcance ZERADO pelo IG (foi o que
-        derrubou as contas do sandrao: reach=0 a 50 posts/dia). Uma conta grande
-        aguenta mais. 0 = sem teto extra (usa o limite do usuário/cota da Meta)."""
+        """Teto AUTOMÁTICO de postagem pela MATURIDADE da conta (seguidores + nº
+        de posts). Conta nova/pequena postando muito pode ter alcance reduzido.
+
+        DESLIGADO por padrão (TETO_MATURIDADE_ATIVO=False): quem controla o limite
+        é o usuário (daily_post_limit, default 100) — ele diminui se quiser. O que
+        derrubava contas era o espaçamento curto (<30 min), já corrigido, não o
+        volume. Todos os cortes são configuráveis por env. 0 = sem teto extra."""
+        from django.conf import settings
+        if not getattr(settings, 'TETO_MATURIDADE_ATIVO', False):
+            return 0
         seg = self.followers_count or 0
         posts = self.posts_count or 0
         if seg < 300 and posts < 40:   # conta claramente nova/fria
-            return 5
+            return getattr(settings, 'TETO_MAT_NOVO', 5)
         if seg < 1000:
-            return 12
+            return getattr(settings, 'TETO_MAT_PEQUENO', 12)
         if seg < 5000:
-            return 25
+            return getattr(settings, 'TETO_MAT_MEDIO', 25)
         return 0                        # madura: sem teto extra
 
     def _publicados_24h(self):
