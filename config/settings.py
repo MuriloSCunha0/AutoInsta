@@ -204,6 +204,9 @@ TETO_MATURIDADE_ATIVO = env.bool("TETO_MATURIDADE_ATIVO", default=False)
 TETO_MAT_NOVO = env.int("TETO_MAT_NOVO", default=5)        # <300 seg e <40 posts
 TETO_MAT_PEQUENO = env.int("TETO_MAT_PEQUENO", default=12)  # <1000 seg
 TETO_MAT_MEDIO = env.int("TETO_MAT_MEDIO", default=25)      # <5000 seg
+# Sincronização automática de saúde: nº de contas por rodada (a cada 15 min).
+# Menor = mais suave com a Meta; maior = ciclo completo mais rápido.
+HEALTH_SYNC_BATCH = env.int("HEALTH_SYNC_BATCH", default=12)
 # Posts atrasados além disso (horas) são EXPIRADOS em vez de publicados: quando a
 # conta volta (sync/reconexão), não sobe a fila antiga de uma vez (rajada de
 # conteúdo velho = spam). Também estabiliza os horários da fila.
@@ -277,6 +280,13 @@ CELERY_BEAT_SCHEDULE = {
     "refresh-quotas": {
         "task": "apps.instagram.tasks.refresh_quotas",
         "schedule": 10800.0,  # a cada 3 horas
+    },
+    # Sincronização AUTOMÁTICA de saúde, em rodízio: a cada 15 min checa um lote
+    # das contas mais desatualizadas (valida token, recupera as que voltaram,
+    # marca as que caíram). Espalhado para não sufocar a Meta.
+    "auto-sync-saude": {
+        "task": "apps.instagram.tasks.auto_sync_saude",
+        "schedule": 900.0,  # a cada 15 min
     },
     # Keep-alive das sessões: valida/renova o cookie das contas de sessionid a
     # cada 8h para não expirar (reduz muito as quedas). Vai para a fila publisher.

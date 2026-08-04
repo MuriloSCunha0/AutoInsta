@@ -747,6 +747,33 @@ def toggle_pausada(request, account_id):
 
 @login_required
 @require_POST
+def zerar_fila(request, account_id):
+    """Apaga a fila (posts por publicar) DESTA conta. Usado quando a conta é
+    limitada pela Meta: em vez de insistir na fila velha, o usuário zera e
+    recomeça. Também limpa o contador de limitações."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    n = account.fila_ativa().count()
+    account.fila_ativa().delete()
+    if account.meta_limit_count:
+        account.meta_limit_count = 0
+        account.save(update_fields=['meta_limit_count'])
+    messages.success(request, f'Fila de @{account.ig_username} zerada ({n} post(s) removido(s)).')
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
+def reagendar_amanha(request, account_id):
+    """Reagenda a fila DESTA conta para amanhã, no mesmo horário (mantém o
+    espaçamento). Usado quando a conta foi limitada e o ideal é deixar de molho."""
+    account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)
+    n = account.reagendar_fila_amanha()
+    messages.success(request, f'Fila de @{account.ig_username} reagendada para amanhã ({n} post(s)).')
+    return render(request, 'instagram/partials/account_card.html', {'account': account})
+
+
+@login_required
+@require_POST
 def sync_meta_account(request, account_id):
     """Sincroniza uma conta específica com a Meta (HTMX → devolve o card)."""
     account = get_object_or_404(InstagramAccount, id=account_id, owner=request.user)

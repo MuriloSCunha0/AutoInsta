@@ -128,6 +128,39 @@ def buscar_views(account):
 
 
 @shared_task
+def auto_sync_saude():
+    """Sincronização AUTOMÁTICA de saúde das contas, em RODÍZIO.
+
+    Faz o mesmo que o botão "Sincronizar" (valida token, atualiza status,
+    recupera conta que voltou, marca a que caiu), mas de forma SAUDÁVEL: cada
+    rodada toca só um LOTE das contas mais desatualizadas (health_checked_at mais
+    antigo). Assim todas são checadas ao longo do tempo sem uma rajada de
+    chamadas à Meta (que ela lê como abuso). Frequência + tamanho do lote são
+    configuráveis por env (HEALTH_SYNC_BATCH)."""
+    from django.conf import settings
+    from django.db.models import F, Q
+    from django.utils import timezone
+    from apps.instagram.views import _sync_meta_account
+
+    lote = getattr(settings, 'HEALTH_SYNC_BATCH', 12)
+    # Só contas com token Meta. Ordena pelas mais desatualizadas (nunca checadas
+    # primeiro). Inclui contas caídas de propósito: é assim que voltam sozinhas
+    # quando o token/app é religado.
+    contas = (InstagramAccount.objects
+              .exclude(meta_access_token='')
+              .filter(Q(banned_by_admin=False))
+              .order_by(F('health_checked_at').asc(nulls_first=True))[:lote])
+    for acc in contas:
+        try:
+            _sync_meta_account(acc)
+        except Exception:
+            pass
+        finally:
+            acc.health_checked_at = timezone.now()
+            acc.save(update_fields=['health_checked_at'])
+
+
+@shared_task
 def refresh_quotas():
     """Atualiza cota de publicação e visualizações de todas as contas com token.
     Leve e best-effort: uma conta que falhar não derruba as outras."""

@@ -88,6 +88,14 @@ class InstagramAccount(models.Model):
     # Enquanto isso, a fila NÃO tenta publicar nela (evita martelar a API — o
     # que é o padrão que dispara bans).
     rate_limited_until = models.DateTimeField(null=True, blank=True)
+    # Quantas vezes seguidas a Meta limitou esta conta (sem publicar com sucesso
+    # no meio). 1ª vez: avisamos e sugerimos zerar a fila. 2ª vez: a conta fica
+    # "de molho" (pausa a fila e tenta amanhã no mesmo horário). Zera ao publicar.
+    meta_limit_count = models.IntegerField(default=0)
+    # Última vez que a sincronização AUTOMÁTICA de saúde tocou nesta conta. Usado
+    # para o rodízio: cada rodada sincroniza as contas mais desatualizadas, sem
+    # bater em todas de uma vez (não sufoca a Meta).
+    health_checked_at = models.DateTimeField(null=True, blank=True)
     # Modo forçado: ignora o teto diário e o cooldown de rate limit desta conta.
     # É o usuário assumindo o risco — a Meta ainda pode recusar por volume real.
     ignorar_limites = models.BooleanField(default=False)
@@ -310,6 +318,35 @@ class InstagramAccount(models.Model):
         return (ScheduledPost.objects.filter(
             account=self, status__in=('queued', 'processing'))
             .order_by('scheduled_for').first())
+
+    def fila_ativa(self):
+        """Posts ainda por publicar desta conta (fila viva)."""
+        from apps.publisher.models import ScheduledPost
+        return ScheduledPost.objects.filter(
+            account=self, status__in=('queued', 'draft'))
+
+    def reagendar_fila_amanha(self):
+        """Move a fila desta conta para AMANHÃ, mantendo o mesmo horário e o
+        espaçamento (desliza o 1º post para amanhã no seu horário e aplica o
+        mesmo deslocamento a todos). Retorna quantos posts moveu."""
+        from datetime import datetime, timedelta
+
+        from django.utils import timezone
+        posts = list(self.fila_ativa().order_by('scheduled_for', 'created_at'))
+        if not posts:
+            return 0
+        primeiro = posts[0].scheduled_for
+        loc = timezone.localtime(primeiro)
+        # Amanhã (a partir de hoje), no MESMO horário do 1º post.
+        alvo_loc = timezone.localtime(timezone.now()).replace(
+            hour=loc.hour, minute=loc.minute, second=loc.second, microsecond=0
+        ) + timedelta(days=1)
+        delta = alvo_loc - loc
+        for p in posts:
+            p.scheduled_for = p.scheduled_for + delta
+            p.status = 'queued'
+            p.save(update_fields=['scheduled_for', 'status'])
+        return len(posts)
 
     def livre_em(self):
         """Quando a conta volta a poder publicar (datetime), ou None se livre.

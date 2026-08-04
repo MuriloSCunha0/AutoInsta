@@ -175,21 +175,48 @@
         {% elif account.pausada %}
         <div class="status-banner banner-pausa mb-3">
             <i class="bi bi-pause-circle-fill"></i>
-            <div><strong>Conta pausada</strong><div class="small">A fila dela está parada. As outras seguem.</div></div>
+            <div class="flex-grow-1">
+                {% if account.meta_limit_count >= 2 %}
+                <strong>Conta de molho</strong>
+                <div class="small">A Meta limitou 2x — pausei a fila e reagendei pra amanhã no mesmo horário.</div>
+                {% else %}
+                <strong>Conta pausada</strong>
+                <div class="small">A fila dela está parada. As outras seguem.</div>
+                {% endif %}
+                <form hx-post="{% url 'instagram:toggle_pausada' account.id %}"
+                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-light py-0"><i class="bi bi-play-fill"></i> Retomar fila</button>
+                </form>
+            </div>
         </div>
         {% elif account.esta_limitada and not account.ignorar_limites %}
         <div class="status-banner banner-limite mb-3">
             <i class="bi bi-hourglass-split"></i>
             <div class="flex-grow-1">
-                <strong>No limite da Meta</strong>
-                <div class="small">Atingiu o teto de 24h.{% with livre=account.livre_em %}{% if livre %} Volta sozinha {{ livre|timeuntil }}.{% endif %}{% endwith %}</div>
-                <form hx-post="{% url 'instagram:reativar_conta' account.id %}"
-                      hx-target="#account-{{ account.id }}" hx-swap="outerHTML" class="mt-2">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-warning">
-                        <i class="bi bi-arrow-up-circle"></i> Reativar e subir a fila agora
-                    </button>
-                </form>
+                <strong>Limitada pela Meta</strong>
+                {% with livre=account.livre_em %}
+                <div class="small">{% if account.em_cooldown %}A Meta bloqueou as publicações.{% else %}Atingiu o teto de 24h.{% endif %}{% if livre %} Volta {{ livre|date:"d/m H:i" }} ({{ livre|timeuntil }}).{% endif %}</div>
+                {% endwith %}
+                <div class="small text-muted mt-1" style="font-size:.66rem;">O ideal é <strong>zerar a fila</strong> desta conta e tentar de novo, ou deixá-la de molho.</div>
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                    <form hx-post="{% url 'instagram:zerar_fila' account.id %}"
+                          hx-target="#account-{{ account.id }}" hx-swap="outerHTML"
+                          hx-confirm="Apagar a fila desta conta?">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i> Zerar fila</button>
+                    </form>
+                    <form hx-post="{% url 'instagram:toggle_pausada' account.id %}"
+                          hx-target="#account-{{ account.id }}" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-warning py-0"><i class="bi bi-pause-fill"></i> Pausar fila</button>
+                    </form>
+                    <form hx-post="{% url 'instagram:reagendar_amanha' account.id %}"
+                          hx-target="#account-{{ account.id }}" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-info py-0"><i class="bi bi-calendar-plus"></i> Reagendar amanhã</button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endif %}
