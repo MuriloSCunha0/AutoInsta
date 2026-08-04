@@ -132,6 +132,12 @@ class GestaoTest(TestCase):
         self.alvo = User.objects.create_user(username='cliente', password='x')
         self.client.force_login(self.staff)
 
+    def test_lista_de_usuarios_leva_para_a_ficha(self):
+        # A tela existia mas nao tinha link nenhum apontando para ela — o
+        # usuario nao achava onde configurar limites e abas.
+        r = self.client.get(reverse('management:users'))
+        self.assertContains(r, reverse('management:user_detail', args=[self.alvo.id]))
+
     def test_tela_lista_as_abas(self):
         r = self.client.get(reverse('management:user_detail', args=[self.alvo.id]))
         self.assertContains(r, 'Abas escondidas')

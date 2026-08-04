@@ -36,10 +36,19 @@
                                     {{ u.username|make_list|first|upper }}
                                 </div>
                                 <div>
-                                    <h6 class="mb-0">{{ u.username }}</h6>
+                                    {# O nome leva para a ficha: limites de contas/apps e abas liberadas. #}
+                                    <h6 class="mb-0">
+                                        <a href="{% url 'management:user_detail' u.id %}"
+                                           class="text-white text-decoration-none">{{ u.username }}</a>
+                                    </h6>
                                     {% if u.is_superuser %}
                                     <small class="text-danger"><i class="bi bi-shield-lock-fill"></i> Admin</small>
                                     {% endif %}
+                                    <div class="text-muted" style="font-size:.66rem;">
+                                        {{ u.contas_usadas }} conta(s){% if u.max_ig_accounts %} / {{ u.max_ig_accounts }}{% endif %}
+                                        · {{ u.apps_usados }} app(s){% if u.max_meta_apps %} / {{ u.max_meta_apps }}{% endif %}
+                                        {% if u.abas_ocultas %}· <span class="text-warning"><i class="bi bi-eye-slash"></i> abas limitadas</span>{% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -68,6 +77,11 @@
                         </td>
                         <td class="text-end">
                             <div class="d-flex gap-1 justify-content-end">
+                                <a href="{% url 'management:user_detail' u.id %}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Limites de contas/apps e abas liberadas">
+                                    <i class="bi bi-sliders"></i> Acesso
+                                </a>
                                 {% if u.is_active %}
                                 <form method="POST" action="{% url 'management:user_ip_lock' u.id %}" class="d-inline">
                                     {% csrf_token %}

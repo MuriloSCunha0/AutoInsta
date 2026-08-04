@@ -519,3 +519,112 @@ class Proxy(models.Model):
         if self.username and self.password:
             return f"{self.protocol}://{self.username}:{self.password}@{self.ip_address}:{self.port}"
         return f"{self.protocol}://{self.ip_address}:{self.port}"
+
+
+class FichaConta(models.Model):
+    """Uma linha da planilha de controle de contas.
+
+    Nasceu da planilha que o usuário já mantinha à mão ("CONTROLE DE CONTAS
+    INSTAGRAM"): as mesmas colunas, agora dentro do painel. A ficha existe
+    INDEPENDENTE da conta estar conectada — é justamente para anotar a conta
+    antes/depois de conectar, que é o que a planilha fazia.
+
+    Quando o @ bate com uma conta conectada, `conta` é preenchido e as colunas
+    de situação passam a refletir o que o sistema realmente sabe, em vez do que
+    alguém digitou semanas atrás.
+
+    SENHA, CÓDIGO 2FA e CÓDIGO TOKEN são credenciais: ficam criptografadas com
+    a mesma Fernet do resto do sistema e mascaradas na tela. Uma planilha de
+    senhas em texto puro dentro do painel seria um vazamento esperando
+    acontecer.
+    """
+    STATUS = [
+        ('rodando', 'Rodando'),
+        ('pausada', 'Pausada'),
+        ('contingencia', 'Contingência'),
+        ('caiu', 'Caiu'),
+        ('restricao', 'Com restrição'),
+        ('', '—'),
+    ]
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fichas')
+    # Vínculo com a conta de verdade (quando ela existe no sistema).
+    conta = models.ForeignKey('InstagramAccount', on_delete=models.SET_NULL,
+                              null=True, blank=True, related_name='fichas')
+
+    ordem = models.IntegerField(default=0)          # a coluna ID (001, 002...)
+    ig_username = models.CharField(max_length=150, blank=True)
+    senha_enc = models.TextField(blank=True)
+    email = models.CharField(max_length=200, blank=True)
+    responsavel = models.CharField(max_length=120, blank=True)
+
+    status = models.CharField(max_length=20, choices=STATUS, blank=True, default='')
+    conectada = models.BooleanField(default=False)
+    caiu = models.BooleanField(default=False)
+    restricao = models.BooleanField(default=False)
+    contingencia = models.BooleanField(default=False)
+
+    tem_2fa = models.BooleanField(default=False)
+    codigo_2fa_enc = models.TextField(blank=True)
+    codigo_token_enc = models.TextField(blank=True)
+
+    ultimo_login = models.DateField(null=True, blank=True)
+    observacoes = models.TextField(blank=True)
+
+    criada_em = models.DateTimeField(auto_now_add=True)
+    atualizada_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['ordem', 'id']
+        indexes = [models.Index(fields=['owner', 'ordem'])]
+
+    def __str__(self):
+        return f'{self.ordem:03d} @{self.ig_username}'
+
+    # ── Credenciais (mesma Fernet do resto do sistema) ───────────────────────
+    # Guardadas cifradas; a tela mostra mascarado e só revela sob clique.
+
+    def _set_cifrado(self, campo, valor):
+        valor = (valor or '').strip()
+        setattr(self, campo, _get_fernet().encrypt(valor.encode()).decode() if valor else '')
+
+    def _get_cifrado(self, campo):
+        guardado = getattr(self, campo) or ''
+        if not guardado:
+            return ''
+        try:
+            return _get_fernet().decrypt(guardado.encode()).decode()
+        except Exception:
+            # Chave trocada ou dado corrompido: não derruba a planilha inteira.
+            return ''
+
+    def set_senha(self, valor):
+        self._set_cifrado('senha_enc', valor)
+
+    def get_senha(self):
+        return self._get_cifrado('senha_enc')
+
+    def set_codigo_2fa(self, valor):
+        # O IG mostra o seed em grupos ("ABCD EFGH"); normaliza como no login.
+        self._set_cifrado('codigo_2fa_enc', (valor or '').replace(' ', '').upper())
+
+    def get_codigo_2fa(self):
+        return self._get_cifrado('codigo_2fa_enc')
+
+    def set_codigo_token(self, valor):
+        self._set_cifrado('codigo_token_enc', valor)
+
+    def get_codigo_token(self):
+        return self._get_cifrado('codigo_token_enc')
+
+    @property
+    def situacao_real(self):
+        """O que o SISTEMA sabe sobre a conta vinculada (ou None).
+
+        A coluna STATUS é preenchida à mão e envelhece; isto é a verdade do
+        momento, mostrada ao lado para o usuário perceber a divergência.
+        """
+        if not self.conta_id:
+            return None
+        motivo = self.conta.motivo_parada
+        return motivo[0] if motivo else 'no ar'
