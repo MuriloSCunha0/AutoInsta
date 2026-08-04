@@ -297,7 +297,7 @@ CELERY_BEAT_SCHEDULE = {
     # marca as que caíram). Espalhado para não sufocar a Meta.
     "auto-sync-saude": {
         "task": "apps.instagram.tasks.auto_sync_saude",
-        "schedule": 900.0,  # a cada 15 min
+        "schedule": 1800.0,  # a cada 30 min (só contas SAUDÁVEIS; caída só no botão)
     },
     # Keep-alive das sessões: valida/renova o cookie das contas de sessionid a
     # cada 8h para não expirar (reduz muito as quedas). Vai para a fila publisher.
@@ -408,7 +408,7 @@ VARIAR_LEGENDAS = env.bool("VARIAR_LEGENDAS", default=True)
 # Primeira consulta em 8s (era 15/30): publica o mais rápido possível assim que o
 # Reel fica pronto. Cumulativo: 8,16,28,48,78,138. Reels rápidos saem em ~8-16s;
 # se ainda estiver processando, as próximas consultas cobrem sem estourar chamadas.
-META_POLL_REEL = env.list("META_POLL_REEL", cast=int, default=[8, 8, 12, 20, 30, 60])
+META_POLL_REEL = env.list("META_POLL_REEL", cast=int, default=[15, 15, 25, 40, 60])
 META_POLL_IMAGE = env.list("META_POLL_IMAGE", cast=int, default=[5, 8, 12, 20])
 
 # Web Push (PWA) — chaves VAPID. Geradas uma vez e postas no .env.

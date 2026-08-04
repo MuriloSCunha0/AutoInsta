@@ -143,12 +143,18 @@ def auto_sync_saude():
     from apps.instagram.views import _sync_meta_account
 
     lote = getattr(settings, 'HEALTH_SYNC_BATCH', 12)
-    # Só contas com token Meta. Ordena pelas mais desatualizadas (nunca checadas
-    # primeiro). Inclui contas caídas de propósito: é assim que voltam sozinhas
-    # quando o token/app é religado.
+    # CRÍTICO: NUNCA sincronizar conta CAÍDA. Bater na Graph com um token/app já
+    # restringido (190 "cannot access the app") é tráfego falho repetido que a
+    # Meta lê como abuso e AGRAVA a restrição do app — derrubando mais contas em
+    # cascata (comprovado em prod: auto-sync martelava contas 190 e o lote caía).
+    # Conta caída volta pelo botão "Sincronizar" (ação única, deliberada), nunca
+    # por martelo automático. Aqui só tocamos contas SAUDÁVEIS (active/pausada).
+    ESTADOS_CAIDOS = ('error', 'session_expired', 'challenge_required',
+                      '2fa_required', 'banned')
     contas = (InstagramAccount.objects
               .exclude(meta_access_token='')
-              .filter(Q(banned_by_admin=False))
+              .filter(banned_by_admin=False)
+              .exclude(status__in=ESTADOS_CAIDOS)
               .order_by(F('health_checked_at').asc(nulls_first=True))[:lote])
     for acc in contas:
         try:
