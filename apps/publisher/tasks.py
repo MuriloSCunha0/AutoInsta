@@ -69,6 +69,69 @@ def process_loops():
         loop.save(update_fields=['last_posted', 'last_index'])
         print(f"Loop {loop.id}: enfileirou post {post.id} (@{loop.account.ig_username})")
 
+def diagnosticar_erro(msg):
+    """Traduz o erro CRU de uma publicação numa explicação humana + ação.
+
+    É a peça da tela de observabilidade que ajuda o suporte (e o dono) a
+    entender um erro que sozinho não diz nada. Reúsa os MESMOS classificadores
+    que o publisher usa para decidir o que fazer — então o que a tela explica é
+    exatamente o que o sistema fez. Devolve:
+        {categoria, cor, titulo, explicacao, acao}
+    """
+    m = (msg or '')
+    if not m.strip():
+        return None
+
+    if _e_restricao_temporaria(m):
+        return dict(categoria='restricao', cor='warning',
+                    titulo='Restrição temporária da conta (code 25)',
+                    explicacao='O Instagram segurou a publicação desta conta por '
+                    'um tempo (integridade). O token está OK, a cota também — não '
+                    'é queda.',
+                    acao='Nada a fazer: volta a postar sozinha quando a restrição '
+                    'sair. NÃO force nem reconecte (insistir agrava).')
+    if _e_rate_limit(m):
+        return dict(categoria='limite', cor='warning',
+                    titulo='Limite de publicações da Meta',
+                    explicacao='A conta bateu o teto de publicações de feed nas '
+                    'últimas 24h. É temporário.',
+                    acao='Aguardar o cooldown. Stories continuam saindo. Se repetir '
+                    'muito, reduza o volume desta conta.')
+    if _e_app_invalido(m):
+        return dict(categoria='token', cor='danger',
+                    titulo='Token/app inválido (code 190)',
+                    explicacao='O token da API oficial não vale mais (expirou, foi '
+                    'revogado, ou a conta pediu verificação no instagram.com).',
+                    acao='Entrar no instagram.com com a conta, seguir o que aparecer, '
+                    'e colar um token novo em "Atualizar token".')
+    if _e_sessao_morta(m):
+        return dict(categoria='sessao', cor='danger',
+                    titulo='Sessão (sessionid) expirada',
+                    explicacao='O cookie de sessão caiu. O que usa sessão '
+                    '(story-link, aquecimento, editar perfil) para; o resto segue '
+                    'pelo token se houver.',
+                    acao='Recolar o sessionid da conta pela aba "Sessão".')
+    baixa = m.lower()
+    if 'não está acessível' in baixa or 'a meta precisa baixá' in baixa or 'rejeitou a mídia' in baixa:
+        return dict(categoria='midia', cor='danger',
+                    titulo='A Meta não conseguiu baixar a mídia',
+                    explicacao='O arquivo do post não ficou acessível na URL pública '
+                    'para a Meta baixar (nome com acento, 404, ou processamento).',
+                    acao='O sistema tenta a engine como reserva. Se persistir, '
+                    'reenviar a mídia.')
+    if 'does not exist' in baixa or 'unsupported post request' in baixa:
+        return dict(categoria='id', cor='info',
+                    titulo='ID da conta desatualizado',
+                    explicacao='O ig_user_id salvo estava errado.',
+                    acao='O sistema corrige e republica sozinho — normalmente sem ação.')
+    # Desconhecido: mostra o texto limpo para o suporte investigar.
+    from apps.core_utils import msg_meta_amigavel
+    return dict(categoria='outro', cor='secondary',
+                titulo='Erro não catalogado',
+                explicacao=msg_meta_amigavel(m),
+                acao='Se repetir, vale investigar o texto cru abaixo.')
+
+
 def _recomendar_limite(post, conta):
     """Recomenda ao usuário quando a conta está no limite — SEM reagendar.
 

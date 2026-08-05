@@ -357,3 +357,89 @@ def user_detail(request, user_id):
         'grupos_abas': grupos_abas,
         'n_ocultas': len(ocultas),
     })
+
+
+# =============================================================================
+# Observabilidade por usuário — feed de publicações em (quase) tempo real
+# =============================================================================
+# Mostra ao suporte o que está acontecendo AGORA com as publicações de um
+# usuário: o que saiu certo e o que falhou, com o erro CRU + uma tradução humana
+# e a ação recomendada. Fonte: o próprio ScheduledPost (o worker atualiza status
+# e error_message a cada tentativa) — sem camada de log nova, sem inchar o banco.
+# A tela faz polling do parcial a cada poucos segundos (near-real-time).
+
+def _eventos_do_usuario(alvo, desde_min=120, limite=60):
+    """Últimos eventos de publicação do usuário (sucesso + erro), mais recentes
+    primeiro. Cada erro já vem com o diagnóstico humano."""
+    from django.utils import timezone
+    from datetime import timedelta
+    from django.db.models import Q
+    from apps.publisher.tasks import diagnosticar_erro
+
+    corte = timezone.now() - timedelta(minutes=desde_min)
+
+    # Sucessos: publicados na janela. Erros: falharam/retentando com mensagem.
+    # Sem updated_at no modelo, o "quando" do erro é o processing_since (quando
+    # foi tentado) ou o created_at.
+    qs = (ScheduledPost.objects
+          .filter(account__owner=alvo)
+          .filter(Q(status='published', published_at__gte=corte)
+                  | Q(status__in=['failed', 'queued'],
+                      error_message__gt='', processing_since__gte=corte))
+          .select_related('account')
+          .order_by('-id')[:limite * 2])   # margem: filtramos/ordenamos abaixo
+
+    eventos = []
+    for p in qs:
+        if p.status == 'published':
+            quando = p.published_at
+            eventos.append(dict(
+                quando=quando, tipo='ok', conta=p.account.ig_username,
+                post_type=p.get_post_type_display(), titulo='Publicado',
+                diag=None, erro_cru=''))
+        else:
+            quando = p.processing_since or p.created_at
+            eventos.append(dict(
+                quando=quando, tipo='erro', conta=p.account.ig_username,
+                post_type=p.get_post_type_display(),
+                titulo='Falha ao publicar' if p.status == 'failed' else 'Retentando',
+                diag=diagnosticar_erro(p.error_message),
+                erro_cru=(p.error_message or '')[:400]))
+    eventos.sort(key=lambda e: e['quando'] or corte, reverse=True)
+    return eventos[:limite]
+
+
+def _resumo_observabilidade(alvo, desde_min=60):
+    """Contadores da última hora: publicados x falhas, e as falhas por categoria."""
+    from django.utils import timezone
+    from datetime import timedelta
+    from apps.publisher.tasks import diagnosticar_erro
+
+    corte = timezone.now() - timedelta(minutes=desde_min)
+    ok = ScheduledPost.objects.filter(
+        account__owner=alvo, status='published', published_at__gte=corte).count()
+
+    falhas = (ScheduledPost.objects
+              .filter(account__owner=alvo, status__in=['failed', 'queued'],
+                      error_message__gt='', processing_since__gte=corte))
+    por_cat = {}
+    for msg in falhas.values_list('error_message', flat=True):
+        d = diagnosticar_erro(msg)
+        if d:
+            por_cat[d['titulo']] = por_cat.get(d['titulo'], 0) + 1
+    return {
+        'ok': ok,
+        'erros': sum(por_cat.values()),
+        'por_categoria': sorted(por_cat.items(), key=lambda kv: -kv[1]),
+    }
+
+
+@staff_member_required
+def user_observabilidade(request, user_id):
+    """Parcial do feed (para o polling). Renderiza só a lista + contadores."""
+    alvo = get_object_or_404(User, id=user_id)
+    return render(request, 'management/_observabilidade.html', {
+        'alvo': alvo,
+        'eventos': _eventos_do_usuario(alvo),
+        'resumo': _resumo_observabilidade(alvo),
+    })

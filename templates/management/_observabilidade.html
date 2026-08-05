@@ -1,0 +1,65 @@
+{% load humanize %}
+{# Parcial do feed de observabilidade — recarregado por polling a cada poucos
+   segundos. Renderiza só os contadores + a lista de eventos. #}
+<div class="d-flex gap-3 mb-3 flex-wrap">
+  <div class="obs-kpi">
+    <div class="n text-success">{{ resumo.ok }}</div>
+    <div class="r">publicados (1h)</div>
+  </div>
+  <div class="obs-kpi">
+    <div class="n {% if resumo.erros %}text-danger{% else %}text-muted{% endif %}">{{ resumo.erros }}</div>
+    <div class="r">falhas (1h)</div>
+  </div>
+  {% for titulo, n in resumo.por_categoria %}
+  <div class="obs-kpi" title="{{ titulo }}">
+    <div class="n text-warning">{{ n }}</div>
+    <div class="r text-truncate" style="max-width:130px;">{{ titulo }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if eventos %}
+<div class="obs-feed">
+  {% for e in eventos %}
+  <div class="obs-item obs-{{ e.tipo }}">
+    <div class="obs-dot bg-{% if e.tipo == 'ok' %}success{% elif e.diag %}{{ e.diag.cor }}{% else %}secondary{% endif %}"></div>
+    <div class="obs-corpo">
+      <div class="obs-linha1">
+        <span class="obs-hora">{{ e.quando|date:"H:i:s" }}</span>
+        <span class="obs-conta">@{{ e.conta }}</span>
+        <span class="badge bg-secondary bg-opacity-25 text-secondary">{{ e.post_type }}</span>
+        {% if e.tipo == 'ok' %}
+        <span class="text-success small"><i class="bi bi-check-circle-fill"></i> {{ e.titulo }}</span>
+        {% else %}
+        <span class="text-{{ e.diag.cor|default:'danger' }} small">
+          <i class="bi bi-exclamation-octagon-fill"></i>
+          {% if e.diag %}{{ e.diag.titulo }}{% else %}{{ e.titulo }}{% endif %}
+        </span>
+        {% endif %}
+      </div>
+      {% if e.diag %}
+      <div class="obs-diag">
+        <div class="obs-exp">{{ e.diag.explicacao }}</div>
+        <div class="obs-acao"><i class="bi bi-arrow-right-short"></i> <strong>O que fazer:</strong> {{ e.diag.acao }}</div>
+        {% if e.erro_cru %}
+        <details class="obs-cru">
+          <summary>ver erro técnico</summary>
+          <code>{{ e.erro_cru }}</code>
+        </details>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-4">
+  <i class="bi bi-activity" style="font-size:1.8rem; opacity:.4;"></i>
+  <div class="small mt-2">Nenhum evento de publicação nas últimas 2h.</div>
+</div>
+{% endif %}
+
+<div class="text-muted text-end mt-2" style="font-size:.64rem;">
+  atualizado {{ agora|default:"" }}<span id="obs-tick"></span>
+</div>

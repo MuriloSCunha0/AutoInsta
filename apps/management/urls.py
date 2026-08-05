@@ -8,6 +8,7 @@ urlpatterns = [
     path('users/', views.users_list, name='users'),
     path('users/purge-unapproved/', views.users_purge_unapproved, name='users_purge'),
     path('users/<int:user_id>/', views.user_detail, name='user_detail'),
+    path('users/<int:user_id>/observabilidade/', views.user_observabilidade, name='user_obs'),
     path('users/<int:user_id>/toggle/', views.user_toggle_active, name='user_toggle'),
     path('users/<int:user_id>/ip-lock/', views.user_toggle_ip_lock, name='user_ip_lock'),
     path('users/<int:user_id>/ip-reset/', views.user_reset_ip, name='user_ip_reset'),
