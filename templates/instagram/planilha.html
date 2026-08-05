@@ -36,6 +36,24 @@
      a tabela (width:max-content) empurraria a página inteira para o lado. */
   .wrap-planilha { overflow: auto; max-height: 72vh; max-width: 100%; min-width: 0;
                    border: 1px solid var(--border-subtle); border-radius: 12px; }
+
+  /* BARRA DE ROLAGEM VISÍVEL — o tema usa uma de 6px com 25% de opacidade, que
+     some no fundo escuro. Num notebook isso não incomoda (o trackpad rola de
+     lado sozinho), mas no monitor grande, com mouse, não há o que agarrar e a
+     tabela parece travada. Aqui ela é grossa e opaca de propósito. */
+  .wrap-planilha { scrollbar-width: auto; scrollbar-color: rgba(168,85,247,.75) rgba(255,255,255,.07); }
+  .wrap-planilha::-webkit-scrollbar { height: 14px; width: 14px; }
+  .wrap-planilha::-webkit-scrollbar-track { background: rgba(255,255,255,.07); border-radius: 100px; }
+  .wrap-planilha::-webkit-scrollbar-thumb {
+      background: rgba(168,85,247,.7); border-radius: 100px;
+      border: 3px solid transparent; background-clip: padding-box; }
+  .wrap-planilha::-webkit-scrollbar-thumb:hover {
+      background: rgba(168,85,247,1); background-clip: padding-box; }
+
+  /* Aviso de que há mais coluna à direita — some quando chega no fim. */
+  .dica-lado { display: none; align-items: center; gap: 6px; font-size: .7rem;
+               color: var(--text-muted); margin: 6px 2px 0; }
+  .dica-lado.on { display: flex; }
   table.planilha { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; margin: 0; }
   table.planilha th { position: sticky; top: 0; z-index: 3; background: #0f1424;
                       font-size: .62rem; text-transform: uppercase; letter-spacing: .4px;
@@ -43,9 +61,11 @@
                       border-bottom: 1px solid var(--border-subtle); }
   table.planilha td { padding: 0; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; }
   table.planilha td.pad { padding: 4px 8px; white-space: nowrap; }
+  /* Colunas enxutas: cada 20px a menos aqui é uma coluna a mais visível sem
+     rolar. Em 1920 a planilha inteira passa a caber. */
   table.planilha input[type=text], table.planilha input[type=date], table.planilha select {
       background: transparent; border: 1px solid transparent; color: #fff;
-      padding: 6px 8px; width: 100%; min-width: 120px; font-size: .78rem; border-radius: 6px;
+      padding: 6px 8px; width: 100%; min-width: 96px; font-size: .78rem; border-radius: 6px;
   }
   table.planilha input:focus, table.planilha select:focus {
       background: var(--bg-input); border-color: var(--bs-purple, #7c3aed); outline: none;
@@ -55,7 +75,7 @@
   .col-id { position: sticky; left: 0; z-index: 2; background: #0b1020; }
   th.col-id { z-index: 4; }
   .cred { display: flex; align-items: center; gap: 3px; }
-  .cred input { min-width: 110px; }
+  .cred input { min-width: 92px; }
   .cred button { background: none; border: none; color: var(--text-muted); padding: 2px 4px; cursor: pointer; }
   .cred button:hover { color: #fff; }
   .real { font-size: .62rem; }
@@ -178,7 +198,7 @@
         </div>
       </td>
       <td><input type="date" data-campo="ultimo_login" value="{{ f.ultimo_login|date:'Y-m-d' }}"></td>
-      <td><input type="text" data-campo="observacoes" value="{{ f.observacoes }}" style="min-width:220px;"></td>
+      <td><input type="text" data-campo="observacoes" value="{{ f.observacoes }}" style="min-width:170px;"></td>
       <td class="pad">
         <form method="post" action="{% url 'instagram:planilha_excluir' f.id %}"
               onsubmit="return confirm('Excluir esta linha?');">
@@ -195,6 +215,12 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
+
+<div class="dica-lado" id="dica-lado">
+  <i class="bi bi-arrow-left-right"></i>
+  Há mais colunas à direita — arraste a barra roxa abaixo da tabela,
+  use <kbd>Shift</kbd> + roda do mouse, ou role de lado no trackpad.
 </div>
 
 <div class="text-muted mt-2" style="font-size:.68rem;">
@@ -251,6 +277,20 @@
             if (alvo) { alvo.focus(); alvo.select && alvo.select(); }
         }
     });
+
+    // Mostra a dica só quando existe coluna escondida, e some ao chegar no fim.
+    var wrap = document.querySelector('.wrap-planilha');
+    var dica = document.getElementById('dica-lado');
+    function conferirDica() {
+        if (!wrap || !dica) return;
+        var falta = wrap.scrollWidth - wrap.clientWidth - wrap.scrollLeft;
+        dica.classList.toggle('on', falta > 8);
+    }
+    if (wrap) {
+        wrap.addEventListener('scroll', conferirDica);
+        window.addEventListener('resize', conferirDica);
+        conferirDica();
+    }
 
     tabela.addEventListener('click', function (e) {
         var botao = e.target.closest('.revelar');
