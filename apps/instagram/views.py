@@ -1484,3 +1484,306 @@ def gestao_em_massa(request):
 
     destino = request.POST.get('next') or reverse('instagram:gestao')
     return redirect(destino)
+
+
+# =============================================================================
+# Planilha de controle de contas
+# =============================================================================
+# Reproduz dentro do painel a planilha que o usuário já mantinha à mão
+# ("CONTROLE DE CONTAS INSTAGRAM"), com as mesmas colunas. A ficha existe
+# INDEPENDENTE de a conta estar conectada — era justamente o que a planilha
+# resolvia: anotar a conta antes/depois de conectar.
+#
+# Senha, código 2FA e código token são credenciais: guardadas cifradas (Fernet)
+# e NUNCA renderizadas no HTML. A tela mostra "••••" e busca o valor real só
+# quando o usuário clica em revelar.
+
+# Campos que a edição inline aceita, e como cada um é convertido.
+_CAMPOS_TEXTO = {'ig_username', 'email', 'responsavel', 'observacoes', 'status'}
+_CAMPOS_BOOL = {'conectada', 'caiu', 'restricao', 'contingencia', 'tem_2fa'}
+_CAMPOS_CIFRADOS = {'senha': 'set_senha', 'codigo_2fa': 'set_codigo_2fa',
+                    'codigo_token': 'set_codigo_token'}
+
+
+def _contadores(fichas):
+    """Os mesmos totais do cabeçalho da planilha original."""
+    return {
+        'total': len(fichas),
+        'rodando': sum(1 for f in fichas if f.status == 'rodando'),
+        'pausada': sum(1 for f in fichas if f.status == 'pausada'),
+        'contingencia': sum(1 for f in fichas if f.contingencia),
+        'cairam': sum(1 for f in fichas if f.caiu),
+        'restricao': sum(1 for f in fichas if f.restricao),
+    }
+
+
+@login_required
+def planilha(request):
+    from .models import FichaConta
+
+    fichas = list(FichaConta.objects.filter(owner=request.user)
+                  .select_related('conta'))
+    return render(request, 'instagram/planilha.html', {
+        'fichas': fichas,
+        'contadores': _contadores(fichas),
+        'status_opcoes': FichaConta.STATUS,
+    })
+
+
+@login_required
+@require_POST
+def planilha_salvar(request):
+    """Salva UMA célula. É o autosave da edição inline."""
+    from .models import FichaConta
+
+    ficha = FichaConta.objects.filter(
+        id=request.POST.get('id'), owner=request.user).first()
+    if not ficha:
+        return JsonResponse({'ok': False, 'error': 'linha não encontrada'}, status=404)
+
+    campo = (request.POST.get('campo') or '').strip()
+    valor = request.POST.get('valor', '')
+
+    if campo in _CAMPOS_CIFRADOS:
+        getattr(ficha, _CAMPOS_CIFRADOS[campo])(valor)
+        ficha.save()
+    elif campo in _CAMPOS_BOOL:
+        setattr(ficha, campo, valor in ('1', 'true', 'True', 'on'))
+        ficha.save(update_fields=[campo])
+    elif campo == 'ultimo_login':
+        from django.utils.dateparse import parse_date
+        ficha.ultimo_login = parse_date(valor) if valor else None
+        ficha.save(update_fields=['ultimo_login'])
+    elif campo in _CAMPOS_TEXTO:
+        if campo == 'status':
+            validos = {c for c, _ in FichaConta.STATUS}
+            if valor not in validos:
+                return JsonResponse({'ok': False, 'error': 'status inválido'}, status=400)
+        setattr(ficha, campo, valor[:2000])
+        ficha.save(update_fields=[campo])
+        if campo == 'ig_username':
+            _vincular(ficha)      # mudou o @: tenta achar a conta de verdade
+    else:
+        return JsonResponse({'ok': False, 'error': 'campo inválido'}, status=400)
+
+    return JsonResponse({'ok': True, 'situacao_real': ficha.situacao_real})
+
+
+def _vincular(ficha):
+    """Liga a ficha à conta conectada de mesmo @ (se houver)."""
+    nome = (ficha.ig_username or '').lstrip('@').strip()
+    conta = (InstagramAccount.objects
+             .filter(owner=ficha.owner, ig_username__iexact=nome).first()
+             if nome else None)
+    if conta != ficha.conta:
+        ficha.conta = conta
+        ficha.conectada = conta is not None
+        ficha.save(update_fields=['conta', 'conectada'])
+
+
+@login_required
+@require_POST
+def planilha_revelar(request):
+    """Devolve o valor real de uma célula cifrada (senha / 2FA / token).
+
+    Só sob clique: as credenciais não vão no HTML da página, senão ficariam no
+    cache do navegador e em qualquer print de tela.
+    """
+    from .models import FichaConta
+
+    ficha = FichaConta.objects.filter(
+        id=request.POST.get('id'), owner=request.user).first()
+    if not ficha:
+        return JsonResponse({'ok': False}, status=404)
+    campo = (request.POST.get('campo') or '').strip()
+    leitor = {'senha': ficha.get_senha, 'codigo_2fa': ficha.get_codigo_2fa,
+              'codigo_token': ficha.get_codigo_token}.get(campo)
+    if not leitor:
+        return JsonResponse({'ok': False}, status=400)
+    return JsonResponse({'ok': True, 'valor': leitor()})
+
+
+@login_required
+@require_POST
+def planilha_linhas(request):
+    """Acrescenta N linhas em branco no fim (como puxar a planilha para baixo)."""
+    from .models import FichaConta
+
+    try:
+        quantas = max(1, min(int(request.POST.get('quantas', 10)), 200))
+    except (TypeError, ValueError):
+        quantas = 10
+
+    ultima = (FichaConta.objects.filter(owner=request.user)
+              .order_by('-ordem').values_list('ordem', flat=True).first() or 0)
+    FichaConta.objects.bulk_create([
+        FichaConta(owner=request.user, ordem=ultima + i)
+        for i in range(1, quantas + 1)
+    ])
+    messages.success(request, f'{quantas} linha(s) adicionada(s).')
+    return redirect('instagram:planilha')
+
+
+@login_required
+@require_POST
+def planilha_excluir(request, ficha_id):
+    from .models import FichaConta
+
+    FichaConta.objects.filter(id=ficha_id, owner=request.user).delete()
+    return redirect('instagram:planilha')
+
+
+@login_required
+@require_POST
+def planilha_sincronizar(request):
+    """Puxa as contas JÁ conectadas para a planilha.
+
+    Cria a linha de quem ainda não tem, e nas que existem atualiza só o que o
+    sistema sabe de verdade (vínculo, conectada, caiu, restrição). O que é
+    anotação do usuário — senha, e-mail, responsável, observações — nunca é
+    tocado: seria apagar o trabalho dele.
+    """
+    from .models import FichaConta
+
+    fichas = {(f.ig_username or '').lower(): f
+              for f in FichaConta.objects.filter(owner=request.user)}
+    ultima = (FichaConta.objects.filter(owner=request.user)
+              .order_by('-ordem').values_list('ordem', flat=True).first() or 0)
+
+    criadas = atualizadas = 0
+    for conta in InstagramAccount.objects.filter(owner=request.user):
+        f = fichas.get(conta.ig_username.lower())
+        if not f:
+            ultima += 1
+            f = FichaConta(owner=request.user, ordem=ultima,
+                           ig_username=conta.ig_username)
+            criadas += 1
+        else:
+            atualizadas += 1
+        f.conta = conta
+        f.conectada = True
+        f.caiu = conta.status in ('error', 'banned', 'session_expired')
+        f.restricao = bool(conta.em_cooldown)
+        f.tem_2fa = bool(conta.totp_seed_enc)
+        if not f.status:
+            f.status = 'pausada' if conta.pausada else ('caiu' if f.caiu else 'rodando')
+        f.save()
+
+    messages.success(
+        request,
+        f'{criadas} conta(s) trazida(s) para a planilha, {atualizadas} atualizada(s). '
+        'Suas anotações (senha, e-mail, responsável, observações) não foram tocadas.')
+    return redirect('instagram:planilha')
+
+
+@login_required
+def planilha_exportar(request):
+    """Baixa a planilha em CSV, com as mesmas colunas do arquivo original.
+
+    As credenciais SAEM em texto no CSV — é um arquivo que o usuário pede e
+    guarda por conta própria, igual à planilha de onde isso veio. O aviso está
+    na tela, ao lado do botão.
+    """
+    import csv
+
+    from django.http import HttpResponse
+
+    from .models import FichaConta
+
+    resp = HttpResponse(content_type='text/csv; charset=utf-8')
+    resp['Content-Disposition'] = 'attachment; filename="controle-instagram.csv"'
+    resp.write('﻿')          # BOM: o Excel abre com acento certo
+
+    w = csv.writer(resp)
+    w.writerow(['ID', '@ INSTAGRAM', 'SENHA', 'E-MAIL', 'RESPONSÁVEL', 'STATUS',
+                'CONECTADA', 'CAIU', 'RESTRIÇÃO', 'CONTINGÊNCIA', '2FA',
+                'CÓDIGO 2FA', 'CÓDIGO TOKEN', 'ÚLTIMO LOGIN', 'OBSERVAÇÕES'])
+    sim_nao = lambda v: 'SIM' if v else ''
+    for f in FichaConta.objects.filter(owner=request.user):
+        w.writerow([
+            f'{f.ordem:03d}', f.ig_username, f.get_senha(), f.email, f.responsavel,
+            f.get_status_display() if f.status else '',
+            sim_nao(f.conectada), sim_nao(f.caiu), sim_nao(f.restricao),
+            sim_nao(f.contingencia), sim_nao(f.tem_2fa),
+            f.get_codigo_2fa(), f.get_codigo_token(),
+            f.ultimo_login.strftime('%d/%m/%Y') if f.ultimo_login else '',
+            f.observacoes,
+        ])
+    return resp
+
+
+@login_required
+@require_POST
+def planilha_importar(request):
+    """Importa o CSV da planilha antiga.
+
+    Aceita o arquivo exportado por aqui e o original do Google Sheets: procura a
+    linha de cabeçalho (a que tem '@ INSTAGRAM') e ignora o cabeçalho decorado
+    de cima, que tem título e contadores. Linha sem @ é pulada — o arquivo
+    original vem com 100 linhas em branco.
+    """
+    import csv
+    import io
+
+    from .models import FichaConta
+
+    arquivo = request.FILES.get('arquivo')
+    if not arquivo:
+        messages.error(request, 'Escolha o arquivo CSV.')
+        return redirect('instagram:planilha')
+
+    try:
+        texto = arquivo.read().decode('utf-8-sig', errors='replace')
+    except Exception as e:
+        messages.error(request, f'Não consegui ler o arquivo: {e}')
+        return redirect('instagram:planilha')
+
+    linhas = list(csv.reader(io.StringIO(texto)))
+    inicio = next((i for i, l in enumerate(linhas)
+                   if any('INSTAGRAM' in (c or '').upper() and '@' in (c or '')
+                          for c in l)), None)
+    if inicio is None:
+        messages.error(request, 'Não achei a linha de cabeçalho (com "@ INSTAGRAM").')
+        return redirect('instagram:planilha')
+
+    def val(linha, i):
+        return (linha[i] if i < len(linha) else '').strip()
+
+    def flag(linha, i):
+        return val(linha, i).upper() in ('SIM', 'X', 'TRUE', '1', 'OK')
+
+    rotulo_para_status = {r.upper(): c for c, r in FichaConta.STATUS if c}
+
+    ultima = (FichaConta.objects.filter(owner=request.user)
+              .order_by('-ordem').values_list('ordem', flat=True).first() or 0)
+    criadas = 0
+    for linha in linhas[inicio + 1:]:
+        usuario = val(linha, 1).lstrip('@')
+        if not usuario:
+            continue          # o arquivo original vem com 100 linhas vazias
+        ultima += 1
+        f = FichaConta(
+            owner=request.user, ordem=ultima, ig_username=usuario,
+            email=val(linha, 3), responsavel=val(linha, 4),
+            status=rotulo_para_status.get(val(linha, 5).upper(), ''),
+            conectada=flag(linha, 6), caiu=flag(linha, 7),
+            restricao=flag(linha, 8), contingencia=flag(linha, 9),
+            tem_2fa=flag(linha, 10), observacoes=val(linha, 14),
+        )
+        f.set_senha(val(linha, 2))
+        f.set_codigo_2fa(val(linha, 11))
+        f.set_codigo_token(val(linha, 12))
+        data = val(linha, 13)
+        for formato in ('%d/%m/%Y', '%Y-%m-%d', '%d/%m/%y'):
+            try:
+                from datetime import datetime
+                f.ultimo_login = datetime.strptime(data, formato).date()
+                break
+            except (ValueError, TypeError):
+                continue
+        f.save()
+        _vincular(f)
+        criadas += 1
+
+    messages.success(request, f'{criadas} linha(s) importada(s) da planilha.')
+    return redirect('instagram:planilha')

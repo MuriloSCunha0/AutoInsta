@@ -32,6 +32,12 @@ class RegistroTest(TestCase):
         self.assertEqual(aba_da_rota('pressel', 'lista'), 'pressel')
         self.assertEqual(aba_da_rota('pressel', 'baixar'), 'pressel')
 
+    def test_planilha_pertence_a_gestao_de_contas(self):
+        # Sao a mesma tela em duas abas: esconder uma tem que esconder a outra,
+        # senao sobra a porta dos fundos.
+        self.assertEqual(aba_da_rota('instagram', 'planilha'), 'gestao_contas')
+        self.assertEqual(aba_da_rota('instagram', 'planilha_revelar'), 'gestao_contas')
+
     def test_rota_de_fora_nao_pertence_a_aba_nenhuma(self):
         self.assertIsNone(aba_da_rota('accounts', 'settings'))
         self.assertIsNone(aba_da_rota('inventado', 'qualquer'))

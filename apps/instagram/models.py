@@ -618,6 +618,14 @@ class FichaConta(models.Model):
         return self._get_cifrado('codigo_token_enc')
 
     @property
+    def flags(self):
+        """As colunas de marcar, na ordem da planilha — evita 5 blocos iguais
+        no template."""
+        return [('conectada', self.conectada), ('caiu', self.caiu),
+                ('restricao', self.restricao), ('contingencia', self.contingencia),
+                ('tem_2fa', self.tem_2fa)]
+
+    @property
     def situacao_real(self):
         """O que o SISTEMA sabe sobre a conta vinculada (ou None).
 

@@ -50,8 +50,15 @@ ABAS = {
     'performance': ('Performance', 'Análise', [('analytics', 'performance')]),
     'top_posts':   ('Top Posts', 'Análise', [('analytics', 'top_posts')]),
 
-    'gestao_contas': ('Gestão de contas', 'Contas', [('instagram', 'gestao'),
-                                                     ('instagram', 'gestao_massa')]),
+    'gestao_contas': ('Gestão de contas', 'Contas', [
+        ('instagram', 'gestao'), ('instagram', 'gestao_massa'),
+        # A planilha é a segunda aba da mesma tela: esconder a Gestão tem que
+        # esconder as duas, senão sobraria a porta dos fundos.
+        ('instagram', 'planilha'), ('instagram', 'planilha_salvar'),
+        ('instagram', 'planilha_revelar'), ('instagram', 'planilha_linhas'),
+        ('instagram', 'planilha_excluir'), ('instagram', 'planilha_sincronizar'),
+        ('instagram', 'planilha_exportar'), ('instagram', 'planilha_importar'),
+    ]),
     'contas':        ('Contas', 'Contas', [('instagram', 'list')]),
     'saude':         ('Saúde', 'Contas', [('analytics', 'health')]),
     'proxies':       ('Proxies', 'Contas', [('instagram', 'proxies')]),

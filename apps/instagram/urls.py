@@ -15,6 +15,15 @@ urlpatterns = [
     # Gestao de contas do proprio usuario (visao ON/OFF)
     path('gestao/', views.gestao, name='gestao'),
     path('gestao/massa/', views.gestao_em_massa, name='gestao_massa'),
+    # Planilha de controle (mesmas colunas da planilha do usuario)
+    path('gestao/planilha/', views.planilha, name='planilha'),
+    path('gestao/planilha/salvar/', views.planilha_salvar, name='planilha_salvar'),
+    path('gestao/planilha/revelar/', views.planilha_revelar, name='planilha_revelar'),
+    path('gestao/planilha/linhas/', views.planilha_linhas, name='planilha_linhas'),
+    path('gestao/planilha/<int:ficha_id>/excluir/', views.planilha_excluir, name='planilha_excluir'),
+    path('gestao/planilha/sincronizar/', views.planilha_sincronizar, name='planilha_sincronizar'),
+    path('gestao/planilha/exportar/', views.planilha_exportar, name='planilha_exportar'),
+    path('gestao/planilha/importar/', views.planilha_importar, name='planilha_importar'),
     path('<int:account_id>/zerar-fila/', views.zerar_fila, name='zerar_fila'),
     path('<int:account_id>/reagendar-amanha/', views.reagendar_amanha, name='reagendar_amanha'),
     path('<int:account_id>/modelo/', views.save_modelo, name='save_modelo'),

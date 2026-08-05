@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}Planilha de contas | SandraoFlow{% endblock %}
+{% block page_title %}Controle de contas{% endblock %}
+
+{% block top_actions %}
+<form method="post" action="{% url 'instagram:planilha_sincronizar' %}" class="d-inline">
+    {% csrf_token %}
+    <button class="btn btn-outline-primary" title="Traz as contas já conectadas para a planilha">
+        <i class="bi bi-arrow-repeat me-1"></i> Puxar contas conectadas
+    </button>
+</form>
+<a href="{% url 'instagram:planilha_exportar' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-download"></i> CSV
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tabs-gestao { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tabs-gestao a { padding: 7px 14px; border-radius: 9px; font-size: .82rem;
+                   color: var(--text-muted); text-decoration: none;
+                   border: 1px solid var(--border-subtle); }
+  .tabs-gestao a.on { background: var(--bs-purple, #7c3aed); color: #fff; border-color: transparent; }
+
+  .kpi-linha { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+  @media (max-width: 900px) { .kpi-linha { grid-template-columns: repeat(3, 1fr); } }
+  .kpi { border: 1px solid var(--border-subtle); border-radius: 10px; padding: 10px 12px; }
+  .kpi .n { font-size: 1.35rem; font-weight: 700; line-height: 1; }
+  .kpi .r { font-size: .62rem; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); }
+
+  /* A tabela É a planilha: rolagem nos dois eixos e cabeçalho fixo. */
+  .wrap-planilha { overflow: auto; max-height: 70vh; border: 1px solid var(--border-subtle); border-radius: 12px; }
+  table.planilha { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; margin: 0; }
+  table.planilha th { position: sticky; top: 0; z-index: 3; background: #0f1424;
+                      font-size: .62rem; text-transform: uppercase; letter-spacing: .4px;
+                      color: var(--text-muted); padding: 8px 10px; white-space: nowrap;
+                      border-bottom: 1px solid var(--border-subtle); }
+  table.planilha td { padding: 0; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; }
+  table.planilha td.pad { padding: 4px 8px; white-space: nowrap; }
+  table.planilha input[type=text], table.planilha input[type=date], table.planilha select {
+      background: transparent; border: 1px solid transparent; color: #fff;
+      padding: 6px 8px; width: 100%; min-width: 120px; font-size: .78rem; border-radius: 6px;
+  }
+  table.planilha input:focus, table.planilha select:focus {
+      background: var(--bg-input); border-color: var(--bs-purple, #7c3aed); outline: none;
+  }
+  table.planilha input.salvo { border-color: rgba(34,197,94,.6); transition: border-color 1s; }
+  table.planilha select option { background: #0f1424; }
+  .col-id { position: sticky; left: 0; z-index: 2; background: #0b1020; }
+  th.col-id { z-index: 4; }
+  .cred { display: flex; align-items: center; gap: 3px; }
+  .cred input { min-width: 110px; }
+  .cred button { background: none; border: none; color: var(--text-muted); padding: 2px 4px; cursor: pointer; }
+  .cred button:hover { color: #fff; }
+  .real { font-size: .62rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="tabs-gestao">
+  <a href="{% url 'instagram:gestao' %}"><i class="bi bi-toggles me-1"></i> Situação</a>
+  <a href="{% url 'instagram:planilha' %}" class="on"><i class="bi bi-table me-1"></i> Planilha</a>
+</div>
+
+<div class="kpi-linha">
+  <div class="kpi"><div class="n text-white">{{ contadores.total }}</div><div class="r">Total</div></div>
+  <div class="kpi"><div class="n text-success">{{ contadores.rodando }}</div><div class="r">Rodando</div></div>
+  <div class="kpi"><div class="n text-warning">{{ contadores.pausada }}</div><div class="r">Pausada</div></div>
+  <div class="kpi"><div class="n text-info">{{ contadores.contingencia }}</div><div class="r">Contingência</div></div>
+  <div class="kpi"><div class="n text-danger">{{ contadores.cairam }}</div><div class="r">Caíram</div></div>
+  <div class="kpi"><div class="n" style="color:#f59e0b;">{{ contadores.restricao }}</div><div class="r">C/ restrição</div></div>
+</div>
+
+<div class="card p-3 mb-3">
+  <div class="d-flex flex-wrap gap-2 align-items-end">
+    <form method="post" action="{% url 'instagram:planilha_linhas' %}" class="d-flex gap-2 align-items-end">
+      {% csrf_token %}
+      <div>
+        <label class="form-label text-muted small mb-1">Adicionar linhas</label>
+        <input type="number" name="quantas" value="10" min="1" max="200"
+               class="form-control form-control-sm text-white border-subtle"
+               style="background: var(--bg-input); width: 90px;">
+      </div>
+      <button class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Adicionar</button>
+    </form>
+
+    <form method="post" action="{% url 'instagram:planilha_importar' %}"
+          enctype="multipart/form-data" class="d-flex gap-2 align-items-end">
+      {% csrf_token %}
+      <div>
+        <label class="form-label text-muted small mb-1">Importar a planilha antiga (CSV)</label>
+        <input type="file" name="arquivo" accept=".csv,text/csv" required
+               class="form-control form-control-sm text-white border-subtle"
+               style="background: var(--bg-input);">
+      </div>
+      <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-upload"></i> Importar</button>
+    </form>
+  </div>
+  <div class="text-muted mt-2" style="font-size:.68rem;">
+    <i class="bi bi-shield-lock"></i>
+    Senha, código 2FA e token ficam <strong>criptografados</strong> no banco e aparecem como
+    <code>••••</code> — clique no olho para ver. O <strong>CSV exportado sai com eles em texto</strong>,
+    igual à planilha de onde vieram: guarde o arquivo com cuidado.
+  </div>
+</div>
+
+<div class="wrap-planilha">
+<table class="planilha" id="planilha">
+  <thead>
+    <tr>
+      <th class="col-id">ID</th>
+      <th>@ Instagram</th>
+      <th>Senha</th>
+      <th>E-mail</th>
+      <th>Responsável</th>
+      <th>Status</th>
+      <th>Conectada</th>
+      <th>Caiu</th>
+      <th>Restrição</th>
+      <th>Contingência</th>
+      <th>2FA</th>
+      <th>Código 2FA</th>
+      <th>Código token</th>
+      <th>Último login</th>
+      <th>Observações</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in fichas %}
+    <tr data-id="{{ f.id }}">
+      <td class="col-id pad text-muted small">{{ f.ordem|stringformat:"03d" }}</td>
+      <td>
+        <input type="text" data-campo="ig_username" value="{{ f.ig_username }}" placeholder="@conta">
+        {% if f.situacao_real %}
+        <div class="real text-muted px-2 pb-1">
+          <i class="bi bi-broadcast"></i> sistema: <strong>{{ f.situacao_real }}</strong>
+        </div>
+        {% endif %}
+      </td>
+      <td class="pad">
+        <div class="cred">
+          <input type="text" data-campo="senha" value="" placeholder="{% if f.senha_enc %}••••••••{% else %}—{% endif %}">
+          <button type="button" class="revelar" data-campo="senha" title="Mostrar"><i class="bi bi-eye"></i></button>
+        </div>
+      </td>
+      <td><input type="text" data-campo="email" value="{{ f.email }}"></td>
+      <td><input type="text" data-campo="responsavel" value="{{ f.responsavel }}"></td>
+      <td>
+        <select data-campo="status">
+          {% for valor, rotulo in status_opcoes %}
+          <option value="{{ valor }}" {% if f.status == valor %}selected{% endif %}>{{ rotulo }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      {% for campo, marcado in f.flags %}
+      <td class="pad text-center">
+        <input type="checkbox" class="form-check-input" data-campo="{{ campo }}" {% if marcado %}checked{% endif %}>
+      </td>
+      {% endfor %}
+      <td class="pad">
+        <div class="cred">
+          <input type="text" data-campo="codigo_2fa" value="" placeholder="{% if f.codigo_2fa_enc %}••••••••{% else %}—{% endif %}">
+          <button type="button" class="revelar" data-campo="codigo_2fa" title="Mostrar"><i class="bi bi-eye"></i></button>
+        </div>
+      </td>
+      <td class="pad">
+        <div class="cred">
+          <input type="text" data-campo="codigo_token" value="" placeholder="{% if f.codigo_token_enc %}••••••••{% else %}—{% endif %}">
+          <button type="button" class="revelar" data-campo="codigo_token" title="Mostrar"><i class="bi bi-eye"></i></button>
+        </div>
+      </td>
+      <td><input type="date" data-campo="ultimo_login" value="{{ f.ultimo_login|date:'Y-m-d' }}"></td>
+      <td><input type="text" data-campo="observacoes" value="{{ f.observacoes }}" style="min-width:220px;"></td>
+      <td class="pad">
+        <form method="post" action="{% url 'instagram:planilha_excluir' f.id %}"
+              onsubmit="return confirm('Excluir esta linha?');">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="16" class="text-center text-muted py-5">
+      Planilha vazia. Use <strong>Puxar contas conectadas</strong>, <strong>Importar</strong>
+      o CSV antigo ou <strong>Adicionar linhas</strong>.
+    </td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="text-muted mt-2" style="font-size:.68rem;">
+  <i class="bi bi-info-circle"></i> As alterações salvam sozinhas ao sair do campo.
+</div>
+
+<script>
+(function () {
+    var tabela = document.getElementById('planilha');
+    if (!tabela) return;
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var URL_SALVAR = "{% url 'instagram:planilha_salvar' %}";
+    var URL_REVELAR = "{% url 'instagram:planilha_revelar' %}";
+
+    function salvar(el) {
+        var linha = el.closest('tr');
+        var campo = el.dataset.campo;
+        var valor = (el.type === 'checkbox') ? (el.checked ? '1' : '0') : el.value;
+
+        var dados = new FormData();
+        dados.append('id', linha.dataset.id);
+        dados.append('campo', campo);
+        dados.append('valor', valor);
+        dados.append('csrfmiddlewaretoken', csrf);
+
+        fetch(URL_SALVAR, {method: 'POST', body: dados})
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.ok) { el.style.borderColor = '#ef4444'; return; }
+                // Pisca verde: confirma que gravou sem precisar de "Salvar".
+                el.classList.add('salvo');
+                setTimeout(function () { el.classList.remove('salvo'); }, 900);
+                // Senha/2FA/token: limpa o campo e volta a mascarar.
+                if (['senha', 'codigo_2fa', 'codigo_token'].indexOf(campo) >= 0 && valor) {
+                    el.value = '';
+                    el.placeholder = '••••••••';
+                }
+            })
+            .catch(function () { el.style.borderColor = '#ef4444'; });
+    }
+
+    tabela.addEventListener('change', function (e) {
+        if (e.target.dataset && e.target.dataset.campo) salvar(e.target);
+    });
+    // Enter salva e pula para a linha de baixo, como numa planilha.
+    tabela.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || !e.target.dataset || !e.target.dataset.campo) return;
+        e.preventDefault();
+        salvar(e.target);
+        var linha = e.target.closest('tr');
+        var proxima = linha.nextElementSibling;
+        if (proxima) {
+            var alvo = proxima.querySelector('[data-campo="' + e.target.dataset.campo + '"]');
+            if (alvo) { alvo.focus(); alvo.select && alvo.select(); }
+        }
+    });
+
+    tabela.addEventListener('click', function (e) {
+        var botao = e.target.closest('.revelar');
+        if (!botao) return;
+        var linha = botao.closest('tr');
+        var campo = botao.dataset.campo;
+        var input = linha.querySelector('input[data-campo="' + campo + '"]');
+        if (input.value) { input.value = ''; input.placeholder = '••••••••'; return; }
+
+        var dados = new FormData();
+        dados.append('id', linha.dataset.id);
+        dados.append('campo', campo);
+        dados.append('csrfmiddlewaretoken', csrf);
+        fetch(URL_REVELAR, {method: 'POST', body: dados})
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (d.ok) { input.value = d.valor; input.focus(); } });
+    });
+})();
+</script>
+{% endblock %}
