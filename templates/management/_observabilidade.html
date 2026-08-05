@@ -1,6 +1,5 @@
 {% load humanize %}
-{# Parcial do feed de observabilidade — recarregado por polling a cada poucos
-   segundos. Renderiza só os contadores + a lista de eventos. #}
+{# Parcial do feed de observabilidade: contadores + lista de eventos (polling). #}
 <div class="d-flex gap-3 mb-3 flex-wrap">
   <div class="obs-kpi">
     <div class="n text-success">{{ resumo.ok }}</div>

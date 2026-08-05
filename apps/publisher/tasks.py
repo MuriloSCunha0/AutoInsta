@@ -70,66 +70,138 @@ def process_loops():
         print(f"Loop {loop.id}: enfileirou post {post.id} (@{loop.account.ig_username})")
 
 def diagnosticar_erro(msg):
-    """Traduz o erro CRU de uma publicação numa explicação humana + ação.
+    """Traduz o erro de uma publicação numa explicação SIMPLES + o que fazer.
 
-    É a peça da tela de observabilidade que ajuda o suporte (e o dono) a
-    entender um erro que sozinho não diz nada. Reúsa os MESMOS classificadores
-    que o publisher usa para decidir o que fazer — então o que a tela explica é
-    exatamente o que o sistema fez. Devolve:
+    Fala com o dono da conta em linguagem direta: o que aconteceu e o próximo
+    passo, sem jargão. Reconhece tanto os erros crus da Meta (pelos mesmos
+    classificadores que o publisher usa) QUANTO as mensagens que o próprio
+    sistema grava em error_message — que na prática são a maioria (ex.: "o
+    horário passou há mais de 6h"). Devolve:
         {categoria, cor, titulo, explicacao, acao}
+    cor: 'danger' = precisa AGIR · 'warning' = temporário/atenção, costuma
+    voltar sozinho · 'info' = o sistema corrige sozinho.
     """
     m = (msg or '')
     if not m.strip():
         return None
+    # Compara SEM acento: o texto guardado pode vir com acento diferente ou até
+    # corrompido por encoding — 'publicação' e 'publicacao' têm de casar igual.
+    import unicodedata
+    b = ''.join(c for c in unicodedata.normalize('NFKD', m.lower())
+                if not unicodedata.combining(c))
 
-    if _e_restricao_temporaria(m):
-        return dict(categoria='restricao', cor='warning',
-                    titulo='Restrição temporária da conta (code 25)',
-                    explicacao='O Instagram segurou a publicação desta conta por '
-                    'um tempo (integridade). O token está OK, a cota também — não '
-                    'é queda.',
-                    acao='Nada a fazer: volta a postar sozinha quando a restrição '
-                    'sair. NÃO force nem reconecte (insistir agrava).')
-    if _e_rate_limit(m):
-        return dict(categoria='limite', cor='warning',
-                    titulo='Limite de publicações da Meta',
-                    explicacao='A conta bateu o teto de publicações de feed nas '
-                    'últimas 24h. É temporário.',
-                    acao='Aguardar o cooldown. Stories continuam saindo. Se repetir '
-                    'muito, reduza o volume desta conta.')
-    if _e_app_invalido(m):
-        return dict(categoria='token', cor='danger',
-                    titulo='Token/app inválido (code 190)',
-                    explicacao='O token da API oficial não vale mais (expirou, foi '
-                    'revogado, ou a conta pediu verificação no instagram.com).',
-                    acao='Entrar no instagram.com com a conta, seguir o que aparecer, '
-                    'e colar um token novo em "Atualizar token".')
+    def d(categoria, cor, titulo, explicacao, acao):
+        return dict(categoria=categoria, cor=cor, titulo=titulo,
+                    explicacao=explicacao, acao=acao)
+
+    # ── Post cancelado por atraso (a conta estava fora) — DE LONGE o mais comum
+    if 'o horario passou ha mais de' in b or 'subir a fila antiga' in b:
+        return d('expirado', 'warning',
+                 'Post não publicado — a conta estava fora no horário',
+                 'Na hora agendada, a conta estava desconectada, pausada ou '
+                 'limitada. O post esperou tempo demais e foi cancelado para não '
+                 'publicar conteúdo velho de uma vez só.',
+                 'Deixe a conta conectada e ativa no horário dos posts. Para '
+                 'publicar esse conteúdo, é só agendar de novo.')
+
+    # ── Instagram pausou a conta por um tempo (integridade / code 25) ──
+    if (_e_restricao_temporaria(m) or 'restringiu a publicacao desta conta' in b
+            or 'nao e queda nem limite de cota' in b):
+        return d('restricao', 'warning',
+                 'Instagram pausou esta conta por um tempo',
+                 'O Instagram segurou as publicações desta conta temporariamente. '
+                 'Não é queda nem limite: a conta e o acesso continuam certos.',
+                 'Não precisa fazer nada — ela volta a postar sozinha. Não force '
+                 'nem reconecte agora, porque insistir só piora.')
+
+    # ── Limite de publicações das últimas 24h ──
+    if _e_rate_limit(m) or 'limite de publicacoes da meta atingido' in b:
+        return d('limite', 'warning',
+                 'Limite de publicações atingido (24h)',
+                 'A conta bateu o teto de publicações do feed nas últimas 24 '
+                 'horas. É temporário.',
+                 'Espere liberar — os stories continuam saindo. Se acontece '
+                 'muito, reduza o volume desta conta.')
+
+    # ── Conta desconectada (token/app caiu, ou pediu verificação) ──
+    if (_e_app_invalido(m) or 'precisa ser reconectada' in b
+            or 'app meta indisponivel' in b):
+        return d('token', 'danger',
+                 'Conta desconectada — precisa reconectar',
+                 'O acesso desta conta expirou ou o Instagram pediu uma '
+                 'verificação. Enquanto isso, ela não consegue publicar.',
+                 'Entre no instagram.com com essa conta, resolva o que aparecer '
+                 'e reconecte a conta aqui no sistema.')
+
+    # ── Sessão (sessionid) caída ──
     if _e_sessao_morta(m):
-        return dict(categoria='sessao', cor='danger',
-                    titulo='Sessão (sessionid) expirada',
-                    explicacao='O cookie de sessão caiu. O que usa sessão '
-                    '(story-link, aquecimento, editar perfil) para; o resto segue '
-                    'pelo token se houver.',
-                    acao='Recolar o sessionid da conta pela aba "Sessão".')
-    baixa = m.lower()
-    if 'não está acessível' in baixa or 'a meta precisa baixá' in baixa or 'rejeitou a mídia' in baixa:
-        return dict(categoria='midia', cor='danger',
-                    titulo='A Meta não conseguiu baixar a mídia',
-                    explicacao='O arquivo do post não ficou acessível na URL pública '
-                    'para a Meta baixar (nome com acento, 404, ou processamento).',
-                    acao='O sistema tenta a engine como reserva. Se persistir, '
-                    'reenviar a mídia.')
-    if 'does not exist' in baixa or 'unsupported post request' in baixa:
-        return dict(categoria='id', cor='info',
-                    titulo='ID da conta desatualizado',
-                    explicacao='O ig_user_id salvo estava errado.',
-                    acao='O sistema corrige e republica sozinho — normalmente sem ação.')
-    # Desconhecido: mostra o texto limpo para o suporte investigar.
+        return d('sessao', 'danger',
+                 'Sessão da conta expirada',
+                 'O login salvo (sessionid) caiu. O que depende dele — story com '
+                 'link, aquecimento e editar perfil — para; o resto continua pelo '
+                 'acesso oficial, se houver.',
+                 'Recole o sessionid da conta na aba "Sessão".')
+
+    # ── Legenda longa demais ──
+    if 'caption was too long' in b or ('legenda' in b and 'longa' in b):
+        return d('legenda', 'danger',
+                 'Legenda longa demais',
+                 'A legenda passou do limite do Instagram (cerca de 2.200 '
+                 'caracteres), então o post foi recusado.',
+                 'Encurte a legenda e publique de novo.')
+
+    # ── Conta não é Profissional / publicação não permitida ──
+    if 'unsupported request - method type' in b or 'method type: post' in b:
+        return d('permissao', 'danger',
+                 'Publicação não permitida para esta conta',
+                 'O Instagram recusou publicar por esta conta. Quase sempre é '
+                 'porque ela não está como conta Profissional (Comercial ou de '
+                 'Criador de Conteúdo), ou perdeu a permissão.',
+                 'No app do Instagram, deixe a conta como Profissional e reconecte '
+                 'aqui no sistema.')
+
+    # ── Instagram bloqueou o envio de mídia por ora (excesso de atividade) ──
+    if 'restricted from uploading' in b:
+        return d('upload', 'warning',
+                 'Instagram bloqueou o envio por agora',
+                 'O Instagram restringiu temporariamente o envio de mídia por '
+                 'esta conta — normalmente por excesso de atividade.',
+                 'Espere um pouco e reduza o ritmo desta conta. Costuma voltar '
+                 'sozinho.')
+
+    # ── Arquivo que o Instagram não conseguiu carregar ──
+    if ('nao esta acessivel' in b or 'a meta precisa baixa' in b
+            or 'rejeitou a midia' in b):
+        return d('midia', 'danger',
+                 'O Instagram não conseguiu carregar o vídeo/foto',
+                 'O arquivo não ficou acessível para o Instagram baixar — link '
+                 'quebrado, arquivo ainda processando, ou nome inválido.',
+                 'O sistema tenta de novo por outro caminho. Se continuar, '
+                 'reenvie a mídia.')
+
+    # ── Instabilidade de rede / demora ao falar com o Instagram ──
+    if ('max retries exceeded' in b or 'httpsconnectionpool' in b
+            or 'newconnection' in b or 'timeout aguardando o processamento' in b):
+        return d('rede', 'warning',
+                 'Falha de conexão com o Instagram',
+                 'A conexão com o Instagram falhou ou demorou demais na hora de '
+                 'enviar. Quase sempre é passageiro.',
+                 'O sistema tenta de novo sozinho. Se acontecer em muitas contas '
+                 'ao mesmo tempo, avise o suporte.')
+
+    # ── Referência interna desatualizada (o sistema conserta sozinho) ──
+    if 'does not exist' in b or 'unsupported post request' in b:
+        return d('id', 'info',
+                 'Dado da conta desatualizado (corrige sozinho)',
+                 'Uma referência interna da conta estava velha.',
+                 'Nada a fazer — o sistema corrige e publica sozinho.')
+
+    # ── Desconhecido: mostra o texto limpo para o suporte investigar ──
     from apps.core_utils import msg_meta_amigavel
-    return dict(categoria='outro', cor='secondary',
-                titulo='Erro não catalogado',
-                explicacao=msg_meta_amigavel(m),
-                acao='Se repetir, vale investigar o texto cru abaixo.')
+    return d('outro', 'secondary',
+             'Erro ainda não catalogado',
+             msg_meta_amigavel(m),
+             'Se repetir, veja o erro técnico abaixo e avise o suporte.')
 
 
 def _recomendar_limite(post, conta):

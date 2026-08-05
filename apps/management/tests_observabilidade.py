@@ -17,19 +17,49 @@ from apps.publisher.tasks import diagnosticar_erro
 
 MSG_190 = "{'message': 'Error validating access token', 'type': 'OAuthException', 'code': 190}"
 MSG_25 = "{'message': 'User access is restricted', 'type': 'OAuthException', 'code': 25, 'error_subcode': 2207050}"
+# Mensagens que o PRÓPRIO sistema grava em error_message (a maioria real).
+MSG_EXPIRADO = ('Não publicado: o horário passou há mais de 6h (a conta estava '
+                'fora). Evitamos subir a fila antiga de uma vez. Reenvie se ainda '
+                'quiser publicar.')
+MSG_LEGENDA = "Erro ao criar contêiner Meta: {'error': {'message': 'The caption was too long.', 'code': 100}}"
+MSG_REDE = ("HTTPSConnectionPool(host='graph.instagram.com', port=443): Max "
+            "retries exceeded with url: /v23.0/1784/media")
+MSG_METODO = "Erro ao criar contêiner Meta: {'error': {'message': 'Unsupported request - method type: post'}}"
 
 
 class DiagnosticoTest(TestCase):
     def test_traduz_190_para_reconectar(self):
         d = diagnosticar_erro(MSG_190)
         self.assertEqual(d['categoria'], 'token')
-        self.assertIn('token', d['titulo'].lower())
+        self.assertIn('reconect', d['titulo'].lower())
         self.assertIn('instagram.com', d['acao'].lower())
+        self.assertEqual(d['cor'], 'danger')
 
     def test_traduz_code_25_como_temporario(self):
         d = diagnosticar_erro(MSG_25)
         self.assertEqual(d['categoria'], 'restricao')
         self.assertIn('sozinha', d['acao'].lower())
+
+    def test_expirado_conta_fora(self):
+        # O erro nº1 em produção (80% dos casos): tem de sair do "não catalogado".
+        d = diagnosticar_erro(MSG_EXPIRADO)
+        self.assertEqual(d['categoria'], 'expirado')
+        self.assertIn('fora', d['titulo'].lower())
+        self.assertIn('agendar de novo', d['acao'].lower())
+
+    def test_legenda_longa(self):
+        d = diagnosticar_erro(MSG_LEGENDA)
+        self.assertEqual(d['categoria'], 'legenda')
+        self.assertIn('encurte', d['acao'].lower())
+
+    def test_falha_de_rede(self):
+        d = diagnosticar_erro(MSG_REDE)
+        self.assertEqual(d['categoria'], 'rede')
+
+    def test_conta_nao_profissional(self):
+        d = diagnosticar_erro(MSG_METODO)
+        self.assertEqual(d['categoria'], 'permissao')
+        self.assertIn('profissional', d['explicacao'].lower())
 
     def test_erro_vazio_nao_diagnostica(self):
         self.assertIsNone(diagnosticar_erro(''))
@@ -73,8 +103,8 @@ class FeedTest(TestCase):
             processing_since=self.now - timedelta(minutes=1),
             scheduled_for=self.now)
         r = self.client.get(self._url())
-        # O erro cru NÃO aparece solto; a tradução aparece.
-        self.assertContains(r, 'Token')
+        # O erro cru NÃO aparece solto; a tradução clara aparece.
+        self.assertContains(r, 'reconectar')
         self.assertContains(r, 'instagram.com')
 
     def test_contadores_batem(self):
