@@ -436,6 +436,12 @@ a:hover {
   /* No z-index: keep this out of the modal's stacking ancestry (see .app-shell). */
   display: flex;
   flex-direction: column;
+  /* min-width: 0 é OBRIGATÓRIO aqui. Item flex nasce com min-width:auto, ou
+     seja, não encolhe abaixo do conteúdo — então uma tabela larga (a planilha
+     de contas, a fila) ESTICA a página inteira em vez de rolar dentro do
+     próprio container: o cabeçalho, os cards e os KPIs saem da tela junto,
+     cortados à direita. Com 0, o conteúdo largo rola no lugar dele. */
+  min-width: 0;
 }
 
 /* ── Cards ─────────────────────────────────────────────────── */

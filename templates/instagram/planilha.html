@@ -22,14 +22,20 @@
                    border: 1px solid var(--border-subtle); }
   .tabs-gestao a.on { background: var(--bs-purple, #7c3aed); color: #fff; border-color: transparent; }
 
-  .kpi-linha { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
-  @media (max-width: 900px) { .kpi-linha { grid-template-columns: repeat(3, 1fr); } }
-  .kpi { border: 1px solid var(--border-subtle); border-radius: 10px; padding: 10px 12px; }
+  /* auto-fit + minmax: os 6 contadores se reorganizam sozinhos conforme a
+     largura, em vez de estourar para fora da tela em monitor menor. */
+  .kpi-linha { display: grid; gap: 10px; margin-bottom: 16px;
+               grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .kpi { border: 1px solid var(--border-subtle); border-radius: 10px;
+         padding: 10px 12px; min-width: 0; }
   .kpi .n { font-size: 1.35rem; font-weight: 700; line-height: 1; }
   .kpi .r { font-size: .62rem; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); }
 
-  /* A tabela É a planilha: rolagem nos dois eixos e cabeçalho fixo. */
-  .wrap-planilha { overflow: auto; max-height: 70vh; border: 1px solid var(--border-subtle); border-radius: 12px; }
+  /* A tabela É a planilha: rolagem nos dois eixos e cabeçalho fixo.
+     `max-width:100%` + `min-width:0` prendem a rolagem AQUI dentro — sem eles
+     a tabela (width:max-content) empurraria a página inteira para o lado. */
+  .wrap-planilha { overflow: auto; max-height: 72vh; max-width: 100%; min-width: 0;
+                   border: 1px solid var(--border-subtle); border-radius: 12px; }
   table.planilha { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; margin: 0; }
   table.planilha th { position: sticky; top: 0; z-index: 3; background: #0f1424;
                       font-size: .62rem; text-transform: uppercase; letter-spacing: .4px;
