@@ -441,14 +441,15 @@ def _sync_meta_account(account):
         msg = erro.get('message', 'Token inválido ou expirado.')
         logger.warning('Sync Meta falhou (acc=%s): %s', account.id, erro)
         from apps.core_utils import msg_meta_amigavel
-        from apps.publisher.tasks import _e_rate_limit
+        from apps.publisher.tasks import _e_rate_limit, _e_restricao_temporaria
 
-        # LIMITE não é queda. A Meta responde os erros de limite com o mesmo
-        # `type: OAuthException` de um token inválido; marcar a conta como
-        # caída aqui a tira do ar sem motivo (ela volta sozinha em minutos) e
+        # LIMITE e RESTRIÇÃO TEMPORÁRIA (code 25) NÃO são queda. A Meta responde
+        # os dois com o mesmo `type: OAuthException` de um token inválido; marcar
+        # a conta como caída aqui a tira do ar sem motivo (ela volta sozinha) e
         # ainda mostra "veja se está SUSPENSA" para o dono. Só registramos o
         # aviso e mantemos o status atual.
-        if _e_rate_limit(f"{msg} {erro}"):
+        combinado = f"{msg} {erro}"
+        if _e_rate_limit(combinado) or _e_restricao_temporaria(combinado):
             account.last_error = msg_meta_amigavel(msg)
             account.save(update_fields=['last_error'])
             return False, msg

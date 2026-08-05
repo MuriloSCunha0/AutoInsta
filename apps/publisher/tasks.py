@@ -350,12 +350,41 @@ def _e_app_invalido(msg):
     )
 
 
+def _e_restricao_temporaria(msg):
+    """A conta está com a publicação RESTRINGIDA temporariamente pela Meta.
+
+        code 25 / error_subcode 2207050 — "User access is restricted"
+
+    É diferente de tudo o que já tratamos: o TOKEN está bom (o /me responde 200)
+    e a COTA não estourou — é a própria conta que o Instagram segurou por um
+    tempo (integridade/comportamento). Verificado em produção nas contas do
+    usuário iorio: a conta aparecia 'active' (o token valida), mas o post falhava
+    com este erro, então o dono via "on" e "não posta" ao mesmo tempo, mais um
+    alerta cru e assustador com o JSON da Meta.
+
+    Retry imediato NÃO resolve e ainda insiste numa conta que a Meta pediu para
+    deixar quieta — o mesmo padrão que agrava restrição. Aqui reconhecemos,
+    damos um cooldown e explicamos.
+    """
+    m = (msg or '').lower()
+    return (
+        'user access is restricted' in m
+        or '2207050' in m
+        or _tem_code(msg, 25)
+    )
+
+
 # Erros em que vale REVEZAR de API (Graph <-> engine). São falhas LIMPAS, de
 # autenticação/capacidade: a mídia NÃO foi publicada, então cair para a outra
 # API não duplica o post. Timeout e erros ambíguos ficam de fora de propósito
 # (poderiam ter publicado — revezar duplicaria).
 def _deve_revezar(msg):
     m = (msg or '').lower()
+    # Restrição da CONTA (code 25) não é problema da VIA: a conta está segurada
+    # nas duas pontas, então revezar para a engine só bate na mesma parede (e
+    # insiste numa conta que a Meta pediu para deixar quieta). Trata direto.
+    if _e_restricao_temporaria(msg):
+        return False
     gatilhos = (
         'cannot access the app', 'error validating access token', 'invalid oauth access token',
         "'code': 190", 'oauthexception', 'session has been invalidated', 'session has expired',
@@ -831,6 +860,48 @@ def publish_reel(post_id):
                 alertar(post.owner, 'conta_caiu', titulo, corpo,
                         chave=f'ratelimit:{conta.id}:{agora:%Y%m%d%H}',
                         nivel=nivel, account=conta)
+            except Exception:
+                pass
+
+        elif _e_restricao_temporaria(msg):
+            # Conta restringida temporariamente pela Meta (code 25 / 2207050).
+            # O token está bom e a cota não estourou — é a conta que o IG segurou
+            # por comportamento/integridade. Insistir agora só piora. Damos um
+            # cooldown (3h), reagendamos o post para depois dele e NÃO gastamos
+            # retry. O cooldown faz a conta aparecer como "limitada" na Gestão
+            # (em vez de "on" sem publicar), e o alerta explica em vez de mostrar
+            # o JSON cru. A conta NÃO vira 'error': o token continua válido e ela
+            # volta sozinha quando a Meta soltar.
+            conta = post.account
+            cooldown = timezone.now() + timedelta(hours=3)
+            campos = []
+            if not conta.rate_limited_until or conta.rate_limited_until < cooldown:
+                conta.rate_limited_until = cooldown
+                campos.append('rate_limited_until')
+            conta.last_error = ('Publicação temporariamente restringida pela Meta '
+                                '(a conta está OK — nada de reconectar). Volta '
+                                'sozinha quando a restrição sair.')
+            campos.append('last_error')
+            conta.save(update_fields=campos)
+            post.status = 'queued'
+            post.scheduled_for = cooldown
+            post.error_message = ('Meta restringiu a publicação desta conta por um '
+                                  'tempo (não é queda nem limite de cota). '
+                                  'Reagendado — volta sozinho.')
+            post.save(update_fields=['status', 'scheduled_for', 'error_message'])
+            print(f"Post {post_id}: RESTRICAO TEMP (code 25); @{conta.ig_username} "
+                  f"cooldown {cooldown}")
+            try:
+                from apps.notifications.alertas import alertar
+                agora = timezone.now()
+                alertar(
+                    post.owner, 'conta_caiu',
+                    'Publicação restringida',
+                    f'@{conta.ig_username}: a Meta restringiu a publicação desta '
+                    'conta por um tempo. A conta está OK (não precisa reconectar) '
+                    'e volta a postar sozinha quando a restrição sair.',
+                    chave=f'restr25:{conta.id}:{agora:%Y%m%d}',
+                    nivel='warning', account=conta)
             except Exception:
                 pass
 

@@ -193,10 +193,17 @@ def msg_meta_amigavel(msg):
     # recebia "veja se a conta está SUSPENSA" e o dono achava que tinha caído.
     # Foi a confusão relatada pelo usuário iorio: 3 contas em 'error' cujo token
     # respondia HTTP 200 na Graph API, só com a cota em 50/100.
-    from apps.publisher.tasks import _e_rate_limit
+    from apps.publisher.tasks import _e_rate_limit, _e_restricao_temporaria
     if _e_rate_limit(msg):
         return ('Limite de publicações da Meta atingido — a conta está OK, só '
                 'precisa esperar. A fila retoma sozinha depois do cooldown.')
+    # Restrição temporária da conta (code 25). Igual ao limite: NÃO é queda, o
+    # token está bom, não reconectar nada. Vem antes do teste de token para não
+    # cair no "veja se está SUSPENSA".
+    if _e_restricao_temporaria(msg):
+        return ('A Meta restringiu a publicação desta conta por um tempo '
+                '(integridade). A conta está OK — não precisa reconectar. '
+                'Volta a postar sozinha quando a restrição sair.')
     if ('cannot access the app' in m or 'log in to www.instagram.com' in m
             or 'error validating access token' in m or "'code': 190" in m):
         return ('Entre no instagram.com com esta conta e veja o que aparece: '
