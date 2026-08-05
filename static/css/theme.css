@@ -403,12 +403,36 @@ a:hover {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+  /* O título cede espaço antes dos botões: cortar o texto é melhor do que
+     empurrar as ações para fora da tela. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top-bar .top-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Sem `min-width: 0` este bloco não encolhe (padrão `auto` do flex) e
+     ESTICA a barra — que estica a página inteira, cortando tudo à direita.
+     Medido: a barra pedia 852px num espaço de 792px. Com o wrap, as ações
+     descem para uma segunda linha em vez de sumir. */
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 6px;
+}
+
+/* Telas onde as ações são muitas: a barra cresce em vez de cortar. */
+.top-bar {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: var(--topbar-h);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  row-gap: 8px;
 }
 
 .mobile-toggle {
