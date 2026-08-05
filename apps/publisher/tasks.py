@@ -69,6 +69,28 @@ def process_loops():
         loop.save(update_fields=['last_posted', 'last_index'])
         print(f"Loop {loop.id}: enfileirou post {post.id} (@{loop.account.ig_username})")
 
+def _recomendar_limite(post, conta):
+    """Recomenda ao usuário quando a conta está no limite — SEM reagendar.
+
+    O bloqueio por limite/cooldown era para AVISAR, não para embaralhar a fila
+    (feedback do usuário: os posts "pulavam" de horário sozinhos). Então NÃO
+    mexemos no scheduled_for — o post fica no horário dele e sai quando a conta
+    liberar. Só mandamos uma recomendação, no máximo 1 por conta por dia."""
+    try:
+        from apps.notifications.alertas import alertar
+        from django.utils import timezone as _tz
+        alertar(
+            post.owner, 'limite_atingido',
+            'Conta no limite de publicação',
+            f'@{conta.ig_username} atingiu o limite de publicações do feed. '
+            'Os reels aguardam a conta liberar sozinha — se quiser, reduza o '
+            'volume desta conta. Stories continuam saindo normalmente.',
+            chave=f'limite:{conta.id}:{_tz.localdate()}',
+            nivel='warning', account=conta)
+    except Exception:
+        pass
+
+
 @shared_task
 def process_scheduled_posts():
     """
@@ -185,6 +207,13 @@ def process_scheduled_posts():
         # limitada. Pula cooldown e teto diário (a Meta ainda pode recusar).
         forcado = conta.ignorar_limites
 
+        # STORY é ISENTO de TODAS as travas de volume/cadência do feed. O limite
+        # e o anti-rajada existem para os REELS (é o feed que o IG pune por
+        # volume); story é separado — o Instagram deixa postar story mesmo numa
+        # conta que bateu o limite de feed. Barrar story aqui (cooldown, teto OU
+        # espaçamento entre reels) era excesso nosso (reclamação de usuário).
+        eh_story = (post.post_type == 'STORY')
+
         # INTERVALO MÍNIMO entre publicações da MESMA conta (anti-burst). É a
         # regra MAIS IMPORTANTE contra queda: publicar a sequência toda de uma
         # vez (segundos de diferença) o IG identifica como SPAM e DERRUBA a conta
@@ -196,13 +225,18 @@ def process_scheduled_posts():
         # Post EM VOO (processing) conta como "acabou de postar": sem isto, o gap
         # baseado só em published_at furava (o post em voo ainda não publicou, e
         # a próxima rodada disparava outro → saíam com segundos de diferença).
-        if ScheduledPost.objects.filter(account=conta, status='processing').exists():
+        # Story não entra nessa conta: ele não é "rajada" de feed.
+        if not eh_story and ScheduledPost.objects.filter(
+                account=conta, status='processing').exclude(post_type='STORY').exists():
             continue
-        ultimo_pub = (ScheduledPost.objects
-                      .filter(account=conta, status='published',
-                              published_at__isnull=False)
-                      .order_by('-published_at')
-                      .values_list('published_at', flat=True).first())
+        # O anti-rajada olha só os REELS/feed publicados — um story recente não
+        # deve travar um reel, nem o reel recente deve travar um story.
+        ultimo_pub = None if eh_story else (
+            ScheduledPost.objects
+            .filter(account=conta, status='published', published_at__isnull=False)
+            .exclude(post_type='STORY')
+            .order_by('-published_at')
+            .values_list('published_at', flat=True).first())
         # REGRA: o horário AGENDADO é a fonte da verdade. Um post no seu horário
         # sai na hora marcada — o espaçamento de 30 min já foi embutido quando a
         # campanha foi criada. Não empurramos um post que está no horário só
@@ -223,25 +257,25 @@ def process_scheduled_posts():
                 continue
             # senão: está no horário agendado e sem rajada real → publica na hora.
 
-        # Conta em cooldown por rate limit: reagenda o post para o FIM do
-        # cooldown (espaçado, sem colapsar toda a fila no mesmo instante).
-        if not forcado and conta.rate_limited_until and conta.rate_limited_until > now:
-            _reagenda_espacado(post, conta.rate_limited_until, gap_ef)
+        # Conta em cooldown por rate limit: NÃO reagenda (era o pedido — a fila
+        # não deve pular de horário sozinha). Deixa o post no lugar, pula esta
+        # rodada e recomenda ao usuário. Story passa mesmo com a conta limitada.
+        if not forcado and not eh_story and conta.rate_limited_until and conta.rate_limited_until > now:
+            _recomendar_limite(post, conta)
             continue
 
-        # Teto efetivo = menor entre o limite do usuário e a cota real da Meta.
-        # Ritmar pela cota real evita o corte de surpresa da Meta.
-        limite = 0 if forcado else conta.teto_efetivo
+        # Teto diário = menor entre o limite do usuário e a cota real da Meta.
+        # Story NÃO conta para o teto e não é barrado por ele (limite é de feed).
+        limite = 0 if (forcado or eh_story) else conta.teto_efetivo
         if limite > 0:
-            publicados_24h = ScheduledPost.objects.filter(
-                account=conta, status='published', published_at__gte=janela_24h
-            ).count()
+            publicados_24h = (ScheduledPost.objects
+                              .filter(account=conta, status='published',
+                                      published_at__gte=janela_24h)
+                              .exclude(post_type='STORY').count())
             if publicados_24h >= limite:
-                # Reagenda para quando uma vaga da janela de 24h abrir — espaçado,
-                # para o horário ficar HONESTO, não reprocessar a cada minuto e
-                # não colapsar toda a fila no mesmo instante.
-                quando = conta.livre_em() or (now + timedelta(hours=1))
-                _reagenda_espacado(post, quando, gap_ef)
+                # NÃO reagenda: recomenda ao usuário e mantém o post no horário
+                # dele. Sai quando uma vaga da janela de 24h abrir sozinha.
+                _recomendar_limite(post, conta)
                 continue
 
         post.status = 'processing'

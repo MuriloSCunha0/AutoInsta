@@ -64,21 +64,26 @@ class TetoEfetivoTest(TestCase):
                                               daily_post_limit=0, quota_total=0)
         self.assertEqual(acc.teto_efetivo, 0)
 
-    def test_no_teto_reagenda_para_quando_libera(self):
-        """Post de conta no teto vai para o futuro, não fica vencido em loop."""
+    def test_no_teto_nao_publica_e_NAO_reagenda(self):
+        """Post de conta no teto não publica e NÃO tem o horário mexido.
+
+        Mudou em 05/08/2026 (pedido do usuário): o bloqueio por limite passou a
+        RECOMENDAR ao dono, não a reagendar. A fila não pode 'pular' de horário
+        sozinha; o post fica no lugar e sai quando a conta liberar."""
         acc = InstagramAccount.objects.create(owner=self.user, ig_username='a',
                                               status='active', daily_post_limit=2, quota_total=0)
         agora = timezone.now()
-        # 2 publicados nas ultimas 24h = teto batido
-        for h in (10, 5):
+        for h in (10, 5):     # 2 publicados nas ultimas 24h = teto batido
             ScheduledPost.objects.create(owner=self.user, account=acc, post_type='REELS',
                                          status='published', scheduled_for=agora,
                                          published_at=agora - timedelta(hours=h))
+        quando = agora - timedelta(minutes=1)
         p = ScheduledPost.objects.create(owner=self.user, account=acc, post_type='REELS',
-                                         status='queued', scheduled_for=agora)
+                                         status='queued', scheduled_for=quando)
         with mock.patch('apps.publisher.tasks.publish_reel.delay') as d:
             from apps.publisher.tasks import process_scheduled_posts
             process_scheduled_posts()
             self.assertFalse(d.called)  # não publicou (no teto)
         p.refresh_from_db()
-        self.assertGreater(p.scheduled_for, agora)  # foi remarcado para o futuro
+        # horário INTACTO (tolerância p/ arredondamento)
+        self.assertAlmostEqual(p.scheduled_for, quando, delta=timedelta(seconds=1))
