@@ -316,12 +316,14 @@ class InstagramAccount(models.Model):
 
     @property
     def de_molho(self):
-        """A Meta limitou 2x seguidas e a conta foi posta de molho.
+        """A Meta limitou 2x+ seguidas: a conta está DESCANSANDO (cooldown longo).
 
-        É diferente de "pausada pelo usuário": aqui o sistema pausou sozinho e
-        reagendou a fila para amanhã.
+        NÃO é pausa permanente nem precisa de ação do usuário — quando o cooldown
+        passar, a conta volta a tentar publicar sozinha. Se a Meta limitar de
+        novo, descansa outro período. Some quando uma publicação dá certo
+        (meta_limit_count zera) ou o cooldown acaba sem novo limite.
         """
-        return bool(self.pausada and (self.meta_limit_count or 0) >= 2)
+        return bool((self.meta_limit_count or 0) >= 2 and self.em_cooldown)
 
     @property
     def motivo_parada(self):
@@ -336,9 +338,9 @@ class InstagramAccount(models.Model):
             return ('bloqueada', 'Conta bloqueada pela administração.')
         if self.de_molho:
             return ('de molho',
-                    'A Meta limitou esta conta 2x seguidas. O sistema pausou a '
-                    'fila e reagendou os posts para amanhã no mesmo horário. '
-                    'A fila não está travada.')
+                    'A Meta limitou esta conta 2x seguidas. Está descansando e '
+                    'volta a tentar publicar sozinha quando o cooldown passar '
+                    '(a fila foi reagendada). Não está travada nem precisa de você.')
         if self.pausada:
             return ('pausada',
                     'Conta pausada. Os posts ficam guardados e saem quando você '

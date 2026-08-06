@@ -972,41 +972,48 @@ def publish_reel(post_id):
 
         elif _e_rate_limit(msg):
             # Rate limit da Meta: NÃO conta como retry (a conta atingiu o teto de
-            # 24h). Conta quantas vezes SEGUIDAS a Meta limitou:
-            #  - 1ª vez: cooldown + avisa (o card sugere ZERAR a fila e tentar de
-            #    novo). O post reagenda para depois do cooldown.
-            #  - 2ª vez: a conta fica DE MOLHO — pausa a fila e reagenda tudo para
-            #    AMANHÃ no mesmo horário (para de insistir hoje).
+            # 24h). Conta quantas vezes SEGUIDAS a Meta limitou (zera ao publicar
+            # com sucesso):
+            #  - 1ª vez: cooldown CURTO (3h). Passado o cooldown, a conta tenta de
+            #    novo SOZINHA.
+            #  - 2ª vez+: DE MOLHO — cooldown LONGO (descansa ~até amanhã) e
+            #    reagenda a fila. Também volta a tentar sozinha quando o cooldown
+            #    passar; se limitar de novo, descansa outro período. NUNCA fica
+            #    parada para sempre (antes virava `pausada=True` eterno).
+            from django.conf import settings as _cfgrl
             conta = post.account
-            cooldown = timezone.now() + timedelta(hours=3)
+            # Se o usuário estava FORÇANDO e MESMO ASSIM a Meta limitou, desliga o
+            # forçar desta conta — parar de martelar (era o pedido). Ele pode
+            # religar por conta e risco, e aí avisamos que pode derrubar a conta.
+            forcava = conta.ignorar_limites
+            campos_conta = ['rate_limited_until', 'meta_limit_count']
+            if forcava:
+                conta.ignorar_limites = False
+                campos_conta.append('ignorar_limites')
             conta.meta_limit_count = (conta.meta_limit_count or 0) + 1
-            conta.rate_limited_until = cooldown
             de_molho = conta.meta_limit_count >= 2
+            horas = getattr(_cfgrl, 'DE_MOLHO_HORAS', 12) if de_molho else 3
+            cooldown = timezone.now() + timedelta(hours=horas)
+            conta.rate_limited_until = cooldown
+            conta.save(update_fields=campos_conta)
             if de_molho:
-                conta.pausada = True
-                conta.save(update_fields=['rate_limited_until', 'meta_limit_count', 'pausada'])
-                # ESTE post precisa sair de 'processing' ANTES de reagendar a
-                # fila: ele é quem disparou o "de molho" e continuava marcado
-                # como "publicando..." — a tela mostrava um post em andamento
-                # que nunca terminava e só voltava pela rede de segurança de 15
-                # min. Foi o caso relatado: post das 15:35 ainda "publicando"
-                # às 15:56. Devolvendo à fila aqui, ele entra no reagendamento
-                # de amanhã junto com os outros.
+                # ESTE post sai de 'processing' ANTES de reagendar a fila (senão
+                # ficava "publicando..." para sempre e só voltava pela rede de
+                # segurança de 15 min).
                 post.status = 'queued'
                 post.processing_since = None
                 post.error_message = ('Conta de molho: a Meta limitou 2x seguidas. '
-                                      'Reagendado para amanhã no mesmo horário.')
+                                      'Descansando — volta a tentar sozinha quando o cooldown '
+                                      'passar (fila reagendada).')
                 post.save(update_fields=['status', 'processing_since', 'error_message'])
-                # Reagenda a fila inteira da conta para amanhã, mesmo horário.
                 movidos = conta.reagendar_fila_amanha()
-                print(f"Post {post_id}: rate limit 2x; @{conta.ig_username} DE MOLHO — "
-                      f"pausada, {movidos} post(s) reagendados p/ amanhã.")
+                print(f"Post {post_id}: rate limit {conta.meta_limit_count}x; @{conta.ig_username} "
+                      f"DE MOLHO até {cooldown} (volta sozinha), {movidos} post(s) reagendados.")
             else:
-                conta.save(update_fields=['rate_limited_until', 'meta_limit_count'])
                 post.status = 'queued'
                 post.scheduled_for = cooldown
                 post.error_message = ('Limite de publicações da Meta atingido — reagendado após '
-                                      'cooldown. Se repetir, zere a fila desta conta e tente de novo.')
+                                      'cooldown. Volta a tentar sozinha quando o cooldown passar.')
                 post.save()
                 print(f"Post {post_id}: rate limit; @{conta.ig_username} em cooldown até {cooldown}")
             # Avisa o dono (1x por conta a cada hora).
@@ -1014,21 +1021,23 @@ def publish_reel(post_id):
                 from apps.notifications.alertas import alertar
                 agora = timezone.now()
                 if de_molho:
-                    titulo, corpo, nivel = (
+                    titulo, corpo = (
                         'Conta de molho',
-                        f'@{conta.ig_username}: a Meta limitou 2x seguidas. Coloquei a conta '
-                        'de molho — pausei a fila e reagendei tudo para amanhã no mesmo horário.',
-                        'warning')
+                        f'@{conta.ig_username}: a Meta limitou 2x seguidas. Botei de molho — '
+                        'ela descansa e volta a tentar publicar sozinha quando o cooldown '
+                        'passar (reagendei a fila). Não está travada.')
                 else:
-                    titulo, corpo, nivel = (
+                    titulo, corpo = (
                         'Conta limitada pela Meta',
-                        f'@{conta.ig_username}: a Meta limitou as publicações (volta '
-                        f'{timezone.localtime(cooldown):%d/%m %H:%M}). Sugestão: zere a fila '
-                        'desta conta e tente de novo.',
-                        'warning')
+                        f'@{conta.ig_username}: a Meta limitou as publicações (volta a tentar '
+                        f'sozinha {timezone.localtime(cooldown):%d/%m %H:%M}).')
+                if forcava:
+                    corpo += (' Você estava FORÇANDO esta conta — desliguei o forçar porque a '
+                              'Meta limitou mesmo assim. Se forçar de novo, ela posta ignorando '
+                              'o limite, com risco de DERRUBAR a conta.')
                 alertar(post.owner, 'conta_caiu', titulo, corpo,
                         chave=f'ratelimit:{conta.id}:{agora:%Y%m%d%H}',
-                        nivel=nivel, account=conta)
+                        nivel='warning', account=conta)
             except Exception:
                 pass
 

@@ -586,6 +586,7 @@ def toggle_forcar(request, account_id):
     if account.ignorar_limites:
         # Ao FORÇAR: zera cooldown, tira a pausa e puxa os posts que tinham
         # sido adiados pelo limite de volta para agora — a fila retoma na hora.
+        estava_limitada = bool(account.rate_limited_until) or (account.meta_limit_count or 0) >= 1
         if account.rate_limited_until:
             account.rate_limited_until = None
             campos.append('rate_limited_until')
@@ -593,6 +594,25 @@ def toggle_forcar(request, account_id):
             account.pausada = False
             campos.append('pausada')
         _subir_fila_agora(account)
+        # AVISO (o pedido): forçar posta IGNORANDO o limite da Meta — pode
+        # derrubar a conta. Se a Meta já vinha limitando (foi por isso que o
+        # forçar tinha se desligado sozinho), o risco é ainda maior.
+        from django.contrib import messages
+        from django.utils import timezone as _tz
+        risco = ('a Meta já vinha limitando esta conta — ' if estava_limitada else '')
+        messages.warning(
+            request,
+            f'Forçar LIGADO em @{account.ig_username}: ela vai postar IGNORANDO o '
+            f'limite da Meta. {risco}isso tem risco real de DERRUBAR a conta.')
+        try:
+            from apps.notifications.alertas import alertar
+            alertar(request.user, 'conta_caiu', 'Forçar ligado (risco de queda)',
+                    f'@{account.ig_username}: forçar ligado — posta ignorando o limite da '
+                    'Meta, com risco de derrubar a conta. Desligue se não for proposital.',
+                    chave=f'forcar:{account.id}:{_tz.localtime():%Y%m%d%H%M}',
+                    nivel='warning', account=account)
+        except Exception:
+            pass
     account.save(update_fields=campos)
     return render(request, 'instagram/partials/account_card.html', {'account': account})
 
