@@ -227,6 +227,14 @@ CAPTION_AVISO_USO = env.int("CAPTION_AVISO_USO", default=10)
 # conteúdo velho = spam). Também estabiliza os horários da fila.
 MAX_ATRASO_POST_HORAS = env.int("MAX_ATRASO_POST_HORAS", default=6)
 
+# Faxina de MEDIA_ROOT/processed: os arquivos ali são cópias TRANSITÓRIAS da
+# publicação (mídia limpa/diversificada que o braço sobe ao painel p/ a Meta
+# baixar). Depois do post publicar/expirar, não servem mais — mas nada apagava,
+# e o painel enchia ~30GB/dia até estourar o disco (83GB em 05/08/2026). A task
+# limpar_midia_processada apaga os arquivos além deste TTL (horas). Fica bem
+# acima do MAX_ATRASO acima, então nunca apaga mídia em voo.
+PROCESSED_TTL_HORAS = env.int("PROCESSED_TTL_HORAS", default=6)
+
 # Faixa de MADRUGADA (hora local). Publicar aqui é o padrão mais robótico que
 # existe: conta real não posta às 4h todo dia. Medido em produção: a curva de
 # publicação por hora estava PLANA nas 24h, com tanto post às 4h quanto ao meio-
@@ -332,6 +340,13 @@ CELERY_BEAT_SCHEDULE = {
     "refresh-meta-tokens": {
         "task": "apps.instagram.tasks.refresh_meta_tokens",
         "schedule": crontab(hour=5, minute=30),
+    },
+    # Faxina do processed/: apaga cópias transitórias de publicação além do TTL,
+    # senão o disco do painel enche (~30GB/dia) e derruba o deploy. Fila 'celery'
+    # (default) = worker do PAINEL, onde o volume de mídia vive.
+    "limpar-midia-processada": {
+        "task": "apps.publisher.tasks.limpar_midia_processada",
+        "schedule": 1800.0,  # a cada 30 min
     },
 }
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutos

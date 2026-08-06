@@ -204,6 +204,51 @@ def diagnosticar_erro(msg):
              'Se repetir, veja o erro técnico abaixo e avise o suporte.')
 
 
+@shared_task
+def limpar_midia_processada():
+    """Faxina de MEDIA_ROOT/processed — cópias TRANSITÓRIAS de publicação (mídia
+    limpa/diversificada que o braço sobe ao painel p/ a Meta baixar, e temporários
+    de download). Depois do post publicar/expirar, não servem mais. Sem isto o
+    painel enchia ~30GB/dia (83GB em 05/08/2026) até estourar o disco e derrubar
+    o deploy (git fetch: 'unpack-objects failed').
+
+    Roda na fila 'celery' (default) = worker do PAINEL, onde o volume de mídia
+    vive. Apaga só arquivos com mtime além de PROCESSED_TTL_HORAS (default 6h) —
+    bem acima da vida de um post (MAX_ATRASO_POST_HORAS), então nunca toca mídia
+    em voo. Nenhum ScheduledPost aponta video_file/thumbnail para processed/
+    (é sempre reels/ ou media_library/), então é seguro.
+    """
+    import os
+    import time
+    from django.conf import settings as _s
+    ttl_h = getattr(_s, 'PROCESSED_TTL_HORAS', 6)
+    corte = time.time() - ttl_h * 3600
+    base = os.path.join(_s.MEDIA_ROOT, 'processed')
+    if not os.path.isdir(base):
+        return {'apagados': 0, 'gb': 0}
+    apagados = 0
+    liberados = 0
+    try:
+        with os.scandir(base) as it:
+            for entry in it:
+                try:
+                    if not entry.is_file():
+                        continue
+                    st = entry.stat()
+                    if st.st_mtime < corte:
+                        os.remove(entry.path)
+                        apagados += 1
+                        liberados += st.st_size
+                except OSError:
+                    continue
+    except OSError:
+        return {'apagados': apagados, 'gb': round(liberados / 1073741824, 2)}
+    if apagados:
+        print(f"limpar_midia_processada: apagou {apagados} arquivo(s), "
+              f"{liberados / 1073741824:.2f} GB liberados (>{ttl_h}h).")
+    return {'apagados': apagados, 'gb': round(liberados / 1073741824, 2)}
+
+
 def _recomendar_limite(post, conta):
     """Recomenda ao usuário quando a conta está no limite — SEM reagendar.
 
