@@ -81,22 +81,30 @@ DESTAQUE_TITULO = "LINK 🔗"
 def _rodizio(banco, i, deslocamento=0):
     """Item do banco para a posição `i`, deslocado por conta.
 
-    O deslocamento é o que impede 18 contas de postarem o mesmo texto no mesmo
+    O deslocamento é o que impede as contas de postarem o mesmo texto no mesmo
     ciclo — cada conta começa num ponto diferente do banco.
+
+    ATENÇÃO ao que se passa em `deslocamento`: tem de ser a POSIÇÃO da conta na
+    campanha (0, 1, 2...), não o `id` dela. Com o id, duas contas cujos ids
+    diferem por um múltiplo do tamanho do banco caem no MESMO modelo — foi o que
+    aconteceu em produção (ids 490 e 634, banco de 24: 634-490=144=24×6), e as
+    duas contas publicaram a legenda idêntica no mesmo minuto, que é exatamente
+    o padrão coordenado que este módulo existe para evitar. Com a posição, duas
+    contas só repetem quando a campanha tem mais contas do que modelos.
     """
     if not banco:
         return ''
     return banco[(i + deslocamento) % len(banco)]
 
 
-def legenda(i, conta_id=0):
-    """Legenda (modelo spintax) do i-ésimo post desta conta."""
-    return _rodizio(LEGENDAS, i, conta_id)
+def legenda(i, pos_conta=0):
+    """Legenda (modelo spintax) do i-ésimo post da conta na posição `pos_conta`."""
+    return _rodizio(LEGENDAS, i, pos_conta)
 
 
-def titulo_story(i, conta_id=0):
-    return _rodizio(TITULOS_STORY, i, conta_id)
+def titulo_story(i, pos_conta=0):
+    return _rodizio(TITULOS_STORY, i, pos_conta)
 
 
-def botao_story(i, conta_id=0):
-    return _rodizio(BOTOES_STORY, i, conta_id)
+def botao_story(i, pos_conta=0):
+    return _rodizio(BOTOES_STORY, i, pos_conta)

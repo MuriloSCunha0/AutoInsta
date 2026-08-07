@@ -109,6 +109,26 @@ class PlanoAtomTest(TestCase):
         # e' a fila inteira sair sincronizada.
         self.assertLess(iguais, len(a) * 0.5)
 
+    def test_nenhuma_legenda_repetida_no_mesmo_horario(self):
+        # Bug real em produção: o rodízio era deslocado pelo ID da conta, e ids
+        # que diferem por múltiplo do tamanho do banco (490 e 634, banco de 24)
+        # caíam no MESMO modelo — as duas contas publicaram texto idêntico no
+        # mesmo minuto, o padrão coordenado que o banco existe para evitar.
+        # Ids esparsos e não-consecutivos, como em produção:
+        InstagramAccount.objects.all().delete()
+        for novo_id in (490, 514, 634, 658):
+            c = InstagramAccount.objects.create(
+                owner=self.user, ig_username=f'c{novo_id}', status='active',
+                modelo='atom', meta_access_token='tok', ig_user_id=novo_id)
+            InstagramAccount.objects.filter(pk=c.pk).update(id=novo_id)
+        self._rodar()
+        por_horario = {}
+        for p in ScheduledPost.objects.filter(post_type='REELS'):
+            por_horario.setdefault(p.scheduled_for, []).append(p.caption)
+        for quando, textos in por_horario.items():
+            self.assertEqual(len(textos), len(set(textos)),
+                             f'{quando}: legenda repetida entre contas -> {textos}')
+
     def test_cta_varia_entre_posts_e_entre_contas(self):
         self._rodar()
         a = [p.caption for p in self._reels(self.contas[0])]

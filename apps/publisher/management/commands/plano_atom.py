@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Monta o plano de volume do ATOM: reels de X em X minutos + stories com link
 fixados no destaque, com CTA variado e anti-repetição.
 
@@ -136,7 +136,7 @@ class Command(BaseCommand):
             volta += 1
         return saida[:quantos]
 
-    def _arte_story(self, conta, i, base_video, destino_dir):
+    def _arte_story(self, conta, i, pos, base_video, destino_dir):
         """Gera o JPG do story: frame de um reel da própria conta + título +
         pílula de link. Devolve o nome relativo ao MEDIA_ROOT, ou None."""
         from engine.cta_render import gerar_cta
@@ -156,8 +156,8 @@ class Command(BaseCommand):
         try:
             gerar_cta(
                 base_path=fundo, tipo='link',
-                titulo=cta_atom.titulo_story(i, conta.id),
-                sticker_texto=cta_atom.botao_story(i, conta.id),
+                titulo=cta_atom.titulo_story(i, pos),
+                sticker_texto=cta_atom.botao_story(i, pos),
                 titulo_y=0.15, sticker_y=0.60, escurecer=0.30,
                 destino=destino,
             )
@@ -230,7 +230,9 @@ class Command(BaseCommand):
         total_reels = total_stories = 0
         sem_sessao = []
 
-        for conta in contas:
+        # `pos` (posição na campanha), não `conta.id`, é o que desloca o rodízio
+        # de CTA — ver a nota em cta_atom._rodizio.
+        for pos, conta in enumerate(contas):
             tem_sessao = bool(getattr(conta, 'tem_sessao_engine', False))
             if not tem_sessao:
                 sem_sessao.append(conta.ig_username)
@@ -249,7 +251,7 @@ class Command(BaseCommand):
                 # usuário não teria como revisar o que vai sair. A variação fina
                 # (invisíveis/sinônimos) continua acontecendo no publish, via
                 # variar_auto.
-                legenda = expandir_spintax(cta_atom.legenda(i, conta.id),
+                legenda = expandir_spintax(cta_atom.legenda(i, pos),
                                            _rng(f'cta-{conta.id}-{i}'))
                 if not seco:
                     post = ScheduledPost(
@@ -272,7 +274,8 @@ class Command(BaseCommand):
                     rel = None
                     if not seco:
                         rel = self._arte_story(
-                            conta, j, midias[j % len(midias)] if midias else None,
+                            conta, j, pos,
+                            midias[j % len(midias)] if midias else None,
                             destino_dir)
                         if not rel:
                             continue
@@ -281,7 +284,7 @@ class Command(BaseCommand):
                             post_type='STORY', caption='',
                             status='queued', scheduled_for=quando,
                             story_link=o['link'],
-                            story_link_label=cta_atom.botao_story(j, conta.id),
+                            story_link_label=cta_atom.botao_story(j, pos),
                             # Só o 1º story do dia entra no destaque: cada
                             # inclusão é uma chamada da API privada, e o destaque
                             # não precisa de 3 cópias do mesmo CTA por dia.
