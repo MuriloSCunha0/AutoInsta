@@ -56,6 +56,16 @@ def dashboard(request):
         published_at__date=today - timedelta(days=1)
     ).count()
 
+    # Total PERSISTENTE de publicados (soma o contador por conta). NÃO cai quando
+    # o usuário apaga registros do histórico — era a queixa: o número de
+    # publicados diminuía ao limpar os publicados. Piso = COUNT vivo, para nunca
+    # mostrar menos do que existe.
+    publicados_total = accounts.aggregate(t=Sum('publicados_total'))['t'] or 0
+    publicados_total = max(
+        publicados_total,
+        ScheduledPost.objects.filter(owner=request.user, status='published').count(),
+    )
+
     # O que ainda vai sair — publicado já saiu da fila e vive no histórico.
     # Antes esta lista era "os 5 últimos criados", que com o volume diário
     # virava só publicados e não mostrava nada do que estava por vir.
@@ -118,6 +128,7 @@ def dashboard(request):
         'views_today': views_today,
         'published_today': published_today,
         'published_yesterday': published_yesterday,
+        'publicados_total': publicados_total,
         'recent_posts': recent_posts,
         'accounts': accounts,
         'ranking_list': ranking_list,
@@ -167,6 +178,11 @@ def performance(request):
         processing=Count('id', filter=Q(status='processing')),
         failed=Count('id', filter=Q(status='failed')),
     )
+    # "Publicados" = contador PERSISTENTE (soma por conta), não o COUNT vivo de
+    # linhas. Assim o número NÃO cai quando o usuário apaga registros do histórico
+    # (queixa do usuário). Nunca menor que o count vivo (é o total já publicado).
+    publicados_total = accounts.aggregate(t=Sum('publicados_total'))['t'] or 0
+    publicados_total = max(publicados_total, status_counts['published'] or 0)
 
     context = {
         'followers_total': followers_total,
@@ -179,11 +195,12 @@ def performance(request):
         'chart_accounts': json.dumps(chart_accounts),
         'chart_followers': json.dumps(chart_followers),
         'chart_status': json.dumps([
-            status_counts['published'] or 0,
+            publicados_total,
             status_counts['queued'] or 0,
             status_counts['processing'] or 0,
             status_counts['failed'] or 0,
         ]),
+        'publicados_total': publicados_total,
     }
     return render(request, 'analytics/performance.html', context)
 

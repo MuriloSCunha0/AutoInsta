@@ -897,6 +897,15 @@ def publish_reel(post_id):
 
         post.save()
 
+        # Contador PERSISTENTE de publicados (dashboard). Incrementa aqui e NUNCA
+        # decrementa: apagar o registro do histórico não pode diminuir o total de
+        # publicados que o usuário vê no dashboard (queixa do usuário). Atômico
+        # (F) para não perder contagem sob concorrência.
+        from django.db.models import F as _F
+        from apps.instagram.models import InstagramAccount as _IA
+        _IA.objects.filter(id=post.account_id).update(
+            publicados_total=_F('publicados_total') + 1)
+
         # Alerta de STORY publicado (opcional, ligado nas Configurações).
         # Anti-spam: 1 aviso por conta a cada hora, mesmo com vários stories.
         if post.post_type == 'STORY':

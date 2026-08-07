@@ -78,6 +78,12 @@ class InstagramAccount(models.Model):
     followers_count = models.IntegerField(default=0)
     following_count = models.IntegerField(default=0)
     posts_count = models.IntegerField(default=0)
+    # Contador PERSISTENTE de publicações que ESTE sistema fez por esta conta.
+    # Incrementa a cada publicação com sucesso e NUNCA decrementa — apagar um
+    # registro do histórico não pode diminuir o total de publicados no dashboard
+    # (queixa do usuário: o número caía ao limpar os publicados). É diferente do
+    # posts_count (nº de mídias na conta, vindo da Meta) e do COUNT vivo de linhas.
+    publicados_total = models.IntegerField(default=0)
 
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='connecting')
     # Teto de publicações por dia nesta conta (0 = sem limite). Ajuda a evitar
