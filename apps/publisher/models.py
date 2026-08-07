@@ -88,6 +88,12 @@ class ScheduledPost(models.Model):
     story_link_x = models.FloatField(default=0.5)
     story_link_y = models.FloatField(default=0.82)
 
+    # Depois de publicar, fixa este story no destaque do perfil (título em
+    # `destaque_titulo`, ou o padrão da conta). Só funciona em conta COM sessão
+    # — destaque não existe na API oficial. Falhar aqui NUNCA derruba o post.
+    para_destaque = models.BooleanField(default=False)
+    destaque_titulo = models.CharField(max_length=40, blank=True, default='')
+
     # Limpeza/diversificação do arquivo antes de publicar, para o Instagram
     # não correlacionar contas que enviam a mesma mídia.
     #

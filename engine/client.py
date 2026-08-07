@@ -631,6 +631,60 @@ class InstagramEngine:
             cover_url=cover_url, share_to_feed=share_to_feed, is_image=False,
         )
 
+    def fixar_no_destaque(self, story_pk, titulo='LINK', capa_pk=None):
+        """Fixa um story publicado num DESTAQUE do perfil (só pela sessão).
+
+        Story dura 24h; destaque fica no topo do perfil para sempre. É o que
+        permite as legendas dizerem "link nos destaques" e continuar valendo
+        depois que o story do dia sai do ar.
+
+        A API oficial da Meta NÃO tem destaques — só a engine (instagrapi) faz.
+        Conta só-token não tem como; por isso quem chama trata a falha como
+        opcional e nunca derruba a publicação por causa disto.
+
+        Reaproveita o destaque já criado (`account.destaque_pk`) em vez de criar
+        um novo a cada story — senão o perfil enche de destaques repetidos.
+        Devolve o pk do destaque.
+        """
+        self._prepare_client()
+        acc = self.account
+        pk = (acc.destaque_pk or '').strip()
+
+        # Já temos o destaque desta conta: só acrescenta o story.
+        if pk:
+            try:
+                self.client.highlight_add_stories(int(pk), [int(story_pk)])
+                return pk
+            except Exception:
+                # Destaque apagado à mão no app / pk velho: cai para criar de novo.
+                pk = ''
+
+        # Sem pk salvo: procura um destaque com este título antes de criar
+        # (a conta pode já ter um, feito na mão ou por uma execução anterior).
+        try:
+            for h in (self.client.user_highlights(self.client.user_id) or []):
+                if (getattr(h, 'title', '') or '').strip().lower() == titulo.strip().lower():
+                    pk = str(h.pk)
+                    self.client.highlight_add_stories(int(pk), [int(story_pk)])
+                    break
+        except Exception:
+            pk = ''
+
+        if not pk:
+            novo = self.client.highlight_create(
+                titulo, [int(story_pk)],
+                cover_story_pk=int(capa_pk or story_pk))
+            pk = str(getattr(novo, 'pk', '') or '')
+
+        if pk and pk != (acc.destaque_pk or ''):
+            acc.destaque_pk = pk
+            acc.destaque_titulo = titulo
+            try:
+                acc.save(update_fields=['destaque_pk', 'destaque_titulo'])
+            except Exception:
+                pass
+        return pk
+
     def upload_story(self, media_path, link_url=None, link_pos=None, link_label=None):
         """Publica um Story pela engine (instagrapi). Diferencial: permite
         anexar LINK ao Story — a API oficial da Meta não expõe isso.

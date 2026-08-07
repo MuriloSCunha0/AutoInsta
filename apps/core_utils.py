@@ -201,9 +201,13 @@ def msg_meta_amigavel(msg):
     # token está bom, não reconectar nada. Vem antes do teste de token para não
     # cair no "veja se está SUSPENSA".
     if _e_restricao_temporaria(msg):
-        return ('A Meta restringiu a publicação desta conta por um tempo '
-                '(integridade). A conta está OK — não precisa reconectar. '
-                'Volta a postar sozinha quando a restrição sair.')
+        # Não afirmar "restringiu a publicação": a Meta manda esse mesmo erro
+        # quando a restrição é só de MENSAGENS e a conta posta normal. Dizemos o
+        # que ela de fato disse, e para onde o usuário olha para descobrir o tipo.
+        return ('A Meta recusou dizendo que a conta está restrita, sem informar o '
+                'tipo (pode ser só de mensagens). A conta está OK — não precisa '
+                'reconectar; ela tenta de novo sozinha. Se repetir, veja "Status '
+                'da conta" no instagram.com.')
     if ('cannot access the app' in m or 'log in to www.instagram.com' in m
             or 'error validating access token' in m or "'code': 190" in m):
         return ('Entre no instagram.com com esta conta e veja o que aparece: '

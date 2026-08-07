@@ -104,15 +104,21 @@ def diagnosticar_erro(msg):
                  'Deixe a conta conectada e ativa no horário dos posts. Para '
                  'publicar esse conteúdo, é só agendar de novo.')
 
-    # ── Instagram pausou a conta por um tempo (integridade / code 25) ──
-    if (_e_restricao_temporaria(m) or 'restringiu a publicacao desta conta' in b
+    # ── Meta recusou dizendo que a conta está restrita (code 25) ──
+    # Cuidado com o que se afirma aqui: a Meta manda esse mesmo erro quando a
+    # restrição é só de MENSAGENS e a conta posta normal. Descrevemos a recusa,
+    # não um bloqueio de postagem que ela nunca declarou.
+    if (_e_restricao_temporaria(m) or 'conta restrita' in b
+            or 'restringiu a publicacao desta conta' in b
             or 'nao e queda nem limite de cota' in b):
         return d('restricao', 'warning',
-                 'Instagram pausou esta conta por um tempo',
-                 'O Instagram segurou as publicações desta conta temporariamente. '
-                 'Não é queda nem limite: a conta e o acesso continuam certos.',
-                 'Não precisa fazer nada — ela volta a postar sozinha. Não force '
-                 'nem reconecte agora, porque insistir só piora.')
+                 'A Meta recusou: "conta restrita"',
+                 'A Meta recusou a publicação dizendo que a conta está restrita, mas '
+                 'não informa o TIPO de restrição — pode ser só de mensagens, e não '
+                 'de posts. Não é queda nem limite: o acesso continua certo.',
+                 'A conta tenta publicar de novo sozinha. Se repetir, entre no '
+                 'instagram.com com ela e veja "Status da conta" — é lá que aparece '
+                 'a pendência. Não force nem reconecte, porque insistir só piora.')
 
     # ── Limite de publicações das últimas 24h ──
     if _e_rate_limit(m) or 'limite de publicacoes da meta atingido' in b:
@@ -588,17 +594,77 @@ def _e_restricao_temporaria(msg):
     )
 
 
+def _sondar_restricao(conta):
+    """Descobre O QUE a restrição da conta (code 25) pega — o máximo que a API dá.
+
+    A Meta NÃO expõe o tipo de restrição: o manual de erros dela documenta o
+    code 25 / subcode 2207050 como "The Instagram account is restricted" e a
+    única solução oficial é "entrar no Instagram e concluir o que ele pedir".
+    Não existe campo nem endpoint de "tipo de restrição" — é por isso que a
+    conta do usuário, restrita só para MENSAGENS, chega aqui igualzinha a uma
+    restrita para postagem.
+
+    O que dá para fazer é comparar o que responde e o que não responde. Duas
+    chamadas de LEITURA (baratas, e só 1x por episódio, ao marcar a conta como
+    restrita — nunca a cada tentativa, que era o padrão que agravava a punição):
+
+      - /me responde 200  → o acesso está vivo e a recusa é ESPECÍFICA da
+        publicação; junto com a cota livre, isso descarta token vencido e limite
+        de 24h e sobra "pendência da conta" (que pode nem ser de post);
+      - /me também dá 25  → a restrição pega o acesso INTEIRO, não só publicar.
+
+    Devolve uma frase para somar ao aviso, ou '' se a sonda não concluiu nada.
+    """
+    import requests
+    from apps.instagram.views import IG_API_VERSION
+    token = conta.get_meta_token()
+    if not token or not conta.ig_user_id:
+        return ''
+    base = f"https://graph.instagram.com/{IG_API_VERSION}"
+    try:
+        perfil = requests.get(
+            f"{base}/me", params={'fields': 'username,followers_count',
+                                  'access_token': token}, timeout=15).json()
+    except Exception:
+        return ''
+    erro = (perfil or {}).get('error') or {}
+    if erro:
+        if _e_restricao_temporaria(str(erro)):
+            return ('Conferimos: a Meta recusa até LER o perfil desta conta — a restrição '
+                    'pega o acesso inteiro, não só a publicação.')
+        return ''
+    cota = ''
+    try:
+        q = requests.get(
+            f"{base}/{conta.ig_user_id}/content_publishing_limit",
+            params={'fields': 'config,quota_usage', 'access_token': token}, timeout=15).json()
+        d = (q.get('data') or [{}])[0]
+        if 'quota_usage' in d:
+            cota = (f" e a cota está em {d.get('quota_usage', 0)}/"
+                    f"{(d.get('config') or {}).get('quota_total', 0)}")
+    except Exception:
+        pass
+    return (f'Conferimos: o perfil desta conta responde normalmente{cota} — só a '
+            'PUBLICAÇÃO é recusada. Isso descarta token vencido e limite de cota. '
+            'Entre pelo instagram.com NO NAVEGADOR (pelo app do celular não resolve) '
+            'e conclua o que ele pedir.')
+
+
 # Erros em que vale REVEZAR de API (Graph <-> engine). São falhas LIMPAS, de
 # autenticação/capacidade: a mídia NÃO foi publicada, então cair para a outra
 # API não duplica o post. Timeout e erros ambíguos ficam de fora de propósito
 # (poderiam ter publicado — revezar duplicaria).
 def _deve_revezar(msg):
     m = (msg or '').lower()
-    # Restrição da CONTA (code 25) não é problema da VIA: a conta está segurada
-    # nas duas pontas, então revezar para a engine só bate na mesma parede (e
-    # insiste numa conta que a Meta pediu para deixar quieta). Trata direto.
+    # Restrição da CONTA (code 25): ANTES a gente assumia que a conta estava
+    # segurada nas duas pontas e nem tentava a outra via. Errado — a Meta manda
+    # esse mesmo erro quando a restrição é só de MENSAGENS e a conta posta
+    # normal. Revezar aqui é o ÚNICO teste empírico que temos do tipo de
+    # restrição: se a engine (sessão) publica, não era restrição de postagem. A
+    # falha da Graph no /media é limpa (nada foi publicado), então não duplica.
+    # Só vale para conta COM sessão; conta só-token não tem segunda via.
     if _e_restricao_temporaria(msg):
-        return False
+        return True
     gatilhos = (
         'cannot access the app', 'error validating access token', 'invalid oauth access token',
         "'code': 190", 'oauthexception', 'session has been invalidated', 'session has expired',
@@ -906,6 +972,24 @@ def publish_reel(post_id):
         _IA.objects.filter(id=post.account_id).update(
             publicados_total=_F('publicados_total') + 1)
 
+        # ── Fixar o story no DESTAQUE do perfil ───────────────────────────
+        # O story morre em 24h; o destaque fica. É o que sustenta as legendas
+        # dizerem "link nos destaques" o tempo todo. Só rola pela engine
+        # (sessão) — a API oficial não tem destaques —, e falhar aqui NUNCA
+        # pode derrubar um post que já foi publicado com sucesso.
+        if (post.post_type == 'STORY' and getattr(post, 'para_destaque', False)
+                and post.ig_media_id):
+            try:
+                titulo = (post.destaque_titulo
+                          or post.account.destaque_titulo or 'LINK')
+                engine.fixar_no_destaque(post.ig_media_id, titulo=titulo)
+                print(f"Post {post.id}: story fixado no destaque '{titulo}' "
+                      f"de @{post.account.ig_username}.")
+            except Exception as e_dest:
+                logger_pub.warning(
+                    'Post %s (@%s): story publicou, mas não entrou no destaque: %s',
+                    post.id, post.account.ig_username, str(e_dest)[:160])
+
         # Alerta de STORY publicado (opcional, ligado nas Configurações).
         # Anti-spam: 1 aviso por conta a cada hora, mesmo com vários stories.
         if post.post_type == 'STORY':
@@ -930,6 +1014,12 @@ def publish_reel(post_id):
         if post.account.meta_limit_count:
             post.account.meta_limit_count = 0
             campos_ok.append('meta_limit_count')
+        # Publicou => o code 25 anterior NÃO era restrição de postagem (ou ela
+        # saiu). Zera a série para o aviso não disparar por recusas antigas.
+        if post.account.restricao_count or post.account.restricao_desde:
+            post.account.restricao_count = 0
+            post.account.restricao_desde = None
+            campos_ok += ['restricao_count', 'restricao_desde']
         if campos_ok:
             post.account.save(update_fields=campos_ok)
 
@@ -1096,46 +1186,145 @@ def publish_reel(post_id):
                 pass
 
         elif _e_restricao_temporaria(msg):
-            # Conta restringida temporariamente pela Meta (code 25 / 2207050).
-            # O token está bom e a cota não estourou — é a conta que o IG segurou
-            # por comportamento/integridade. Insistir agora só piora. Damos um
-            # cooldown (3h), reagendamos o post para depois dele e NÃO gastamos
-            # retry. O cooldown faz a conta aparecer como "limitada" na Gestão
-            # (em vez de "on" sem publicar), e o alerta explica em vez de mostrar
-            # o JSON cru. A conta NÃO vira 'error': o token continua válido e ela
-            # volta sozinha quando a Meta soltar.
+            # A Meta recusou com "User access is restricted" (code 25 / 2207050).
+            #
+            # NÃO CONCLUÍMOS QUE É RESTRIÇÃO DE POSTAGEM. A Meta não expõe o TIPO
+            # de restrição por API: o mesmo code 25 sai quando a conta está
+            # restrita só para MENSAGENS e posta normalmente — caso comprovado
+            # pelo usuário na @debora_wachholz7525, que publica pelo app e ainda
+            # assim leva code 25 no /media. O tratamento antigo (cooldown de 3h +
+            # card "Limitada pela Meta") errava duas vezes: afirmava um bloqueio
+            # de postagem que a Meta nunca declarou, e o cooldown era REGRAVADO a
+            # cada nova recusa (agora+3h), então a contagem regressiva do card
+            # nunca chegava a zero — a conta ficava "limitada" para sempre.
+            #
+            # Agora o code 25 vira uma ESCADA, e o prazo de cada degrau é FIXO
+            # (nunca regravado enquanto está correndo — era o "o tempo reinicia e
+            # a conta nunca volta"):
+            #   1..LIVRES  — nem marca a conta: reagenda no INTERVALO NORMAL DA
+            #                CAMPANHA e tenta de novo. Se publicar, a série zera
+            #                e o usuário nem fica sabendo (é o caso da restrição
+            #                só de mensagens).
+            #   LIVRES+1   — aí sim: "restrita", cooldown de 3h com hora certa.
+            #                Passado o prazo, ela tenta 1x sozinha.
+            #   depois     — DE MOLHO (descanso longo + fila reagendada), o mesmo
+            #                tratamento que já existe para o limite da Meta.
+            # A conta NUNCA vira 'error' e NUNCA fica presa: todo degrau volta a
+            # tentar sozinho.
+            from django.conf import settings as _cfgr
+            from apps.instagram.models import InstagramAccount as _IAcc
             conta = post.account
-            cooldown = timezone.now() + timedelta(hours=3)
-            campos = []
-            if not conta.rate_limited_until or conta.rate_limited_until < cooldown:
-                conta.rate_limited_until = cooldown
-                campos.append('rate_limited_until')
-            conta.last_error = ('Publicação temporariamente restringida pela Meta '
-                                '(a conta está OK — nada de reconectar). Volta '
-                                'sozinha quando a restrição sair.')
-            campos.append('last_error')
+            agora = timezone.now()
+            conta.restricao_count = (conta.restricao_count or 0) + 1
+            n = conta.restricao_count
+            livres = _IAcc.RESTRICAO_TENTATIVAS_LIVRES
+            campos = ['restricao_count', 'last_error']
+            if not conta.restricao_desde:
+                conta.restricao_desde = agora
+                campos.append('restricao_desde')
+            # Forçar + code 25 = redespacho a cada rodada (~30s) contra uma conta
+            # que a Meta acabou de recusar; é martelo puro e agrava a restrição.
+            # Desliga o forçar (mesma regra já aplicada no rate limit).
+            forcava = conta.ignorar_limites
+            if forcava:
+                conta.ignorar_limites = False
+                campos.append('ignorar_limites')
+
+            de_molho = False
+            cooldown = None
+            if n <= livres:
+                # Ainda testando: sem cooldown, sem rótulo. Se sobrou cooldown do
+                # tratamento antigo (que marcava já na 1ª recusa), limpa — senão a
+                # conta continuaria "limitada" por herança.
+                if conta.rate_limited_until and not conta.meta_limit_count:
+                    conta.rate_limited_until = None
+                    campos.append('rate_limited_until')
+                conta.last_error = ('A Meta recusou uma publicação dizendo que a conta está '
+                                    'restrita. Ela não diz de QUE tipo — pode ser só de '
+                                    'mensagens. Tentando de novo no horário normal da fila.')
+            else:
+                de_molho = n > livres + 1
+                # Sonda 1x por episódio (só na virada para "restrita"): mostra ao
+                # usuário o que a restrição pega de fato, em vez de adivinharmos.
+                sonda = ''
+                if not de_molho:
+                    try:
+                        sonda = _sondar_restricao(conta)
+                    except Exception:
+                        sonda = ''
+                horas = getattr(_cfgr, 'DE_MOLHO_HORAS', 12) if de_molho else 3
+                cooldown = agora + timedelta(hours=horas)
+                # Prazo FIXO: só grava se não há cooldown correndo. Regravar era o
+                # que fazia a contagem regressiva reiniciar sem a conta voltar.
+                if not conta.em_cooldown:
+                    conta.rate_limited_until = cooldown
+                    campos.append('rate_limited_until')
+                else:
+                    cooldown = conta.rate_limited_until
+                conta.last_error = ('A Meta recusou as publicações desta conta dizendo que ela '
+                                    'está restrita. O tipo de restrição não vem pela API — pode '
+                                    'ser só de mensagens. Ela tenta de novo sozinha quando o '
+                                    'prazo acabar; veja "Status da conta" no instagram.com.')
+                if sonda:
+                    conta.last_error += ' ' + sonda
             conta.save(update_fields=campos)
+
             post.status = 'queued'
-            post.scheduled_for = cooldown
-            post.error_message = ('Meta restringiu a publicação desta conta por um '
-                                  'tempo (não é queda nem limite de cota). '
-                                  'Reagendado — volta sozinho.')
-            post.save(update_fields=['status', 'scheduled_for', 'error_message'])
-            print(f"Post {post_id}: RESTRICAO TEMP (code 25); @{conta.ig_username} "
-                  f"cooldown {cooldown}")
-            try:
-                from apps.notifications.alertas import alertar
-                agora = timezone.now()
-                alertar(
-                    post.owner, 'conta_caiu',
-                    'Publicação restringida',
-                    f'@{conta.ig_username}: a Meta restringiu a publicação desta '
-                    'conta por um tempo. A conta está OK (não precisa reconectar) '
-                    'e volta a postar sozinha quando a restrição sair.',
-                    chave=f'restr25:{conta.id}:{agora:%Y%m%d}',
-                    nivel='warning', account=conta)
-            except Exception:
-                pass
+            post.processing_since = None
+            if cooldown is None:
+                intervalo = post.interval_minutes or getattr(_cfgr, 'MIN_INTERVALO_POST_MIN', 40)
+                post.scheduled_for = agora + timedelta(minutes=intervalo)
+                post.error_message = ('A Meta recusou esta publicação ("conta restrita"). Não é '
+                                      'queda nem limite de cota, e pode ser restrição só de '
+                                      'mensagens — vamos tentar de novo no horário normal.')
+            else:
+                post.scheduled_for = cooldown
+                post.error_message = ('A Meta recusou esta publicação ("conta restrita") mesmo '
+                                      'depois de tentar de novo. Reagendado para quando o prazo '
+                                      'acabar — a conta volta a tentar sozinha.')
+            post.save(update_fields=['status', 'processing_since', 'scheduled_for',
+                                     'error_message'])
+            if de_molho:
+                movidos = conta.reagendar_fila_amanha()
+                print(f"Post {post_id}: RESTRICAO (code 25) {n}x; @{conta.ig_username} "
+                      f"DE MOLHO até {cooldown}, {movidos} post(s) reagendados.")
+            elif cooldown is not None:
+                print(f"Post {post_id}: RESTRICAO (code 25) {n}x; @{conta.ig_username} "
+                      f"RESTRITA até {cooldown} (prazo fixo).")
+            else:
+                print(f"Post {post_id}: RESTRICAO (code 25) {n}x de {livres} livres; "
+                      f"@{conta.ig_username} segue no ar, retenta no horário normal.")
+
+            # Aviso só quando saímos das tentativas livres (uma recusa isolada
+            # some sozinha e não vira notificação). Depois, 1 por dia.
+            if n > livres:
+                try:
+                    from apps.notifications.alertas import alertar
+                    desde = timezone.localtime(conta.restricao_desde or agora)
+                    volta = timezone.localtime(cooldown) if cooldown else None
+                    corpo = (f'@{conta.ig_username}: a Meta recusou {n} publicações seguidas '
+                             f'dizendo que a conta está restrita (desde {desde:%d/%m %H:%M}). '
+                             'Ela NÃO informa o tipo de restrição — pode ser só de mensagens, '
+                             'e não de posts. ')
+                    if de_molho:
+                        corpo += ('Botei a conta de molho: ela descansa e volta a tentar '
+                                  f'sozinha {volta:%d/%m %H:%M} (reagendei a fila). ')
+                    elif volta:
+                        corpo += f'Ela tenta publicar de novo sozinha {volta:%d/%m %H:%M}. '
+                    if sonda:
+                        corpo += sonda + ' '
+                    corpo += ('Entre no instagram.com com esta conta e veja "Status da conta": '
+                              'se houver pendência, resolva por lá.')
+                    if forcava:
+                        corpo += (' Desliguei o "forçar" desta conta: com ele ligado a fila '
+                                  'repetia a chamada recusada a cada rodada.')
+                    alertar(post.owner, 'conta_caiu',
+                            'Meta recusou as publicações (conta restrita)',
+                            corpo,
+                            chave=f'restr25:{conta.id}:{agora:%Y%m%d}',
+                            nivel='warning', account=conta)
+                except Exception:
+                    pass
 
         elif post.retry_count < post.max_retries:
             # Erro transitório: espera antes de tentar de novo (não no mesmo minuto).

@@ -215,11 +215,20 @@
         <div class="status-banner banner-limite mb-3">
             <i class="bi bi-hourglass-split"></i>
             <div class="flex-grow-1">
-                <strong>Limitada pela Meta</strong>
+                <strong>{% if account.restrita %}Meta recusou: "conta restrita"{% else %}Limitada pela Meta{% endif %}</strong>
                 {% with livre=account.livre_em %}
+                {% if account.restrita %}
+                {% comment %}
+                A Meta NÃO diz o tipo de restrição pela API — o mesmo erro sai quando a conta
+                está restrita só para MENSAGENS e posta normal. Não afirmamos bloqueio de post.
+                {% endcomment %}
+                <div class="small">A Meta recusou {{ account.restricao_count }} publicaç{{ account.restricao_count|pluralize:"ão,ões" }} seguidas desta conta. Ela não informa o <strong>tipo</strong> de restrição — pode ser só de mensagens.{% if livre %} Tenta de novo sozinha {{ livre|date:"d/m H:i" }} ({{ livre|timeuntil }}).{% endif %}</div>
+                <div class="small text-muted mt-1" style="font-size:.66rem;">Entre no <strong>instagram.com</strong> com esta conta e veja <strong>Status da conta</strong>: se houver pendência, resolva por lá. A fila não está travada.</div>
+                {% else %}
                 <div class="small">{% if account.em_cooldown %}A Meta bloqueou as publicações.{% else %}Atingiu o teto de 24h.{% endif %}{% if livre %} Volta {{ livre|date:"d/m H:i" }} ({{ livre|timeuntil }}).{% endif %}</div>
-                {% endwith %}
                 <div class="small text-muted mt-1" style="font-size:.66rem;">O ideal é <strong>zerar a fila</strong> desta conta e tentar de novo, ou deixá-la de molho.</div>
+                {% endif %}
+                {% endwith %}
                 <div class="d-flex flex-wrap gap-1 mt-2">
                     <form hx-post="{% url 'instagram:zerar_fila' account.id %}"
                           hx-target="#account-{{ account.id }}" hx-swap="outerHTML"

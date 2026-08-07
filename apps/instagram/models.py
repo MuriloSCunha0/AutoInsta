@@ -47,6 +47,13 @@ class InstagramAccount(models.Model):
         ('error', 'Erro ❌'),
     ]
 
+    # Quantas recusas de "conta restrita" (Meta code 25) a gente TENTA antes de
+    # tratar a conta como restrita de verdade. A Meta não diz o TIPO da restrição
+    # — o mesmo erro sai quando ela é só de MENSAGENS e a conta posta normal —
+    # então as primeiras tentativas são o nosso teste empírico. Se publicar no
+    # meio, a série zera e nada aparece para o usuário.
+    RESTRICAO_TENTATIVAS_LIVRES = 2
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     # App Meta pelo qual esta conta foi conectada. Cada conta pertence ao app
     # que gerou seu token — por isso o vínculo é por conta, não global.
@@ -98,6 +105,18 @@ class InstagramAccount(models.Model):
     # no meio). 1ª vez: avisamos e sugerimos zerar a fila. 2ª vez: a conta fica
     # "de molho" (pausa a fila e tenta amanhã no mesmo horário). Zera ao publicar.
     meta_limit_count = models.IntegerField(default=0)
+    # Quantas vezes SEGUIDAS a Meta recusou uma publicação com "User access is
+    # restricted" (code 25 / subcode 2207050), sem publicar com sucesso no meio.
+    # A Meta não diz QUE TIPO de restrição é: o mesmo erro sai quando ela é só de
+    # MENSAGENS e a conta posta normal (comprovado pelo usuário na
+    # @debora_wachholz7525). Por isso o contador vira uma ESCADA, em vez de
+    # concluir "restrita" na primeira recusa:
+    #   1..RESTRICAO_TENTATIVAS_LIVRES  -> só tenta de novo, conta segue no ar;
+    #   +1                              -> restrita: cooldown de 3h com prazo FIXO;
+    #   depois                          -> de molho (descanso longo), como no limite.
+    # Zeram quando qualquer publicação da conta dá certo.
+    restricao_count = models.IntegerField(default=0)
+    restricao_desde = models.DateTimeField(null=True, blank=True)
     # Última vez que a sincronização AUTOMÁTICA de saúde tocou nesta conta. Usado
     # para o rodízio: cada rodada sincroniza as contas mais desatualizadas, sem
     # bater em todas de uma vez (não sufoca a Meta).
@@ -120,6 +139,14 @@ class InstagramAccount(models.Model):
     views_today = models.IntegerField(default=0)
     views_total = models.IntegerField(default=0)
     views_checked_at = models.DateTimeField(null=True, blank=True)
+    # Destaque ("LINK") do perfil onde os stories com link são fixados. Story
+    # some em 24h; o destaque fica — é o que sustenta as legendas dizerem "link
+    # nos destaques". Guardamos o pk para ACRESCENTAR ao mesmo destaque em vez
+    # de criar um novo a cada story (senão o perfil vira uma fileira de
+    # destaques repetidos). Só existe em conta COM sessão: a API oficial da Meta
+    # não tem destaques.
+    destaque_pk = models.CharField(max_length=64, blank=True)
+    destaque_titulo = models.CharField(max_length=40, blank=True)
     # Moderação: banimento manual pelo admin (independe do status da Meta).
     # Quando True, a conta não publica mais — usado quando o admin revisa o
     # conteúdo e decide barrar. Silencioso: o usuário não é notificado.
@@ -328,8 +355,26 @@ class InstagramAccount(models.Model):
         passar, a conta volta a tentar publicar sozinha. Se a Meta limitar de
         novo, descansa outro período. Some quando uma publicação dá certo
         (meta_limit_count zera) ou o cooldown acaba sem novo limite.
+
+        Vale também para a RESTRIÇÃO (code 25): depois de tentar, esperar o
+        cooldown e a Meta recusar de novo, a conta descansa igual — é o mesmo
+        remédio, e volta a tentar sozinha do mesmo jeito.
         """
-        return bool((self.meta_limit_count or 0) >= 2 and self.em_cooldown)
+        de_limite = (self.meta_limit_count or 0) >= 2
+        de_restricao = (self.restricao_count or 0) > self.RESTRICAO_TENTATIVAS_LIVRES + 1
+        return bool((de_limite or de_restricao) and self.em_cooldown)
+
+    @property
+    def restrita(self):
+        """A Meta recusou publicações seguidas dizendo que a conta está restrita
+        (code 25) e já passamos das tentativas livres — a conta está em espera.
+
+        NÃO afirma que a restrição é de POSTAGEM: a Meta não expõe o tipo, e
+        pode ser só de mensagens. É por isso que a conta não fica presa aqui —
+        ela volta a tentar sozinha quando o cooldown passar.
+        """
+        return bool((self.restricao_count or 0) > self.RESTRICAO_TENTATIVAS_LIVRES
+                    and self.em_cooldown)
 
     @property
     def motivo_parada(self):
@@ -343,6 +388,13 @@ class InstagramAccount(models.Model):
         if self.banned_by_admin:
             return ('bloqueada', 'Conta bloqueada pela administração.')
         if self.de_molho:
+            if (self.restricao_count or 0) > self.RESTRICAO_TENTATIVAS_LIVRES + 1:
+                return ('de molho',
+                        'A Meta recusou as publicações desta conta dizendo que ela está '
+                        'restrita, inclusive depois da espera. Está descansando e volta a '
+                        'tentar sozinha quando o cooldown passar (a fila foi reagendada). '
+                        'A Meta não informa o TIPO de restrição — pode ser só de mensagens; '
+                        'confira "Status da conta" no instagram.com.')
             return ('de molho',
                     'A Meta limitou esta conta 2x seguidas. Está descansando e '
                     'volta a tentar publicar sozinha quando o cooldown passar '
@@ -354,6 +406,15 @@ class InstagramAccount(models.Model):
         if self.status in self.ESTADOS_CAIDOS:
             return ('conta caiu',
                     'A conta precisa ser reconectada para voltar a publicar.')
+        if self.restrita:
+            # NÃO dizer "limitada": a Meta recusou por RESTRIÇÃO da conta, que é
+            # outra coisa e pode nem ser de postagem (queixa do usuário: a conta
+            # dele está restrita só para MENSAGENS e aparecia como limitada).
+            return ('restrita',
+                    'A Meta recusou as últimas publicações dizendo que a conta está '
+                    'restrita — mas não informa o TIPO de restrição, que pode ser só '
+                    'de mensagens. A conta tenta de novo sozinha quando o prazo acabar. '
+                    'Se puder, entre no instagram.com e veja "Status da conta".')
         if self.em_cooldown:
             return ('limitada',
                     'Limite de publicações da Meta. Volta sozinha quando o '
