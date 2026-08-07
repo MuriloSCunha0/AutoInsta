@@ -117,6 +117,16 @@ class PlanoAtomTest(TestCase):
         b = [p.caption for p in self._reels(self.contas[1])]
         self.assertNotEqual(a[0], b[0])
 
+    def test_legenda_gravada_ja_vem_resolvida(self):
+        # A fila mostrava "{só|apenas} {pra quem|quem} {clica|entra}..." porque o
+        # spintax só era resolvido no publish. Publicava certo, mas o usuário não
+        # conseguia revisar o que ia sair (queixa dele, com print da tela).
+        self._rodar()
+        for p in self._reels(self.contas[0]):
+            self.assertNotIn('{', p.caption, f'spintax cru na fila: {p.caption!r}')
+            self.assertNotIn('|', p.caption)
+            self.assertTrue(p.caption.strip())
+
     def test_todo_cta_manda_para_os_destaques(self):
         self._rodar()
         for p in self._reels(self.contas[0]):

@@ -37,6 +37,7 @@ from apps.accounts.models import User
 from apps.instagram.models import InstagramAccount
 from apps.library.models import MediaAsset, MediaFolder
 from apps.publisher import cta_atom
+from apps.publisher.caption_utils import _rng, expandir_spintax
 from apps.publisher.models import PostQueue, ScheduledPost
 
 LINK_PADRAO = 'https://thriving-dragon-ada2b5.netlify.app/'
@@ -242,7 +243,14 @@ class Command(BaseCommand):
             # ── Reels ────────────────────────────────────────────────────
             midias = self._rodizio_midias(assets, conta.id, len(slots))
             for i, (quando, asset) in enumerate(zip(slots, midias)):
-                legenda = cta_atom.legenda(i, conta.id)
+                # Grava a legenda JÁ RESOLVIDA. O spintax é resolvido de novo no
+                # publish, então guardar o modelo cru ({a|b|c}) publicaria certo
+                # — mas a fila mostraria "{só|apenas} {pra quem|quem}..." e o
+                # usuário não teria como revisar o que vai sair. A variação fina
+                # (invisíveis/sinônimos) continua acontecendo no publish, via
+                # variar_auto.
+                legenda = expandir_spintax(cta_atom.legenda(i, conta.id),
+                                           _rng(f'cta-{conta.id}-{i}'))
                 if not seco:
                     post = ScheduledPost(
                         owner=user, account=conta, queue=fila,
